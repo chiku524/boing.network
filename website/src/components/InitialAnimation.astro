@@ -15,12 +15,12 @@ const { autoDismissMs = 5200 } = Astro.props;
   <div class="intro-backdrop"></div>
   <div class="intro-vignette" aria-hidden="true"></div>
 
-  <!-- Parallax depth layers (drift at different speeds for 3D cinema) -->
+  <!-- Parallax depth layers (stronger drift for more motion) -->
   <div class="intro-parallax" aria-hidden="true">
-    <div class="parallax-layer layer-far" style="--drift-x: 2%; --drift-y: -1%; --duration: 28s;"></div>
-    <div class="parallax-layer layer-mid-far" style="--drift-x: -1.5%; --drift-y: 1%; --duration: 22s;"></div>
-    <div class="parallax-layer layer-mid" style="--drift-x: 1%; --drift-y: 0.5%; --duration: 18s;"></div>
-    <div class="parallax-layer layer-near" style="--drift-x: -0.8%; --drift-y: -0.5%; --duration: 14s;"></div>
+    <div class="parallax-layer layer-far" style="--drift-x: 4%; --drift-y: -2%; --duration: 26s;"></div>
+    <div class="parallax-layer layer-mid-far" style="--drift-x: -3%; --drift-y: 2%; --duration: 20s;"></div>
+    <div class="parallax-layer layer-mid" style="--drift-x: 2.5%; --drift-y: 1%; --duration: 16s;"></div>
+    <div class="parallax-layer layer-near" style="--drift-x: -1.5%; --drift-y: -1%; --duration: 12s;"></div>
   </div>
 
   <!-- Atmospheric nebula + waterline (aquatic–space) -->
@@ -39,15 +39,18 @@ const { autoDismissMs = 5200 } = Astro.props;
     <div class="light-ray ray-3"></div>
   </div>
 
-  <!-- Mascot stage: pulse ring + mascot -->
+  <!-- Mascot stage: camera drift + pulse ring + mascot -->
   <div class="intro-scene" id="intro-scene">
+    <div class="intro-scene-camera" aria-hidden="true">
     <div class="intro-mascot-stage">
       <div class="intro-pulse-ring" aria-hidden="true"></div>
+      <div class="intro-pulse-ring intro-pulse-ring-2" aria-hidden="true"></div>
       <div class="intro-mascot-wrap">
         <div class="intro-mascot-3d">
           <img src="/assets/mascot-excited.png" alt="" class="intro-mascot-img" width="320" height="320" />
         </div>
       </div>
+    </div>
     </div>
   </div>
 
@@ -91,7 +94,8 @@ const { autoDismissMs = 5200 } = Astro.props;
 
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const autoDismissMs = parseInt(overlay.dataset.autoDismiss || '5200', 10);
-    const OUTRO_SCENE_MS = 1200;
+    const OUTRO_HERO_REVEAL_MS = 500;   /* start hero reveal (intro-complete) so it overlaps with exit */
+    const OUTRO_SCENE_MS = 1300;        /* then fade out overlay (intro-done) */
 
     function dismiss() {
       window.removeEventListener('click', dismiss);
@@ -101,11 +105,16 @@ const { autoDismissMs = 5200 } = Astro.props;
       overlay.classList.add('intro-exiting');
       overlay.setAttribute('aria-hidden', 'true');
 
+      /* Start hero reveal mid-exit for cinematic cross-dissolve */
       setTimeout(function () {
-        overlay.classList.add('intro-done');
         document.documentElement.classList.remove('intro-active');
         document.documentElement.classList.add('intro-complete');
-      }, prefersReducedMotion ? 400 : OUTRO_SCENE_MS);
+      }, prefersReducedMotion ? 200 : OUTRO_HERO_REVEAL_MS);
+
+      /* Then fade out overlay after mascot has moved toward hero */
+      setTimeout(function () {
+        overlay.classList.add('intro-done');
+      }, prefersReducedMotion ? 500 : OUTRO_SCENE_MS);
     }
 
     function onKey(e) {
@@ -138,14 +147,14 @@ const { autoDismissMs = 5200 } = Astro.props;
     pointer-events: auto;
     opacity: 1;
     visibility: visible;
-    transition: opacity 1s cubic-bezier(0.25, 0.46, 0.45, 0.94), visibility 1s step-end;
+    transition: opacity 1.25s cubic-bezier(0.22, 1, 0.36, 1), visibility 1.25s step-end;
   }
 
   .intro-overlay.intro-done {
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transition: opacity 1s cubic-bezier(0.25, 0.46, 0.45, 0.94), visibility 1s step-end 1s;
+    transition: opacity 1.25s cubic-bezier(0.22, 1, 0.36, 1), visibility 1.25s step-end 1.25s;
   }
 
   .intro-backdrop {
@@ -254,9 +263,9 @@ const { autoDismissMs = 5200 } = Astro.props;
 
   @keyframes parallax-drift {
     0%, 100% { transform: translate(-50%, -50%) translate(0, 0); }
-    25% { transform: translate(-50%, -50%) translate(calc(var(--drift-x) * 1), calc(var(--drift-y) * 1)); }
-    50% { transform: translate(-50%, -50%) translate(calc(var(--drift-x) * -0.5), calc(var(--drift-y) * -0.5)); }
-    75% { transform: translate(-50%, -50%) translate(calc(var(--drift-x) * 0.7), calc(var(--drift-y) * 0.7)); }
+    25% { transform: translate(-50%, -50%) translate(var(--drift-x), var(--drift-y)); }
+    50% { transform: translate(-50%, -50%) translate(calc(var(--drift-x) * -0.6), calc(var(--drift-y) * -0.6)); }
+    75% { transform: translate(-50%, -50%) translate(calc(var(--drift-x) * 0.8), calc(var(--drift-y) * 0.8)); }
   }
 
   .intro-exiting .parallax-layer {
@@ -369,8 +378,9 @@ const { autoDismissMs = 5200 } = Astro.props;
 
   @keyframes ray-sweep {
     0% { opacity: 0; transform: rotate(var(--r, 0deg)); }
-    4% { opacity: 0.45; }
-    8% { opacity: 0; }
+    3% { opacity: 0.55; }
+    7% { opacity: 0.2; }
+    10% { opacity: 0; }
     100% { opacity: 0; transform: rotate(calc(var(--r, 0deg) + 360deg)); }
   }
 
@@ -379,7 +389,7 @@ const { autoDismissMs = 5200 } = Astro.props;
     transition: opacity 0.4s ease;
   }
 
-  /* Scene: mascot + pulse ring */
+  /* Scene: camera drift + mascot + pulse ring */
   .intro-scene {
     position: absolute;
     inset: 0;
@@ -391,12 +401,33 @@ const { autoDismissMs = 5200 } = Astro.props;
     transform-style: preserve-3d;
     opacity: 1;
     transform: scale(1) translateZ(0);
-    transition: opacity 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transition: opacity 1.25s cubic-bezier(0.22, 1, 0.36, 1), transform 1.25s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .intro-exiting .intro-scene {
     opacity: 0;
-    transform: scale(0.97) translateZ(-80px);
+    transform: scale(0.98) translateZ(-60px);
+  }
+
+  /* Slow camera-style drift (continuous motion within the frame) */
+  .intro-scene-camera {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: camera-drift 22s ease-in-out infinite;
+  }
+
+  @keyframes camera-drift {
+    0%, 100% { transform: translate(0, 0); }
+    25% { transform: translate(1.2%, 0.8%); }
+    50% { transform: translate(-0.8%, -0.6%); }
+    75% { transform: translate(0.6%, -0.4%); }
+  }
+
+  .intro-exiting .intro-scene-camera {
+    animation: none;
   }
 
   .intro-mascot-stage {
@@ -409,7 +440,7 @@ const { autoDismissMs = 5200 } = Astro.props;
     transform-style: preserve-3d;
   }
 
-  /* Single expanding pulse ring (sonar / energy from mascot) */
+  /* Expanding pulse rings (sonar / energy from mascot) */
   .intro-pulse-ring {
     position: absolute;
     width: 100%;
@@ -419,6 +450,11 @@ const { autoDismissMs = 5200 } = Astro.props;
     opacity: 0;
     transform: scale(0.6);
     animation: pulse-ring-expand 3s cubic-bezier(0.22, 1, 0.36, 1) 1.5s infinite;
+  }
+
+  .intro-pulse-ring-2 {
+    animation-delay: 1.5s;
+    border-color: rgba(6, 182, 212, 0.25);
   }
 
   @keyframes pulse-ring-expand {
@@ -438,12 +474,19 @@ const { autoDismissMs = 5200 } = Astro.props;
     opacity: 0;
     animation: mascot-reveal 1.8s cubic-bezier(0.16, 1, 0.3, 1) 0.7s forwards;
     filter: drop-shadow(0 0 50px var(--network-primary-glow)) drop-shadow(0 0 80px var(--network-cyan-glow));
-    transition: opacity 1s ease, transform 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transition: opacity 1s ease, transform 1.3s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
+  /* Cinematic handoff: mascot moves toward hero position as overlay fades */
   .intro-exiting .intro-mascot-wrap {
-    opacity: 0;
-    transform: scale(0.94) translateZ(-40px);
+    opacity: 1;
+    transform: translate(22vw, 5vh) scale(0.88);
+  }
+
+  @media (max-width: 899px) {
+    .intro-exiting .intro-mascot-wrap {
+      transform: translate(0, 14vh) scale(0.82);
+    }
   }
 
   .intro-mascot-3d {
@@ -451,7 +494,7 @@ const { autoDismissMs = 5200 } = Astro.props;
     height: 100%;
     transform-style: preserve-3d;
     transform: rotateX(-5deg) rotateY(3deg);
-    animation: mascot-float 7s ease-in-out infinite;
+    animation: mascot-float 7s ease-in-out infinite, mascot-breathe 4s ease-in-out infinite;
   }
 
   .intro-mascot-img {
@@ -469,8 +512,8 @@ const { autoDismissMs = 5200 } = Astro.props;
   }
 
   @keyframes mascot-float {
-    0%, 100% { transform: rotateX(-5deg) rotateY(3deg) translateY(0); }
-    50% { transform: rotateX(-6deg) rotateY(4deg) translateY(-12px); }
+    0%, 100% { transform: rotateX(-5deg) rotateY(3deg) translateY(0) scale(1); }
+    50% { transform: rotateX(-6deg) rotateY(4deg) translateY(-12px) scale(1.02); }
   }
 
   @keyframes mascot-glow {
@@ -504,10 +547,13 @@ const { autoDismissMs = 5200 } = Astro.props;
   .rise-bubble.b7 { width: 9px; height: 9px;  right: 12%; bottom: -9%; animation-duration: 8.5s;  animation-delay: -2.5s; }
 
   @keyframes rise {
-    0% { opacity: 0; transform: translateY(0) scale(0.8); }
+    0% { opacity: 0; transform: translate(0, 0) scale(0.8); }
     10% { opacity: 0.6; }
+    25% { transform: translate(6px, -27vh) scale(0.9); }
+    50% { transform: translate(-4px, -55vh) scale(1); }
+    75% { transform: translate(5px, -82vh) scale(1); }
     90% { opacity: 0.4; }
-    100% { opacity: 0; transform: translateY(-110vh) scale(1); }
+    100% { opacity: 0; transform: translate(-3px, -110vh) scale(1); }
   }
 
   .intro-exiting .rise-bubble {
@@ -650,6 +696,9 @@ const { autoDismissMs = 5200 } = Astro.props;
     .parallax-layer {
       animation: parallax-fade-in 0.6s ease forwards;
     }
+    .intro-scene-camera {
+      animation: none;
+    }
     .intro-nebula,
     .intro-waterline,
     .intro-aurora {
@@ -659,7 +708,8 @@ const { autoDismissMs = 5200 } = Astro.props;
       animation: none;
       opacity: 0.15;
     }
-    .intro-pulse-ring {
+    .intro-pulse-ring,
+    .intro-pulse-ring-2 {
       animation: none;
       opacity: 0.3;
     }
