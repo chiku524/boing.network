@@ -22,7 +22,7 @@ const ogImage = `${siteUrl}/og.png`;
 ---
 
 <!doctype html>
-<html lang="en" class:list={[path === '/' && 'page-home']}>
+<html lang="en" class:list={[(path === '/' || path === '') && 'page-home']}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -61,8 +61,8 @@ const ogImage = `${siteUrl}/og.png`;
       "slogan": "Authentic. Decentralized. Optimal. Quality-Assured."
     })} />
   </head>
-  <body class:list={[pageClass]}>
-    {!pageClass && <BoingCanvasBackground path={path} />}
+  <body class:list={[pageClass, `route-${(path || '/').replace(/^\//, '').replace(/\//g, '-') || 'index'}`]}>
+    <BoingCanvasBackground path={path} />
     <BoingMascot />
     <header class="site-header">
       <a href="/" class="logo">
@@ -113,6 +113,12 @@ const ogImage = `${siteUrl}/og.png`;
   }
 
   main { flex: 1; position: relative; z-index: 1; }
+
+  /* Homepage: hide live BG until Genesis Block intro completes (intro script sets opacity) */
+  html.page-home .boing-canvas-bg {
+    opacity: 0;
+    transition: opacity 1s ease;
+  }
 
   a {
     color: var(--accent-neon);
