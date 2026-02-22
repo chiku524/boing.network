@@ -151,8 +151,8 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
     <p class="value-loop"><strong>Usage ↑</strong> → Fees ↑ → Validators & Treasury ↑ → Security & Ecosystem ↑ → <strong>Value ↑</strong></p>
   </section>
 
-  <!-- Roadmap -->
-  <section class="section fade-in-up" id="roadmap">
+  <!-- Roadmap & Ecosystem (merged) -->
+  <section class="section section-alt fade-in-up" id="roadmap">
     <h2>Roadmap</h2>
     <p class="section-lead">Phased build from first principles.</p>
     <div class="timeline-compact">
@@ -164,11 +164,7 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
       <div class="t-item planned"><span class="t-marker">○</span><span>Cross-chain</span></div>
       <div class="t-item planned"><span class="t-marker">○</span><span>Testnet & Mainnet</span></div>
     </div>
-  </section>
-
-  <!-- Ecosystem -->
-  <section class="section section-alt fade-in-up" id="ecosystem">
-    <h2>Ecosystem</h2>
+    <h2 class="section-subtitle">Ecosystem</h2>
     <p class="section-lead">Applications building on Boing Network.</p>
     <div class="apps-row">
       <a href="https://boing.finance" class="app-card featured" target="_blank" rel="noopener">
@@ -189,19 +185,16 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
     </div>
   </section>
 
-  <!-- Innovations -->
-  <section class="section fade-in-up" id="innovations">
+  <!-- Build & Resources (merged: innovations, testnet CTA, CTA banner, resources) -->
+  <section class="section fade-in-up" id="build">
     <h2>Unique Innovations</h2>
+    <p class="section-lead">Protocol-level features that set Boing apart.</p>
     <div class="grid">
       <div class="card"><h3>Native Account Abstraction</h3><p>Gasless txs, social recovery, session keys — built into the protocol.</p></div>
       <div class="card"><h3>Adaptive Gas Model</h3><p>Dynamic gas that responds to network conditions with predictable caps.</p></div>
       <div class="card"><h3>Cross-Chain DeFi Hub</h3><p>Protocol-level primitives for liquidity routing across chains.</p></div>
       <div class="card"><h3>Transparent Slashing</h3><p>Auditable slashing conditions and appeal mechanisms.</p></div>
     </div>
-  </section>
-
-  <!-- Testnet CTA (incentivize participation) -->
-  <section class="section fade-in-up" id="testnet-cta">
     <div class="testnet-banner">
       <h3>🌐 Join the Testnet</h3>
       <p>Run a node, get testnet BOING from the faucet, and help secure the network. Single node for local dev or multi-node to join the public testnet.</p>
@@ -210,10 +203,6 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
         <a href="/network/faucet" class="btn btn-secondary">Get testnet BOING</a>
       </div>
     </div>
-  </section>
-
-  <!-- CTA Banner -->
-  <section class="section fade-in-up">
     <div class="cta-banner">
       <h3>🚀 Build on Boing Network</h3>
       <p>Authentic L1 blockchain built from first principles. Native AA, adaptive gas, cross-chain DeFi hub.</p>
@@ -227,11 +216,7 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
         <a href="https://boing.finance" target="_blank" rel="noopener">boing.finance</a>
       </div>
     </div>
-  </section>
-
-  <!-- Resources -->
-  <section class="section section-alt links-section fade-in-up">
-    <h2>Resources</h2>
+    <h2 class="section-subtitle">Resources</h2>
     <div class="link-grid">
       <a href="/network/testnet" class="link-highlight link-3d">Join Testnet</a>
       <a href="/network/faucet" class="link-highlight link-3d">Faucet</a>
@@ -246,10 +231,10 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
 </Layout>
 
 <style>
-  /* Section-by-section scroll snap (homepage only) */
+  /* Section-by-section scroll snap (homepage only). scroll-margin-top for fixed nav. */
   :global(html.page-home) { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
   :global(html.page-home) .hero,
-  :global(html.page-home) .section { scroll-snap-align: start; scroll-snap-stop: always; min-height: 100vh; }
+  :global(html.page-home) .section { scroll-snap-align: start; scroll-snap-stop: always; min-height: 100vh; scroll-margin-top: 4.5rem; }
 
   /* Hero + animation */
   .hero { position: relative; text-align: center; padding: 5rem 2rem; overflow: hidden; display: grid; grid-template-columns: 1fr; grid-template-rows: auto auto; align-items: center; justify-items: center; min-height: 85vh; gap: 1rem; }
@@ -412,7 +397,11 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
   .section { position: relative; z-index: 1; padding: 4rem 2rem; max-width: 1000px; margin: 0 auto; }
   .section-alt { background: transparent; }
   .section h2 { text-align: center; margin-bottom: 0.5rem; color: var(--text-primary); }
+  .section h2.section-subtitle { margin-top: 3rem; font-size: 1.35rem; }
   .section-lead { text-align: center; color: var(--text-secondary); margin-bottom: 2rem; font-size: 1rem; }
+  .section #build .testnet-banner { margin-top: 2rem; }
+  .section #build .cta-banner { margin-top: 1.5rem; }
+  .section #build .section-subtitle { margin-top: 2.5rem; }
 
   /* Pillars */
   .pillars-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.5rem; margin-top: 1rem; }
