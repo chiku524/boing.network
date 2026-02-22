@@ -195,25 +195,27 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
       <div class="card"><h3>Cross-Chain DeFi Hub</h3><p>Protocol-level primitives for liquidity routing across chains.</p></div>
       <div class="card"><h3>Transparent Slashing</h3><p>Auditable slashing conditions and appeal mechanisms.</p></div>
     </div>
-    <div class="testnet-banner">
-      <h3>🌐 Join the Testnet</h3>
-      <p>Run a node, get testnet BOING from the faucet, and help secure the network. Single node for local dev or multi-node to join the public testnet.</p>
-      <div class="testnet-banner-btns">
-        <a href="/network/testnet" class="btn btn-testnet">Join Testnet</a>
-        <a href="/network/faucet" class="btn btn-secondary">Get testnet BOING</a>
+    <div class="build-banners-row">
+      <div class="testnet-banner">
+        <h3>🌐 Join the Testnet</h3>
+        <p>Run a node, get testnet BOING from the faucet, and help secure the network. Single node for local dev or multi-node to join the public testnet.</p>
+        <div class="testnet-banner-btns">
+          <a href="/network/testnet" class="btn btn-testnet">Join Testnet</a>
+          <a href="/network/faucet" class="btn btn-secondary">Get testnet BOING</a>
+        </div>
       </div>
-    </div>
-    <div class="cta-banner">
-      <h3>🚀 Build on Boing Network</h3>
-      <p>Authentic L1 blockchain built from first principles. Native AA, adaptive gas, cross-chain DeFi hub.</p>
-      <div class="cta-banner-links">
-        <a href="/network/testnet">Join Testnet</a>
-        <span class="sep">•</span>
-        <a href="/docs/getting-started">Get Started</a>
-        <span class="sep">•</span>
-        <a href="/developers/quickstart">Developers</a>
-        <span class="sep">•</span>
-        <a href="https://boing.finance" target="_blank" rel="noopener">boing.finance</a>
+      <div class="cta-banner">
+        <h3>🚀 Build on Boing Network</h3>
+        <p>Authentic L1 blockchain built from first principles. Native AA, adaptive gas, cross-chain DeFi hub.</p>
+        <div class="cta-banner-links">
+          <a href="/network/testnet">Join Testnet</a>
+          <span class="sep">•</span>
+          <a href="/docs/getting-started">Get Started</a>
+          <span class="sep">•</span>
+          <a href="/developers/quickstart">Developers</a>
+          <span class="sep">•</span>
+          <a href="https://boing.finance" target="_blank" rel="noopener">boing.finance</a>
+        </div>
       </div>
     </div>
     <h2 class="section-subtitle">Resources</h2>
@@ -227,6 +229,16 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
       <a href="/about" class="link-3d">About</a>
       <a href="/community" class="link-3d">Community</a>
     </div>
+    <footer class="section-footer">
+      <p>Boing Network — Authentic. Decentralized. Optimal. Quality-Assured.</p>
+      <div class="footer-links">
+        <a href="/network/testnet">Join Testnet</a>
+        <a href="/network/faucet">Faucet</a>
+        <a href="https://github.com/chiku524/boing-network" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://boing.finance" target="_blank" rel="noopener">boing.finance</a>
+        <a href="/docs">Documentation</a>
+      </div>
+    </footer>
   </section>
 </Layout>
 
@@ -399,9 +411,37 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
   .section h2 { text-align: center; margin-bottom: 0.5rem; color: var(--text-primary); }
   .section h2.section-subtitle { margin-top: 3rem; font-size: 1.35rem; }
   .section-lead { text-align: center; color: var(--text-secondary); margin-bottom: 2rem; font-size: 1rem; }
-  .section #build .testnet-banner { margin-top: 2rem; }
-  .section #build .cta-banner { margin-top: 1.5rem; }
-  .section #build .section-subtitle { margin-top: 2.5rem; }
+  #build .section-subtitle { margin-top: 2.5rem; }
+
+  .build-banners-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+    margin-top: 2rem;
+    align-items: start;
+  }
+  @media (min-width: 720px) {
+    .build-banners-row { grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  }
+  .build-banners-row .testnet-banner,
+  .build-banners-row .cta-banner { margin: 0; }
+
+  .section-footer {
+    margin-top: 2.5rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: 0.875rem;
+  }
+  .section-footer .footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .section-footer a { color: var(--accent-neon); }
 
   /* Pillars */
   .pillars-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.5rem; margin-top: 1rem; }
@@ -464,14 +504,14 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
   .card p { margin: 0; font-size: 0.85rem; color: var(--text-secondary); }
 
   /* Testnet CTA banner */
-  .testnet-banner { max-width: 640px; margin: 0 auto; padding: 1.75rem 2rem; border-radius: 1rem; background: var(--bg-card); border: 1px solid var(--border-hover); text-align: center; backdrop-filter: blur(8px); }
+  .testnet-banner { padding: 1.75rem 2rem; border-radius: 1rem; background: var(--bg-card); border: 1px solid var(--border-hover); text-align: center; backdrop-filter: blur(8px); }
   .testnet-banner h3 { margin: 0 0 0.5rem; font-size: 1.2rem; color: var(--text-primary); }
   .testnet-banner p { margin: 0 0 1.25rem; font-size: 0.95rem; color: var(--text-secondary); line-height: 1.45; }
   .testnet-banner-btns { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; }
   .testnet-banner-btns .btn { padding: 0.6rem 1.25rem; font-size: 0.95rem; }
 
   /* CTA Banner */
-  .cta-banner { max-width: 640px; margin: 0 auto; padding: 1.5rem 2rem; border-radius: 1rem; background: var(--bg-card); border: 1px solid var(--border-color); text-align: center; backdrop-filter: blur(8px); }
+  .cta-banner { padding: 1.5rem 2rem; border-radius: 1rem; background: var(--bg-card); border: 1px solid var(--border-color); text-align: center; backdrop-filter: blur(8px); }
   .cta-banner h3 { margin: 0 0 0.5rem; font-size: 1.1rem; color: var(--text-primary); }
   .cta-banner p { margin: 0 0 1rem; font-size: 0.9rem; color: var(--text-secondary); }
   .cta-banner-links { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; align-items: center; font-size: 0.9rem; }
