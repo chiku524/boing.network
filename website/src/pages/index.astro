@@ -1,13 +1,15 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import InitialAnimation from '../components/InitialAnimation.astro';
 ---
 
 <Layout
   title="Boing Network"
   description="Boing Network — Authentic. Decentralized. Optimal. Quality-Assured. Authentic L1 blockchain built from first principles. Swap, stake, and build on the Boing ecosystem."
   canonical="/"
-  pageClass="page-landing"
 >
+  <InitialAnimation autoDismissMs={4800} />
+
   <!-- Hero -->
   <section class="hero" id="hero">
     <!-- Robot hero: extracted Boing robot (from hero image) with 3D motion over environment background -->
