@@ -7,6 +7,7 @@ target/
 
 # Local dev / Wrangler
 .wrangler/
+website/.env
 .astro/
 
 # Windows reserved device name (accidental file)

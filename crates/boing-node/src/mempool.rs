@@ -4,13 +4,22 @@
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Mutex;
 
-use boing_primitives::{AccountId, SignedTransaction, TransactionPayload};
-use boing_qa::{check_contract_deploy, RuleRegistry, QaReject, QaResult};
+use boing_primitives::{AccountId, SignedTransaction};
+use boing_qa::{check_contract_deploy_full, RuleRegistry, QaReject, QaResult};
+
+/// Default max pending transactions per sender (matches SECURITY-STANDARDS / RateLimitConfig).
+pub const DEFAULT_MAX_PENDING_PER_SENDER: usize = 16;
 
 /// In-memory mempool. Tracks pending transactions by sender nonce.
-#[derive(Default)]
 pub struct Mempool {
     inner: Mutex<MempoolInner>,
+    max_pending_per_sender: usize,
+}
+
+impl Default for Mempool {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Default rule registry for QA (max bytecode size, etc.). Can be replaced with on-chain config later.
@@ -30,19 +39,27 @@ struct MempoolInner {
 
 impl Mempool {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            inner: Mutex::new(MempoolInner::default()),
+            max_pending_per_sender: DEFAULT_MAX_PENDING_PER_SENDER,
+        }
     }
 
-    /// Insert a signed transaction. Rejects duplicates, invalid nonces, and ContractDeploy that fail QA.
+    pub fn with_max_pending_per_sender(mut self, max: usize) -> Self {
+        self.max_pending_per_sender = max.max(1);
+        self
+    }
+
+    /// Insert a signed transaction. Rejects duplicates, invalid nonces, per-sender cap, and ContractDeploy that fail QA.
     pub fn insert(&self, signed: SignedTransaction) -> Result<(), MempoolError> {
         signed.verify().map_err(|_| MempoolError::InvalidSignature)?;
-        if let TransactionPayload::ContractDeploy { bytecode } = &signed.tx.payload {
+        if let Some((bytecode, purpose, desc_hash)) = signed.tx.payload.as_contract_deploy() {
             let registry = default_qa_registry();
-            match check_contract_deploy(
+            match check_contract_deploy_full(
                 bytecode,
-                None,
-                None,
-                registry.max_bytecode_size(),
+                purpose,
+                desc_hash,
+                &registry,
             ) {
                 QaResult::Reject(reject) => return Err(MempoolError::QaRejected(reject)),
                 QaResult::Unsure => return Err(MempoolError::QaPendingPool),
@@ -56,9 +73,23 @@ impl Mempool {
         }
         let sender = signed.tx.sender;
         let nonce = signed.tx.nonce;
-        inner.by_sender.entry(sender).or_default().insert(nonce, signed);
+        let is_replacement = inner.by_sender.get(&sender).map(|m| m.contains_key(&nonce)).unwrap_or(false);
+        if !is_replacement {
+            let sender_count = inner.by_sender.get(&sender).map(|m| m.len()).unwrap_or(0);
+            if sender_count >= self.max_pending_per_sender {
+                return Err(MempoolError::PendingLimitExceeded {
+                    sender,
+                    limit: self.max_pending_per_sender,
+                });
+            }
+        }
+        let prev = inner.by_sender.entry(sender).or_default().insert(nonce, signed);
+        if let Some(old_signed) = prev {
+            inner.by_id.remove(&old_signed.tx.id());
+        } else {
+            inner.len += 1;
+        }
         inner.by_id.insert(tx_id, ());
-        inner.len += 1;
         Ok(())
     }
 
@@ -110,6 +141,8 @@ pub enum MempoolError {
     Duplicate,
     #[error("Invalid signature")]
     InvalidSignature,
+    #[error("Pending limit exceeded: sender has too many pending txs (max {limit})")]
+    PendingLimitExceeded { sender: AccountId, limit: usize },
     /// Protocol QA rejected this deployment; rule_id and message give user feedback.
     #[error("QA rejected: {0}")]
     QaRejected(QaReject),

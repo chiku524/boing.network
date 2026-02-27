@@ -1,7 +1,8 @@
 # Boing Network — Testnet Guide
 
 > **Purpose:** Run nodes on the testnet, get testnet BOING from the faucet, and join as a validator or developer.  
-> **References:** [RUNBOOK.md](RUNBOOK.md), [BETA-READINESS.md](BETA-READINESS.md), [RPC-API-SPEC.md](RPC-API-SPEC.md)
+> **References:** [RUNBOOK.md](RUNBOOK.md), [BETA-READINESS.md](BETA-READINESS.md), [RPC-API-SPEC.md](RPC-API-SPEC.md)  
+> **Incentivized testnet:** For launch readiness, incentive design (validators, developers, users), and duration (e.g. 2–4 weeks), see [INCENTIVIZED-TESTNET-READINESS.md](INCENTIVIZED-TESTNET-READINESS.md).
 
 ---
 
@@ -119,7 +120,7 @@ curl -s -X POST http://127.0.0.1:8545/ -H "Content-Type: application/json" \
 
 The website provides a **dedicated faucet page** at [boing.network/network/faucet](https://boing.network/network/faucet) (or your deployment path). Enter your account ID (hex) and request testnet BOING; the page calls the testnet RPC’s `boing_faucetRequest` for you.
 
-**Testnet RPC URL** for the faucet is published on the [Testnet](/network/testnet) page (e.g. `https://testnet-rpc.boing.network/` or the official testnet node URL).
+**Testnet RPC URL:** `https://testnet-rpc.boing.network/` (also on the [Testnet](/network/testnet) page).
 
 ---
 
@@ -127,12 +128,21 @@ The website provides a **dedicated faucet page** at [boing.network/network/fauce
 
 When the testnet is live, the canonical list will be kept at:
 
-- **Website:** [boing.network/network/testnet](/network/testnet)  
+- **Website:** [boing.network/network/testnet](https://boing.network/network/testnet) and [Bootnodes](/network/bootnodes) (driven by `website/src/config/testnet.ts` or env `PUBLIC_BOOTNODES`)
 - **This repo:** Below (update before testnet launch)
+- **Infrastructure setup:** [scripts/INFRASTRUCTURE-SETUP.md](../scripts/INFRASTRUCTURE-SETUP.md)
 
 | Bootnode | Multiaddr | Notes |
-|----------|-----------|--------|
-| *(To be filled at testnet launch)* | e.g. `/ip4/x.x.x.x/tcp/4001` | Official testnet node |
+|----------|-----------|-------|
+| Primary | `/ip4/<PRIMARY_IP>/tcp/4001` | Faucet + RPC via testnet-rpc.boing.network (Cloudflare tunnel) |
+| Secondary | `/ip4/<SECONDARY_IP>/tcp/4001` | Run via `scripts/start-bootnode-2` |
+
+**Launch checklist (to open testnet):**
+
+1. **Bootnodes:** Run at least 2 nodes with stable IPs and `--p2p_listen /ip4/0.0.0.0/tcp/4001`. Add their multiaddrs to the table above and to `website/src/config/testnet.ts` (or set `PUBLIC_BOOTNODES` when building the website).
+2. **Public RPC:** Run a node with `--faucet-enable` behind a public URL (e.g. `https://testnet-rpc.boing.network/`). Set `PUBLIC_TESTNET_RPC_URL` when building the website so the [faucet page](https://boing.network/network/faucet) defaults to it.
+3. **Genesis:** All nodes must use the same genesis so the faucet account has 10M testnet BOING.
+4. **Docs:** See [INCENTIVIZED-TESTNET-READINESS.md](INCENTIVIZED-TESTNET-READINESS.md) for the full pre-launch checklist and incentive program. For the critical path (bootnodes → RPC → VibeMiner / boing.observer), see **[LAUNCH-BLOCKING-CHECKLIST.md](LAUNCH-BLOCKING-CHECKLIST.md)**.
 
 Until then, you can run a multi-node testnet locally by starting two nodes and having the second dial the first:
 
@@ -155,6 +165,12 @@ Until then, you can run a multi-node testnet locally by starting two nodes and h
 ## 7. One-click mining / validator UI (VibeMiner)
 
 For users who prefer a **desktop UI** instead of the terminal, Boing testnet can be used with **VibeMiner**, which provides one-click mining/validating. See [VIBEMINER-INTEGRATION.md](VIBEMINER-INTEGRATION.md) for how networks (including Boing) integrate and how to run a node via VibeMiner.
+
+---
+
+## 8. Incentivized testnet
+
+When the Boing team runs an **incentivized testnet** (rewarding validators, developers, and users), the same testnet setup applies: use the published bootnodes and public RPC, get testnet BOING from the faucet, and stake to validate. Incentive rules, duration (e.g. 2–4 weeks), and launch checklist are in **[INCENTIVIZED-TESTNET-READINESS.md](INCENTIVIZED-TESTNET-READINESS.md)**. Check the website and announcements for the current phase and any leaderboards or reward criteria.
 
 ---
 

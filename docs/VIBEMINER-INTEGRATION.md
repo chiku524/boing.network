@@ -80,6 +80,8 @@ No separate “miner” binary: **validating** is done by running `boing-node --
 | **Testnet** | [TESTNET.md](TESTNET.md) §6; website `/network/testnet` | To be published at testnet launch |
 | **Mainnet** | To be published | To be published |
 
+**Why "no nodes" or "cannot connect"?** If VibeMiner shows no nodes or cannot join the testnet, it means bootnodes and/or a public RPC are not yet live. The Boing team must complete the steps in [LAUNCH-BLOCKING-CHECKLIST.md](LAUNCH-BLOCKING-CHECKLIST.md) first.
+
 When Boing publishes the official testnet, the repo and website will list:
 
 - Comma-separated bootnode multiaddrs.

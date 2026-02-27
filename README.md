@@ -30,6 +30,7 @@ All project documentation lives in **[docs/](docs/)**:
 | Doc | Description |
 |-----|-------------|
 | [**BOING-NETWORK-ESSENTIALS.md**](docs/BOING-NETWORK-ESSENTIALS.md) | **Six pillars, design philosophy, priorities, tech stack, key docs — start here** |
+| [**TECHNICAL-SPECIFICATION.md**](docs/TECHNICAL-SPECIFICATION.md) | **Single source of truth: crypto, data formats, bytecode, gas, RPC, QA rules** |
 | [BETA-READINESS.md](docs/BETA-READINESS.md) | Beta checklist, validator & developer quick starts, verification commands |
 | [BOING-BLOCKCHAIN-DESIGN-PLAN.md](docs/BOING-BLOCKCHAIN-DESIGN-PLAN.md) | Architecture, design decisions, innovations |
 | [RUNBOOK.md](docs/RUNBOOK.md) | Operational runbook for node operators |

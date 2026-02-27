@@ -247,7 +247,17 @@ docs/
 
 The live site applies the Cosmic Foundation palette by importing `design-tokens-cosmic.css` after `boing-theme.css` in `Layout.astro`. To revert to the pre-Cosmic teal/cyan look, remove the `design-tokens-cosmic.css` import.
 
-**Animated background:** The site uses the Canvas-based **boing-bg-engine** (see `website/src/lib/boing-bg-engine.js` and `BoingCanvasBackground.astro`) instead of a static image. Configs are from `BOING_BG_CONFIGS.network` with route → config key mapping (e.g. `/` → landing, `/docs/*` and `/developers/*` → developers, `/about` → pillars). When `prefers-reduced-motion: reduce` is set, the engine is not started and a static gradient fallback is shown.
+**Animated background:** The site uses the Canvas-based **boing-bg-engine** on every page (see `website/src/lib/boing-bg-engine.js` and `BoingCanvasBackground.astro`). Configs are from `BOING_BG_CONFIGS.network` with this route → config mapping (each page gets its own background variant):
+
+| Route | Config key | Variant |
+|-------|------------|--------|
+| `/` | landing | Full Cosmic (nebula, stars, jellyfish, coral, waterline, etc.) |
+| `/about` | pillars | Violet-dominant cosmic |
+| `/community`, `/network/status` | landing | Full Cosmic |
+| `/docs/*`, `/developers/*` | developers | Minimal (stars + nebula + grid) |
+| `/network/testnet`, `/network/faucet`, `/network/bootnodes`, `/network/single-vs-multi` | developers | Minimal (focused app feel) |
+
+When `prefers-reduced-motion: reduce` is set or the engine fails to load, the fallback is **boing-aquatic-space-bg.webp** with a dark overlay. The layout also adds a body class per route (e.g. `route-index`, `route-about`, `route-docs-getting-started`) so per-page color or style overrides can be applied in CSS if needed.
 
 ### 9.2 CSS Architecture
 

@@ -79,7 +79,8 @@ impl Transaction {
             TransactionPayload::ContractCall { contract, .. } => {
                 format!("Call contract {}", hex::encode(&contract.0[..8]))
             }
-            TransactionPayload::ContractDeploy { .. } => "Deploy contract".into(),
+            TransactionPayload::ContractDeploy { .. }
+            | TransactionPayload::ContractDeployWithPurpose { .. } => "Deploy contract".into(),
         };
         format!(
             "From: {} | Nonce: {} | {}",
@@ -103,11 +104,39 @@ impl Transaction {
 pub enum TransactionPayload {
     Transfer { to: AccountId, amount: u128 },
     ContractCall { contract: AccountId, calldata: Vec<u8> },
+    /// Contract deploy (legacy; no purpose declaration).
     ContractDeploy { bytecode: Vec<u8> },
+    /// Contract deploy with optional QA purpose declaration.
+    ContractDeployWithPurpose {
+        bytecode: Vec<u8>,
+        purpose_category: String,
+        description_hash: Option<Vec<u8>>,
+    },
     /// Bond stake to become/l remain a validator.
     Bond { amount: u128 },
     /// Unbond stake (with optional unbonding period).
     Unbond { amount: u128 },
+}
+
+impl TransactionPayload {
+    /// Returns (bytecode, purpose_category, description_hash) if this is a contract deploy payload.
+    pub fn as_contract_deploy(&self) -> Option<(&[u8], Option<&str>, Option<&[u8]>)> {
+        match self {
+            TransactionPayload::ContractDeploy { bytecode } => {
+                Some((bytecode.as_slice(), None, None))
+            }
+            TransactionPayload::ContractDeployWithPurpose {
+                bytecode,
+                purpose_category,
+                description_hash,
+            } => Some((
+                bytecode.as_slice(),
+                Some(purpose_category.as_str()),
+                description_hash.as_deref(),
+            )),
+            _ => None,
+        }
+    }
 }
 
 /// Account state — balance, nonce, and staked amount.

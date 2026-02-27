@@ -176,7 +176,11 @@ Stop the node with Ctrl+C. This confirms the node serves RPC and produces blocks
 | **4. Feedback channel** | Set up Discord, GitHub Discussions, or a form so beta testers can report issues and UX feedback. |
 | **5. Announce** | Announce beta (blog, Twitter, Discord) with: repo link, “Quick Start” (build + run node / run CLI), link to docs and feedback channel. |
 
-### 6.3 After launch
+### 6.3 Incentivized testnet launch
+
+When moving from beta to an **incentivized testnet** (rewarding validators, developers, and users for a fixed period, e.g. 2–4 weeks), use the dedicated checklist and design in **[INCENTIVIZED-TESTNET-READINESS.md](INCENTIVIZED-TESTNET-READINESS.md)**. It covers: technical readiness (bootnodes, public RPC, faucet), incentive design (validators, developers, users), duration recommendation, pre-launch checklist, launch day, and success metrics. Complete the items there before announcing the incentivized testnet start date.
+
+### 6.4 After launch
 
 - Monitor the feedback channel and GitHub issues.
 - Prioritize: crashes, RPC errors, and “I couldn’t get started” reports.

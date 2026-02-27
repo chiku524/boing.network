@@ -23,6 +23,10 @@ jobs:
 
       - name: Build
         run: cd website && npm run build
+        env:
+          # Optional: set PUBLIC_TESTNET_RPC_URL and PUBLIC_BOOTNODES in repo Settings → Secrets and variables → Actions so the faucet and testnet pages show the live endpoints.
+          PUBLIC_TESTNET_RPC_URL: ${{ vars.PUBLIC_TESTNET_RPC_URL }}
+          PUBLIC_BOOTNODES: ${{ vars.PUBLIC_BOOTNODES }}
 
       - name: Deploy to Cloudflare Pages
         run: cd website && npx wrangler pages deploy dist --project-name=boing-network

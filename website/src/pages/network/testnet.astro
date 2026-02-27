@@ -1,5 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { TESTNET_RPC_URL, BOOTNODES, isTestnetLive } from '../../config/testnet';
 ---
 
 <Layout
@@ -50,10 +51,27 @@ import Layout from '../../layouts/Layout.astro';
       </ul>
     </section>
 
+    <section class="section" id="endpoints">
+      <h2>Public testnet endpoints</h2>
+      {isTestnetLive ? (
+        <>
+          <p><strong>RPC URL (faucet and submissions):</strong> <code>{TESTNET_RPC_URL}</code></p>
+          {BOOTNODES.length > 0 && (
+            <>
+              <p><strong>Bootnodes:</strong> use with <code>--bootnodes</code> (comma-separated)</p>
+              <pre class="code-block"><code>{BOOTNODES.join("\n")}</code></pre>
+            </>
+          )}
+        </>
+      ) : (
+        <p>Once the testnet is live, the official RPC URL and bootnode list will appear here. Until then, use <code>http://127.0.0.1:8545</code> for local testing and run a <a href="/network/single-vs-multi">local multi-node</a> setup.</p>
+      )}
+    </section>
+
     <section class="section" id="bootnodes">
       <h2>Bootnodes</h2>
       <p>Bootnodes are stable peer addresses your node dials to join the testnet. Full details: <a href="/network/bootnodes">Bootnodes</a>.</p>
-      <p><em>Until the testnet is live, run a local multi-node setup by using the first node’s address as <code>--bootnodes</code> for the second.</em></p>
+      {!isTestnetLive && <p><em>Until the testnet is live, run a local multi-node setup by using the first node's address as <code>--bootnodes</code> for the second.</em></p>}
     </section>
 
     <section class="section" id="faucet">
@@ -65,6 +83,11 @@ import Layout from '../../layouts/Layout.astro';
     <section class="section">
       <h2>One-click mining (VibeMiner)</h2>
       <p>Prefer a desktop UI? <strong>VibeMiner</strong> offers one-click mining/validating for Boing. See <a href="https://github.com/chiku524/boing-network/blob/main/docs/VIBEMINER-INTEGRATION.md" target="_blank" rel="noopener">VIBEMINER-INTEGRATION.md</a>.</p>
+    </section>
+
+    <section class="section incentivized-callout">
+      <h2>Incentivized testnet</h2>
+      <p>When we run an incentivized testnet (validators, developers, and users can earn rewards), the same setup applies: join with bootnodes, use the faucet, and stake. For launch readiness, incentive design, and duration (e.g. 2–4 weeks), see <a href="https://github.com/chiku524/boing-network/blob/main/docs/INCENTIVIZED-TESTNET-READINESS.md" target="_blank" rel="noopener">INCENTIVIZED-TESTNET-READINESS.md</a>. Check announcements for the current phase.</p>
     </section>
 
     <section class="section">
@@ -113,4 +136,8 @@ import Layout from '../../layouts/Layout.astro';
   .section code { background: rgba(255,255,255,0.08); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.9em; }
   .section ol, .section ul { margin: 0.5rem 0 0 1.2rem; }
   .cta-link { display: inline-block; margin-top: 0.5rem; color: var(--accent-teal); font-weight: 600; }
+  .incentivized-callout { background: rgba(34,211,238,0.06); border: 1px solid rgba(34,211,238,0.25); border-radius: 0.75rem; padding: 1.25rem; }
+  .incentivized-callout a { color: var(--accent-teal); font-weight: 600; }
+  .code-block { background: rgba(0,0,0,0.3); border: 1px solid rgba(34,211,238,0.2); border-radius: 8px; padding: 1rem; overflow-x: auto; font-size: 0.85rem; }
+  .code-block code { background: none; padding: 0; }
 </style>

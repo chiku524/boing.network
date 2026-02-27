@@ -11,6 +11,7 @@
 2. [Network-Level Security](#2-network-level-security)
 3. [Application-Level Security](#3-application-level-security)
 4. [Operational Security & Governance](#4-operational-security--governance)
+5. [Security Contacts](#5-security-contacts)
 
 ---
 
@@ -125,6 +126,18 @@
 
 ---
 
+## 5. Security Contacts
+
+| Channel | Use |
+|---------|-----|
+| **Security advisories** | [GitHub Security Advisories](https://github.com/boing-network/boing.network/security/advisories/new) — for responsible disclosure of vulnerabilities |
+| **Bug bounty** | *TBD — program to be announced with incentivized testnet* |
+| **Incident response** | See [RUNBOOK.md](RUNBOOK.md) §6; severity-driven communication |
+
+**For vulnerabilities:** Please report via GitHub Security Advisories. Do not open public issues for security-sensitive findings.
+
+---
+
 ## Security Checklist
 
 - [ ] VRF/VDF for leader selection
@@ -132,10 +145,10 @@
 - [ ] Formal verification for critical contracts
 - [ ] Continuous external audits
 - [ ] Bug bounty program
-- [ ] DDoS resistance (rate limits, peer scoring)
+- [x] DDoS resistance (RPC rate limits, mempool per-sender cap)
 - [ ] Sybil/eclipse mitigation in P2P
 - [ ] SDK security tools (static analysis, scanning)
-- [ ] Incident response runbook
+- [x] Incident response runbook (RUNBOOK §6)
 
 ---
 

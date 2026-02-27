@@ -81,8 +81,11 @@ When trade-offs arise, the network applies this order:
 
 | Document | Use it for |
 |----------|------------|
+| [TECHNICAL-SPECIFICATION.md](TECHNICAL-SPECIFICATION.md) | Single source of truth: crypto, data formats, bytecode, gas, RPC, QA rules |
 | [BOING-BLOCKCHAIN-DESIGN-PLAN.md](BOING-BLOCKCHAIN-DESIGN-PLAN.md) | Full architecture, innovations, tokenomics, design decisions |
 | [QUALITY-ASSURANCE-NETWORK.md](QUALITY-ASSURANCE-NETWORK.md) | Sixth pillar: QA rules, automation, community pool, meme leniency, no malice; §16 additional enhancements & optimizations |
+| [QA-PASS-GUIDE.md](QA-PASS-GUIDE.md) | Deployer checklist: how to pass QA, valid categories, common rejections |
+| [CANONICAL-MALICE-DEFINITION.md](CANONICAL-MALICE-DEFINITION.md) | Definition of malice for QA pool and implementers |
 | [BUILD-ROADMAP.md](BUILD-ROADMAP.md) | Implementation phases and task checklist |
 | [RUNBOOK.md](RUNBOOK.md) | Running nodes, RPC, CLI, monitoring, incidents |
 | [RPC-API-SPEC.md](RPC-API-SPEC.md) | JSON-RPC methods and error codes |

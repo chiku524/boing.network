@@ -20,6 +20,7 @@ The network prioritizes, in order: **1. Security** → **2. Scalability** → **
 5. [Monitoring & Health](#5-monitoring--health)
 6. [Incident Response](#6-incident-response)
 7. [Troubleshooting](#7-troubleshooting)
+8. [Testnet Operations](#8-testnet-operations)
 
 ---
 
@@ -168,6 +169,20 @@ For security incidents and vulnerabilities:
 
 ---
 
+## 6b. Scalability Characteristics
+
+- **Block time:** ~2 seconds (configurable via tokenomics)
+- **Throughput:** Parallel transfer batches; access-list batching reduces conflicts
+- **Gas:** Fixed per tx type (Transfer, Bond, Unbond, ContractCall, ContractDeploy)
+- **Batching:** Scheduler groups non-conflicting txs; transfers with disjoint access lists run in parallel
+
+## 6c. Decentralization Design
+
+- **Permissionless validation:** No whitelist; anyone with stake can validate
+- **P2P discovery:** Bootnodes for bootstrap; mDNS for LAN; DHT (roadmap) for discovery
+- **No central gatekeeper:** Consensus, governance, and QA pool are decentralized
+- **Single-client today:** Multiple implementations encouraged for resilience
+
 ## 7. Troubleshooting
 
 ### Node won't start
@@ -194,6 +209,58 @@ For security incidents and vulnerabilities:
 cargo clean
 cargo build
 ```
+
+---
+
+## 8. Testnet Operations
+
+When running the **public incentivized testnet**, the following operations keep bootnodes and the faucet available. See [INCENTIVIZED-TESTNET-READINESS.md](INCENTIVIZED-TESTNET-READINESS.md) for the full launch checklist.
+
+### 8.1 Running a bootnode
+
+A **bootnode** is a node with a stable, publicly reachable address that other nodes use to join the network.
+
+1. **Build:** `cargo build --release`
+2. **Run with P2P and a fixed port:**
+   ```bash
+   ./target/release/boing-node \
+     --p2p_listen /ip4/0.0.0.0/tcp/4001 \
+     --validator \
+     --rpc-port 8545 \
+     --data-dir ./bootnode-data
+   ```
+3. **Publish the multiaddr:** Your bootnode address is `/ip4/<YOUR_PUBLIC_IP>/tcp/4001`. Ensure TCP port 4001 (and 8545 if RPC is public) is open in the firewall. Add this multiaddr to [TESTNET.md](TESTNET.md) §6 and to `website/src/config/testnet.ts` (or set `PUBLIC_BOOTNODES` at build time).
+4. **Recommendation:** Run at least **two** bootnodes on different hosts for redundancy.
+
+### 8.2 Running the faucet node
+
+The **faucet** is an RPC method (`boing_faucetRequest`) on a node started with `--faucet-enable`. Use a dedicated node (or a node behind your public RPC) so the website faucet page can target it.
+
+1. **Build:** `cargo build --release`
+2. **Run with faucet enabled:**
+   ```bash
+   ./target/release/boing-node \
+     --validator \
+     --faucet-enable \
+     --rpc-port 8545 \
+     --data-dir ./faucet-data
+   ```
+   For the **public testnet**, also use `--p2p_listen` and `--bootnodes` so this node syncs with the network.
+3. **Publish the RPC URL:** Point users and the website to this node’s RPC (e.g. `https://testnet-rpc.boing.network/`). Set `PUBLIC_TESTNET_RPC_URL` when building the website so the faucet page defaults to this URL.
+4. **Rate limit:** The faucet allows 1 request per 60 seconds per account; no extra config needed.
+5. **Genesis:** The faucet account is funded at genesis with 10,000,000 testnet BOING (see `boing-node/src/faucet.rs`). Ensure all testnet nodes use the same genesis so the faucet balance exists.
+
+### 8.3 Cloudflare Tunnel (testnet-rpc.boing.network)
+
+If you use Cloudflare Tunnel to expose the RPC at `https://testnet-rpc.boing.network/`:
+
+- **"Failed to initialize DNS local resolver"** — This cloudflared log message is usually harmless. The tunnel has already registered; traffic forwarding works. It occurs when cloudflared cannot reach `region1.v2.argotunnel.com` for optional region/metrics. You can ignore it. If it bothers you, try a different DNS (e.g. 1.1.1.1) or firewall rules that allow outbound DNS.
+
+### 8.4 Monitoring the testnet
+
+- **Chain height:** Call `boing_chainHeight` on the public RPC periodically; alert if growth stalls.
+- **Faucet balance:** Check the faucet account balance via `boing_getBalance` with the faucet account ID; refill or alert when low (genesis funding is 10M; 1,000 per request).
+- **Bootnode reachability:** Ensure ports 4001 (P2P) and 8545 (RPC, if exposed) are reachable from the internet; use a simple TCP check or your monitoring stack.
 
 ---
 

@@ -28,7 +28,7 @@ use crate::security::RateLimitConfig;
 use boing_primitives::{
     AccessList, AccountId, SignedIntent, SignedTransaction, Transaction, TransactionPayload,
 };
-use boing_qa::{check_contract_deploy, QaResult, RuleRegistry};
+use boing_qa::{check_contract_deploy_full, QaResult, RuleRegistry};
 
 /// Shared node state for RPC and validator loop.
 pub type NodeState = Arc<RwLock<BoingNode>>;
@@ -146,12 +146,13 @@ async fn handle_rpc(State(state): State<RpcState>, Json(req): Json<JsonRpcReques
                                 info!("RPC: transaction submitted");
                                 rpc_ok(id, serde_json::json!({"tx_hash": "ok"}))
                             }
-                            Err(MempoolError::QaRejected(r)) => rpc_error_with_data(
-                                id,
-                                -32050,
-                                format!("Deployment rejected by QA: {}", r.message),
-                                serde_json::json!({ "rule_id": r.rule_id.0, "message": r.message }),
-                            ),
+                            Err(MempoolError::QaRejected(r)) => {
+                                let mut data = serde_json::json!({ "rule_id": r.rule_id.0, "message": r.message });
+                                if let Some(ref u) = r.doc_url {
+                                    data["doc_url"] = serde_json::Value::String(u.clone());
+                                }
+                                rpc_error_with_data(id, -32050, format!("Deployment rejected by QA: {}", r.message), data)
+                            }
                             Err(MempoolError::QaPendingPool) => rpc_error(
                                 id,
                                 -32051,
@@ -384,16 +385,16 @@ async fn handle_rpc(State(state): State<RpcState>, Json(req): Json<JsonRpcReques
                 .and_then(|s| hex::decode(s.trim_start_matches("0x")).ok())
                 .filter(|b| b.len() == 32);
             let registry = RuleRegistry::new();
-            let result = check_contract_deploy(
+            let result = check_contract_deploy_full(
                 &bytecode,
                 purpose.as_deref(),
                 desc_hash.as_deref(),
-                registry.max_bytecode_size(),
+                &registry,
             );
-            let (result_str, rule_id, message) = match result {
-                QaResult::Allow => ("allow".to_string(), None, None),
-                QaResult::Reject(r) => ("reject".to_string(), Some(r.rule_id.0), Some(r.message)),
-                QaResult::Unsure => ("unsure".to_string(), None, None),
+            let (result_str, rule_id, message, doc_url) = match result {
+                QaResult::Allow => ("allow".to_string(), None, None, None),
+                QaResult::Reject(r) => ("reject".to_string(), Some(r.rule_id.0), Some(r.message), r.doc_url),
+                QaResult::Unsure => ("unsure".to_string(), None, Some("Deployment referred to community QA pool".into()), None),
             };
             let mut obj = serde_json::Map::new();
             obj.insert("result".to_string(), serde_json::Value::String(result_str));
@@ -402,6 +403,9 @@ async fn handle_rpc(State(state): State<RpcState>, Json(req): Json<JsonRpcReques
             }
             if let Some(msg) = message {
                 obj.insert("message".to_string(), serde_json::Value::String(msg));
+            }
+            if let Some(u) = doc_url {
+                obj.insert("doc_url".to_string(), serde_json::Value::String(u));
             }
             rpc_ok(id, serde_json::Value::Object(obj))
         }

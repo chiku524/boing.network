@@ -17,6 +17,7 @@ harness = false
 [dependencies]
 boing-primitives = { path = "../boing-primitives" }
 boing-state = { path = "../boing-state" }
+boing-qa = { path = "../boing-qa" }
 tracing = "0.1"
 async-trait = "0.1"
 thiserror = "1"

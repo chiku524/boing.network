@@ -6,3 +6,4 @@ description = "Protocol quality assurance: deterministic checks for deployment (
 
 [dependencies]
 boing-primitives = { path = "../boing-primitives" }
+thiserror = "1"

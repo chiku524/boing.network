@@ -196,12 +196,16 @@ boing-network/
 
 ### 4.6 Protocol Quality Assurance (QA) — see [QUALITY-ASSURANCE-NETWORK.md](QUALITY-ASSURANCE-NETWORK.md)
 
-- [ ] **boing-qa crate:** Rule types (Allow / Reject / Unsure), central rule registry, deterministic checks (bytecode size, opcode whitelist, well-formedness, purpose categories including meme/community/entertainment)
-- [ ] **Known edge-case resolution:** Implement §11 mappings so automation handles meme leniency, ambiguous declaration, new/unknown pattern, conflicting signals, soft-rule handling
+- [x] **boing-qa crate:** Rule types (Allow / Reject / Unsure), central rule registry, deterministic checks (bytecode size, opcode whitelist, well-formedness, purpose categories including meme/community/entertainment)
+- [x] **Known edge-case resolution:** Implement §11 mappings so automation handles meme leniency, ambiguous declaration, new/unknown pattern; blocklist support
 - [x] **Node integration:** Run QA at submit and/or mempool insert for ContractDeploy; structured rejection (rule_id, message); optional `boing_qaCheck` RPC
-- [ ] **Execution defense in depth:** QA check in `execute_contract_deploy` before `set_contract_code`
-- [ ] **Community QA pool:** Pending QA queue, pool members, voting, max time T, default outcome at expiry; integrate QA-approved deploys into block production
+- [x] **Execution defense in depth:** QA check in `execute_contract_deploy` before `set_contract_code`
+- [x] **Community QA pool:** Pending QA queue (`boing_qa::pool`), pool members, voting, max time T, default outcome at expiry; on-chain integration pending
 - [ ] **Governance of rules:** Add/modify rules via time-locked governance; versioned rule sets
+- [x] **Purpose in payload:** `ContractDeployWithPurpose` variant; `check_contract_deploy_full` with RuleRegistry
+- [x] **Always-review categories:** Policy categories that force Unsure; configurable via RuleRegistry
+- [x] **Scam patterns:** Byte-sequence blocklist (legitimacy heuristic) in RuleRegistry
+- [x] **Soft rules:** Example: "other" + minimal description → Unsure
 - [x] **Additional enhancements (optional):** Pre-flight SDK/CLI (boing_qaCheck RPC + SDK `client.qaCheck()`), public QA metrics, appeal path, canonical malice definition, deployer checklist (in progress)
 
 ---
@@ -327,7 +331,7 @@ boing-network/
 ### 7.1 Public Testnet
 
 - [ ] Public testnet launch
-- [ ] Testnet incentive program (sustainability-first)
+- [ ] Testnet incentive program (sustainability-first): use [INCENTIVIZED-TESTNET-READINESS.md](docs/INCENTIVIZED-TESTNET-READINESS.md) for readiness checklist, incentive design (validators, developers, users), and 2–4 week duration.
 - [ ] Validator onboarding
 - [ ] boing.finance integration (testnet)
 - [ ] Community engagement: grant programs, hackathons, educational content

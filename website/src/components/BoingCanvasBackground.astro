@@ -20,11 +20,14 @@ const normalizedPath = (path || '/').replace(/\/$/, '') || '';
 </div>
 
 <script>
-  import { BoingBackground, BOING_BG_CONFIGS } from '../lib/boing-bg-engine.js';
-
+  /** Route → background config key. Each page gets a Cosmic Foundation variant (landing, pillars, developers). */
   function getConfigKey(path) {
-    if (path.startsWith('/docs') || path.startsWith('/developers')) return 'developers';
-    if (path === '/about') return 'pillars';
+    const p = (path || '/').replace(/\/$/, '') || '';
+    if (p.startsWith('/docs') || p.startsWith('/developers')) return 'developers';
+    if (p === '/about') return 'pillars';
+    if (p === '/network/testnet' || p === '/network/faucet' || p === '/network/bootnodes' || p === '/network/single-vs-multi') return 'developers';
+    if (p === '/network/status') return 'landing';
+    if (p === '/community') return 'landing';
     return 'landing';
   }
 
@@ -48,17 +51,19 @@ const normalizedPath = (path || '/').replace(/\/$/, '') || '';
       return;
     }
 
-    try {
-      const configKey = getConfigKey(path);
-      const networkConfigs = BOING_BG_CONFIGS.network;
-      const config = networkConfigs[configKey] || networkConfigs.landing;
-      const bg = new BoingBackground(canvas, config);
-      bg.start();
-      wrap.classList.remove('reduced-motion');
-      fallback?.classList.remove('visible');
-    } catch (err) {
-      showFallback(wrap, fallback);
-    }
+    import('../lib/boing-bg-engine.js')
+      .then(({ BoingBackground, BOING_BG_CONFIGS }) => {
+        const configKey = getConfigKey(path);
+        const networkConfigs = BOING_BG_CONFIGS.network;
+        const config = networkConfigs[configKey] || networkConfigs.landing;
+        const bg = new BoingBackground(canvas, config);
+        bg.start();
+        wrap.classList.remove('reduced-motion');
+        fallback?.classList.remove('visible');
+      })
+      .catch(() => {
+        showFallback(wrap, fallback);
+      });
   }
 
   if (document.readyState === 'loading') {

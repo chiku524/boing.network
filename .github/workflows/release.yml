@@ -1,0 +1,78 @@
+# Build boing and boing-node release binaries for testnet/mainnet distribution.
+# Triggers on version tags (e.g. v0.1.0, testnet-v1). Upload artifacts; optionally create a GitHub Release.
+name: Release binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - 'testnet*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            artifact_name: linux-x86_64
+          - os: macos-14
+            artifact_name: macos-aarch64
+          - os: windows-latest
+            artifact_name: windows-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Build release
+        run: cargo build --release
+
+      - name: Prepare artifacts (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          mkdir -p artifacts
+          cp target/release/boing artifacts/boing-${{ matrix.artifact_name }} 2>/dev/null || true
+          cp target/release/boing-node artifacts/boing-node-${{ matrix.artifact_name }} 2>/dev/null || true
+          cd artifacts && zip -r ../release-${{ matrix.artifact_name }}.zip . && cd ..
+
+      - name: Prepare artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          mkdir artifacts
+          copy target\release\boing.exe artifacts\boing-${{ matrix.artifact_name }}.exe
+          copy target\release\boing-node.exe artifacts\boing-node-${{ matrix.artifact_name }}.exe
+          Compress-Archive -Path artifacts\* -DestinationPath release-${{ matrix.artifact_name }}.zip
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.artifact_name }}
+          path: release-${{ matrix.artifact_name }}.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: release-*
+          merge-multiple: true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+          draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

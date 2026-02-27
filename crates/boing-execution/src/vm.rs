@@ -2,6 +2,7 @@
 
 use boing_primitives::{hasher, AccountId, AccountState, Transaction, TransactionPayload};
 use boing_state::StateStore;
+use boing_qa::{check_contract_deploy, DEFAULT_MAX_BYTECODE_SIZE};
 
 use crate::gas::base;
 use super::interpreter::Interpreter;
@@ -162,7 +163,8 @@ impl Vm {
             TransactionPayload::ContractCall { contract, calldata } => {
                 self.execute_contract_call(state, tx, contract, calldata)?
             }
-            TransactionPayload::ContractDeploy { bytecode } => {
+            TransactionPayload::ContractDeploy { bytecode }
+            | TransactionPayload::ContractDeployWithPurpose { bytecode, .. } => {
                 self.execute_contract_deploy(state, tx, bytecode)?
             }
         };
@@ -170,6 +172,21 @@ impl Vm {
     }
 
     fn execute_contract_deploy(&self, state: &mut StateStore, tx: &Transaction, bytecode: &[u8]) -> Result<u64, VmError> {
+        // Defense in depth: run QA check before applying. Mempool already rejected bad deploys, but
+        // blocks could come from network; this ensures we never apply bytecode that fails QA.
+        match check_contract_deploy(bytecode, None, None, DEFAULT_MAX_BYTECODE_SIZE) {
+            boing_qa::QaResult::Allow => {}
+            boing_qa::QaResult::Reject(r) => {
+                return Err(VmError::QaRejected {
+                    rule_id: r.rule_id.0,
+                    message: r.message,
+                });
+            }
+            boing_qa::QaResult::Unsure => {
+                return Err(VmError::QaPendingPool);
+            }
+        }
+
         let sender_state = state.get_mut(&tx.sender).ok_or(VmError::AccountNotFound)?;
         sender_state.nonce = sender_state
             .nonce
@@ -240,4 +257,8 @@ pub enum VmError {
     InvalidBytecode,
     #[error("Invalid jump destination")]
     InvalidJump,
+    #[error("QA rejected: {rule_id} — {message}")]
+    QaRejected { rule_id: String, message: String },
+    #[error("QA pending pool (deployment referred to community)")]
+    QaPendingPool,
 }

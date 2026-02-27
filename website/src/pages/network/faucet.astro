@@ -1,11 +1,11 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { TESTNET_RPC_URL } from '../../config/testnet';
 ---
 
 <Layout
   title="Testnet Faucet"
   description="Request testnet BOING for the Boing Network testnet."
-  pageClass="page-app"
 >
   <article class="page faucet-page">
     <h1>Testnet Faucet</h1>
@@ -19,7 +19,7 @@ import Layout from '../../layouts/Layout.astro';
         id="rpc-url"
         type="text"
         placeholder="https://testnet-rpc.boing.network or http://127.0.0.1:8545"
-        value="http://127.0.0.1:8545"
+        value={TESTNET_RPC_URL}
       />
       <label for="account-id">Your account ID (32-byte hex, with or without 0x)</label>
       <input
