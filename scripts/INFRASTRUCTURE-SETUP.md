@@ -22,6 +22,8 @@ This guide walks you through setting up the full testnet infrastructure: **Bootn
 
 ### Windows
 
+**Important:** On Windows, the batch script builds with `--no-default-features` to disable mDNS (avoids EADDRINUSE when libp2p adds interface-specific listeners). Bootnodes connect via explicit `--bootnodes`, so mDNS is not needed.
+
 ```bat
 scripts\start-bootnode-1.bat
 ```
@@ -111,10 +113,10 @@ Once both bootnodes and the tunnel are running:
 
 | Config | Location | Value |
 |--------|----------|-------|
-| `PUBLIC_TESTNET_RPC_URL` | Website env / GitHub Actions | `https://testnet-rpc.boing.network/` |
-| `PUBLIC_BOOTNODES` | Website env / GitHub Actions | `/ip4/PRIMARY_IP/tcp/4001,/ip4/SECONDARY_IP/tcp/4001` |
+| `PUBLIC_TESTNET_RPC_URL` | Website env / GitHub Actions / Cloudflare Pages | `https://testnet-rpc.boing.network/` |
+| `PUBLIC_BOOTNODES` | Website env / GitHub Actions / Cloudflare Pages | `/ip4/73.84.106.121/tcp/4001,/ip4/73.84.106.121/tcp/4001` |
 
-**TESTNET.md** §6: Update the bootnode table with both multiaddrs.
+**TESTNET.md** §6: Bootnode table updated; set env vars for production deploy.
 
 **Verify:**
 
@@ -124,12 +126,19 @@ Once both bootnodes and the tunnel are running:
 
 ---
 
+## CORS
+
+The boing-node RPC server includes CORS headers so browser-based clients (e.g. boing.observer, boing.network faucet) can call the RPC from different origins. Allowed origins: `https://boing.observer`, `https://boing.network`, `https://www.boing.network`, and localhost variants for development.
+
+---
+
 ## Troubleshooting
 
 | Issue | Check |
 |-------|-------|
 | Bootnode 2 can't connect | Primary firewall allows TCP 4001; primary is running; correct IP |
 | RPC not reachable | Cloudflare tunnel running; node has RPC on 8545 |
+| CORS errors in browser | Node must be rebuilt with CORS support (included in boing-node); redeploy |
 | Faucet fails | Node started with `--faucet_enable`; tunnel forwards to 8545 |
 | "No nodes" in VibeMiner | Website built with `PUBLIC_BOOTNODES` and `PUBLIC_TESTNET_RPC_URL`; config redeployed |
 

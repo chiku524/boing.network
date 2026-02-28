@@ -4,6 +4,12 @@ version = "0.1.0"
 edition = "2021"
 description = "Boing blockchain node"
 
+[features]
+default = ["mdns"]
+# Disable mDNS on Windows to avoid EADDRINUSE (libp2p adds interface-specific listeners).
+# Use --no-default-features when building for Windows.
+mdns = ["boing-p2p/mdns"]
+
 [lib]
 name = "boing_node"
 path = "src/lib.rs"
@@ -21,13 +27,14 @@ boing-consensus = { path = "../boing-consensus" }
 boing-state = { path = "../boing-state" }
 boing-execution = { path = "../boing-execution" }
 boing-qa = { path = "../boing-qa" }
-boing-p2p = { path = "../boing-p2p" }
+boing-p2p = { path = "../boing-p2p", default-features = false }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tokio = { version = "1", features = ["full"] }
 clap = { version = "4", features = ["derive"] }
 axum = { version = "0.7", features = ["json"] }
 tower = "0.4"
+tower-http = { version = "0.5", features = ["cors"] }
 governor = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

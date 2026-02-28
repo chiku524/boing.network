@@ -15,6 +15,9 @@ use axum::{
     routing::post,
     Json, Router,
 };
+use axum::http::header::{HeaderValue, CONTENT_TYPE};
+use axum::http::Method;
+use tower_http::cors::{AllowOrigin, CorsLayer};
 use governor::{Quota, RateLimiter};
 use std::num::NonZeroU32;
 use serde::{Deserialize, Serialize};
@@ -540,8 +543,24 @@ pub fn rpc_router(
         (None, None)
     };
 
+    let cors = CorsLayer::new()
+        .allow_origin(AllowOrigin::list(vec![
+            HeaderValue::from_static("https://boing.observer"),
+            HeaderValue::from_static("https://boing.network"),
+            HeaderValue::from_static("https://www.boing.network"),
+            HeaderValue::from_static("https://bootnode2.boing.network"),
+            HeaderValue::from_static("https://testnet-rpc-2.boing.network"),
+            HeaderValue::from_static("http://localhost:3000"),
+            HeaderValue::from_static("http://localhost:4321"),
+            HeaderValue::from_static("http://127.0.0.1:3000"),
+            HeaderValue::from_static("http://127.0.0.1:4321"),
+        ]))
+        .allow_methods([Method::POST, Method::OPTIONS])
+        .allow_headers([CONTENT_TYPE]);
+
     Router::new()
         .route("/", post(handle_rpc))
+        .layer(cors)
         .with_state(RpcState {
             node,
             rate_limiter,
