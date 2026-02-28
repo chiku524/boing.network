@@ -39,12 +39,12 @@ import { BOOTNODES, isTestnetLive } from '../../config/testnet';
       <h2>Official testnet bootnodes</h2>
       {isTestnetLive && BOOTNODES.length > 0 ? (
         <>
-          <p>Use these multiaddrs with <code>--bootnodes</code> (comma-separated). Also in <a href="https://github.com/chiku524/boing-network/blob/main/docs/TESTNET.md" target="_blank" rel="noopener">TESTNET.md</a>.</p>
+          <p>Use these multiaddrs with <code>--bootnodes</code> (comma-separated). Also in <a href="https://github.com/chiku524/boing.network/blob/main/docs/TESTNET.md" target="_blank" rel="noopener">TESTNET.md</a>.</p>
           <pre class="code-block"><code>{BOOTNODES.join('\n')}</code></pre>
         </>
       ) : (
         <>
-          <p>When the testnet launches, the canonical list will appear in this section and in <a href="https://github.com/chiku524/boing-network/blob/main/docs/TESTNET.md" target="_blank" rel="noopener">TESTNET.md</a>.</p>
+          <p>When the testnet launches, the canonical list will appear in this section and in <a href="https://github.com/chiku524/boing.network/blob/main/docs/TESTNET.md" target="_blank" rel="noopener">TESTNET.md</a>.</p>
           <p><em>Placeholder: bootnode addresses will be added at testnet launch.</em></p>
         </>
       )}
