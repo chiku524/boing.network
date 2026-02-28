@@ -331,7 +331,7 @@ boing-network/
 ### 7.1 Public Testnet
 
 - [ ] Public testnet launch
-- [ ] Testnet incentive program (sustainability-first): use [INCENTIVIZED-TESTNET-READINESS.md](docs/INCENTIVIZED-TESTNET-READINESS.md) for readiness checklist, incentive design (validators, developers, users), and 2–4 week duration.
+- [ ] Testnet incentive program (sustainability-first): use [INCENTIVIZED-TESTNET.md](docs/INCENTIVIZED-TESTNET.md) for readiness checklist, incentive design (validators, developers, users), and 2–4 week duration.
 - [ ] Validator onboarding
 - [ ] boing.finance integration (testnet)
 - [ ] Community engagement: grant programs, hackathons, educational content

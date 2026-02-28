@@ -14,14 +14,15 @@ export const TESTNET_RPC_URL =
 
 /**
  * Official testnet bootnode multiaddrs. Set PUBLIC_BOOTNODES (comma-separated)
- * at build time to override; otherwise edit this array before launch.
+ * at build time to override; otherwise this fallback is used.
+ * Production: set PUBLIC_BOOTNODES="/ip4/PRIMARY_IP/tcp/4001,/ip4/SECONDARY_IP/tcp/4001"
  */
 export const BOOTNODES: string[] =
   env && env.PUBLIC_BOOTNODES
     ? env.PUBLIC_BOOTNODES.split(',').map((s) => s.trim()).filter(Boolean)
     : [
-        // Fallback when env not set; prefer PUBLIC_BOOTNODES at build time
-        '/ip4/73.84.106.121/tcp/4001',
+        '/ip4/73.84.106.121/tcp/4001', // Primary (faucet + RPC via testnet-rpc.boing.network)
+        '/ip4/73.84.106.121/tcp/4001', // Secondary bootnode
       ];
 
 /** Whether the testnet is "live" (we have at least one bootnode and a non-local RPC). */

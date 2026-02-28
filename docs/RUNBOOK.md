@@ -1,7 +1,7 @@
 # Boing Network — Operational Runbook
 
 > **Purpose:** Operations guide for running and maintaining Boing Network nodes.  
-> **References:** [BOING-NETWORK-ESSENTIALS.md](BOING-NETWORK-ESSENTIALS.md) (six pillars and network essentials), [BUILD-ROADMAP.md](BUILD-ROADMAP.md), [README.md](../README.md), [RPC-API-SPEC.md](RPC-API-SPEC.md), [BETA-READINESS.md](BETA-READINESS.md) (beta checklist and quick starts)
+> **References:** [BOING-NETWORK-ESSENTIALS.md](BOING-NETWORK-ESSENTIALS.md) (six pillars and network essentials), [BUILD-ROADMAP.md](BUILD-ROADMAP.md), [README.md](../README.md), [RPC-API-SPEC.md](RPC-API-SPEC.md), [READINESS.md](READINESS.md) (beta checklist and quick starts)
 
 ---
 
@@ -214,7 +214,7 @@ cargo build
 
 ## 8. Testnet Operations
 
-When running the **public incentivized testnet**, the following operations keep bootnodes and the faucet available. See [INCENTIVIZED-TESTNET-READINESS.md](INCENTIVIZED-TESTNET-READINESS.md) for the full launch checklist.
+When running the **public incentivized testnet**, the following operations keep bootnodes and the faucet available. See [INCENTIVIZED-TESTNET.md](INCENTIVIZED-TESTNET.md) for the full launch checklist.
 
 ### 8.1 Running a bootnode
 

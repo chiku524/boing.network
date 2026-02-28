@@ -1,8 +1,8 @@
 # Boing Network — Testnet Guide
 
 > **Purpose:** Run nodes on the testnet, get testnet BOING from the faucet, and join as a validator or developer.  
-> **References:** [RUNBOOK.md](RUNBOOK.md), [BETA-READINESS.md](BETA-READINESS.md), [RPC-API-SPEC.md](RPC-API-SPEC.md)  
-> **Incentivized testnet:** For launch readiness, incentive design (validators, developers, users), and duration (e.g. 2–4 weeks), see [INCENTIVIZED-TESTNET-READINESS.md](INCENTIVIZED-TESTNET-READINESS.md).
+> **References:** [RUNBOOK.md](RUNBOOK.md), [READINESS.md](READINESS.md), [RPC-API-SPEC.md](RPC-API-SPEC.md)
+> **Incentivized testnet:** For launch readiness, incentive design, promotion, and mainnet migration, see [INCENTIVIZED-TESTNET.md](INCENTIVIZED-TESTNET.md).
 
 ---
 
@@ -142,7 +142,7 @@ When the testnet is live, the canonical list will be kept at:
 1. **Bootnodes:** Run at least 2 nodes with stable IPs and `--p2p_listen /ip4/0.0.0.0/tcp/4001`. Add their multiaddrs to the table above and to `website/src/config/testnet.ts` (or set `PUBLIC_BOOTNODES` when building the website).
 2. **Public RPC:** Run a node with `--faucet-enable` behind a public URL (e.g. `https://testnet-rpc.boing.network/`). Set `PUBLIC_TESTNET_RPC_URL` when building the website so the [faucet page](https://boing.network/network/faucet) defaults to it.
 3. **Genesis:** All nodes must use the same genesis so the faucet account has 10M testnet BOING.
-4. **Docs:** See [INCENTIVIZED-TESTNET-READINESS.md](INCENTIVIZED-TESTNET-READINESS.md) for the full pre-launch checklist and incentive program. For the critical path (bootnodes → RPC → VibeMiner / boing.observer), see **[LAUNCH-BLOCKING-CHECKLIST.md](LAUNCH-BLOCKING-CHECKLIST.md)**.
+4. **Docs:** See [INCENTIVIZED-TESTNET.md](INCENTIVIZED-TESTNET.md) for the full pre-launch checklist and incentive program. For the critical path (bootnodes → RPC → VibeMiner / boing.observer), see [READINESS.md](READINESS.md) §3.
 
 Until then, you can run a multi-node testnet locally by starting two nodes and having the second dial the first:
 
@@ -170,7 +170,7 @@ For users who prefer a **desktop UI** instead of the terminal, Boing testnet can
 
 ## 8. Incentivized testnet
 
-When the Boing team runs an **incentivized testnet** (rewarding validators, developers, and users), the same testnet setup applies: use the published bootnodes and public RPC, get testnet BOING from the faucet, and stake to validate. Incentive rules, duration (e.g. 2–4 weeks), and launch checklist are in **[INCENTIVIZED-TESTNET-READINESS.md](INCENTIVIZED-TESTNET-READINESS.md)**. Check the website and announcements for the current phase and any leaderboards or reward criteria.
+When the Boing team runs an **incentivized testnet** (rewarding validators, developers, and users), the same testnet setup applies: use the published bootnodes and public RPC, get testnet BOING from the faucet, and stake to validate. Incentive rules, duration (e.g. 2–4 weeks), and launch checklist are in [INCENTIVIZED-TESTNET.md](INCENTIVIZED-TESTNET.md). Check the website and announcements for the current phase and any leaderboards or reward criteria.
 
 ---
 

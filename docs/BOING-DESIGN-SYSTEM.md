@@ -286,4 +286,20 @@ To add a new Boing property:
 
 ---
 
+## Appendix A: Implementation Compliance
+
+| Area | Spec | Implementation |
+|------|------|-----------------|
+| Backgrounds | Deep Space Navy #0A0E1A | `--bg-primary` |
+| Accents | Teal #00E5CC, Cyan #00B4FF | `--accent-teal`, `--accent-cyan` |
+| Typography | Orbitron (display), Inter (body), JetBrains Mono (code) | `boing-theme.css` |
+| Cards | Glassmorphism, blur(12px) | `.card`, `--bg-card` |
+| Buttons | Gradient teal→cyan, hover glow | `.btn-primary`, `.btn-secondary` |
+| Reduced motion | `prefers-reduced-motion` | boing-theme.css, BoingMascot, EnhancedAnimatedBackground |
+| Contrast | WCAG AA | Token-based |
+
+Hardcoded colors should use `var(--…)`; meta theme-color remains hex.
+
+---
+
 *Boing Design System · Authentic. Decentralized. Optimal. Quality-Assured.*

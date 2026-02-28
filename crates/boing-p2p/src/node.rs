@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use libp2p::futures::StreamExt;
 use libp2p::gossipsub::{IdentTopic, MessageAuthenticity, ValidationMode};
+#[cfg(feature = "mdns")]
 use libp2p::mdns::tokio::Behaviour as Mdns;
 use libp2p::request_response::{self, ProtocolSupport};
 use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
@@ -49,10 +50,19 @@ pub trait BlockProvider: Send + Sync {
 
 type BlockSyncBehaviour = request_response::cbor::Behaviour<BlockRequest, BlockResponse>;
 
+#[cfg(feature = "mdns")]
 #[derive(NetworkBehaviour)]
 #[behaviour(prelude = "libp2p_swarm::derive_prelude")]
 struct BoingBehaviour {
     mdns: Mdns,
+    gossipsub: gossipsub::Behaviour,
+    block_sync: BlockSyncBehaviour,
+}
+
+#[cfg(not(feature = "mdns"))]
+#[derive(NetworkBehaviour)]
+#[behaviour(prelude = "libp2p_swarm::derive_prelude")]
+struct BoingBehaviour {
     gossipsub: gossipsub::Behaviour,
     block_sync: BlockSyncBehaviour,
 }
@@ -86,9 +96,6 @@ impl P2pNode {
             )
             .map_err(|e| P2pError::Network(e.to_string()))?
             .with_behaviour(|key| {
-                let peer_id = key.public().to_peer_id();
-                let mdns = Mdns::new(libp2p::mdns::Config::default(), peer_id)
-                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
                 let gossipsub_config = gossipsub::ConfigBuilder::default()
                     .heartbeat_interval(Duration::from_secs(1))
                     .validation_mode(ValidationMode::Permissive)
@@ -101,8 +108,19 @@ impl P2pNode {
                     [(StreamProtocol::new("/boing/block-sync/1"), ProtocolSupport::Full)],
                     request_response::Config::default(),
                 );
+                #[cfg(feature = "mdns")]
+                {
+                    let peer_id = key.public().to_peer_id();
+                    let mdns = Mdns::new(libp2p::mdns::Config::default(), peer_id)
+                        .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+                    Ok::<_, Box<dyn std::error::Error + Send + Sync>>(BoingBehaviour {
+                        mdns,
+                        gossipsub,
+                        block_sync,
+                    })
+                }
+                #[cfg(not(feature = "mdns"))]
                 Ok::<_, Box<dyn std::error::Error + Send + Sync>>(BoingBehaviour {
-                    mdns,
                     gossipsub,
                     block_sync,
                 })

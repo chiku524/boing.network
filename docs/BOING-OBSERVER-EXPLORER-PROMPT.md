@@ -64,7 +64,7 @@ Balances and amounts are in **smallest units** (u128); the explorer may need a k
 
 ### 2.4 Networks (devnet vs mainnet)
 
-- **Testnet / devnet:** Public RPC URL is (or will be) published on the Boing website (e.g. `https://testnet-rpc.boing.network/`). Faucet: `boing_faucetRequest` on testnet only. Until bootnodes and public RPC are live, use `http://127.0.0.1:8545` for local testing (see [LAUNCH-BLOCKING-CHECKLIST.md](LAUNCH-BLOCKING-CHECKLIST.md)).
+- **Testnet / devnet:** Public RPC URL is (or will be) published on the Boing website (e.g. `https://testnet-rpc.boing.network/`). Faucet: `boing_faucetRequest` on testnet only. Until bootnodes and public RPC are live, use `http://127.0.0.1:8545` for local testing (see [READINESS.md](READINESS.md) §3).
 - **Mainnet:** RPC and bootnodes will be published at launch; same RPC methods, no faucet.
 - The explorer should **switch networks** (e.g. dropdown or subdomain) and call the corresponding RPC base URL. No API key required for read-only RPC in the spec.
 

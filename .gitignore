@@ -13,3 +13,6 @@ website/.env
 # Windows reserved device name (accidental file)
 nul
 NUL
+
+# Cloudflare tunnel binary (local)
+.cloudflared/

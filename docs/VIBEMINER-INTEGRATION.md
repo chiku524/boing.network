@@ -89,7 +89,7 @@ No separate "miner" binary: **validating** is done by running `boing-node --vali
 
 **Testnet public RPC:** `https://testnet-rpc.boing.network/` — used for faucet (`boing_faucetRequest`) and read-only queries (`boing_chainHeight`, `boing_getBlockByHeight`, etc.). Override via env `PUBLIC_TESTNET_RPC_URL`.
 
-**Why "no nodes" or "cannot connect"?** If VibeMiner shows no nodes or cannot join the testnet, it means bootnodes and/or the public RPC are not yet live. The Boing team must complete the steps in [LAUNCH-BLOCKING-CHECKLIST.md](LAUNCH-BLOCKING-CHECKLIST.md) first. VibeMiner can read config from the website, [TESTNET.md](TESTNET.md), or a small API so the app stays up to date without code changes.
+**Why "no nodes" or "cannot connect"?** If VibeMiner shows no nodes or cannot join the testnet, it means bootnodes and/or the public RPC are not yet live. The Boing team must complete the steps in [READINESS.md](READINESS.md) §3 first. VibeMiner can read config from the website, [TESTNET.md](TESTNET.md), or a small API so the app stays up to date without code changes.
 
 ---
 
@@ -115,7 +115,7 @@ Share the onboarding flow (or a draft) and we'll integrate it into the docs and 
 | Bootnode list ([TESTNET.md](TESTNET.md) §6, [website](https://boing.network/network/testnet)) | So the node joins the testnet. |
 | P2P port 4001, RPC port 8545 | Firewall: open 4001 for P2P; 8545 only if exposing RPC. |
 
-No separate miner binary; no custom daemon protocol—just the node binary and JSON-RPC. For launch dependencies (bootnodes, public RPC), see [LAUNCH-BLOCKING-CHECKLIST.md](LAUNCH-BLOCKING-CHECKLIST.md).
+No separate miner binary; no custom daemon protocol—just the node binary and JSON-RPC. For launch dependencies (bootnodes, public RPC), see [READINESS.md](READINESS.md) §3.
 
 ---
 

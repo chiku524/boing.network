@@ -4,11 +4,17 @@ version = "0.1.0"
 edition = "2021"
 description = "P2P networking for Boing blockchain"
 
+[features]
+default = ["mdns"]
+# mdns causes EADDRINUSE on Windows when libp2p adds interface-specific listeners.
+# Use --no-default-features when building for Windows.
+mdns = ["libp2p/mdns"]
+
 [dependencies]
 boing-primitives = { path = "../boing-primitives" }
 bincode = "1"
 serde = { version = "1", features = ["derive"] }
-libp2p = { version = "0.54", features = ["tcp", "mdns", "noise", "yamux", "gossipsub", "tokio", "tls", "macros", "request-response", "cbor"] }
+libp2p = { version = "0.54", default-features = false, features = ["tcp", "noise", "yamux", "gossipsub", "tokio", "tls", "macros", "request-response", "cbor"] }
 libp2p-swarm = { version = "0.45", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"

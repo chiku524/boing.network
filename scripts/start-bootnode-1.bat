@@ -5,10 +5,10 @@ REM
 REM Replace BOOTNODE_2_IP below with your secondary machine's public IP once it is running.
 
 cd /d "%~dp0.."
-if not exist "target\release\boing-node.exe" (
-    echo Building boing-node...
-    cargo build --release
-)
+REM On Windows, mDNS causes EADDRINUSE when libp2p adds interface-specific listeners.
+REM Build with --no-default-features to disable mDNS (bootnodes use explicit --bootnodes).
+echo Building boing-node (Windows, no mDNS)...
+cargo build -p boing-node --release --no-default-features
 
 echo Starting Bootnode 1 (validator + faucet)...
 echo P2P: 0.0.0.0:4001
