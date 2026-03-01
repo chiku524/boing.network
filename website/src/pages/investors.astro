@@ -14,6 +14,7 @@ import Layout from '../layouts/Layout.astro';
       <h1>Boing Network</h1>
       <p class="investor-tagline">Executive Summary</p>
       <p class="investor-subtitle">Authentic. Decentralized. Optimal. Quality-Assured.</p>
+      <p class="investor-stage"><strong>Stage:</strong> MVP / Prototype · Testnet live · SDK & CLI ready</p>
     </header>
 
     <section class="investor-section">
@@ -46,7 +47,9 @@ import Layout from '../layouts/Layout.astro';
     </section>
 
     <section class="investor-section">
-      <h2>Unique Differentiators</h2>
+      <h2>Competitive Advantage</h2>
+      <p>Existing L1s (Ethereum, Solana, Polygon, Cosmos, etc.) permit any bytecode deployment—QA, when it exists, is application- or contract-layer. <strong>Boing is the first L1 to enforce quality at the protocol layer.</strong> This is infrastructure, not a dApp feature. We reduce congestion and scam risk at the source.</p>
+      <h3>Unique Differentiators</h3>
       <div class="differentiators-grid">
         <div class="diff-card">
           <span class="diff-icon">🔐</span>
@@ -84,14 +87,36 @@ import Layout from '../layouts/Layout.astro';
     </section>
 
     <section class="investor-section">
-      <h2>Tokenomics</h2>
-      <p><strong>Uncapped supply with floor-triggered waves.</strong> Initial supply fixed at mainnet launch. When circulating supply reaches a floor, new waves are minted to restore balance for staking, treasury, and ecosystem.</p>
+      <h2>Target Market</h2>
+      <p><strong>Primary:</strong> DeFi users, protocols, and validators seeking a scam-resistant L1 with transparent governance and sustainable incentives. <strong>Secondary:</strong> Developers building on a quality-assured chain.</p>
+      <p>Global DeFi TVL exceeds $50B across hundreds of chains. Millions of users and thousands of protocols face scam and congestion risk daily. We target early adopters: security-conscious protocols, validators tired of opaque ecosystems, and users burned by scams. Long-term TAM: DeFi protocols requiring compliance or quality standards that cannot achieve that on permissionless-anything chains.</p>
+    </section>
+
+    <section class="investor-section">
+      <h2>Go-to-Market</h2>
+      <ul>
+        <li><strong>Phase 1 — Testnet:</strong> Public bootnodes, faucet, RPC. Developer docs, CLI, SDK, VibeMiner one-click validator. Incentivized testnet (2–4 weeks) rewards validators, developers, and users.</li>
+        <li><strong>Phase 2 — Mainnet:</strong> Security audits, formal verification. Validator bootstrap via early incentives and hardware grants (capped). Developer grants and hackathons. boing.finance integration for cross-chain swap, bridge, and liquidity routing.</li>
+        <li><strong>Phase 3 — Ecosystem:</strong> Success-based dApp incentives with per-dApp caps; community QA pool; governance-driven evolution. Channels: GitHub, Discord, docs, accelerator/VC outreach.</li>
+      </ul>
+    </section>
+
+    <section class="investor-section">
+      <h2>Tokenomics & Value Creation</h2>
+      <p><strong>Uncapped supply with floor-triggered waves.</strong> Initial supply fixed at mainnet launch. When circulating supply reaches a floor, new waves mint to restore balance.</p>
       <div class="tokenomics-breakdown">
         <div class="token-row"><span class="token-pct">55%</span> Staking Rewards</div>
         <div class="token-row"><span class="token-pct">30%</span> Treasury (grants, audits, ecosystem)</div>
         <div class="token-row"><span class="token-pct">15%</span> Community & Grants</div>
       </div>
-      <p>Fee split: 70–80% to validators, 20–30% to treasury. Success-based dApp incentives with per-dApp caps to prevent concentration.</p>
+      <p>Fee split: 70–80% to validators, 20–30% to treasury. At maturity, <strong>fee revenue dominates</strong>—validators and treasury earn from transactions; emissions decline (Year 1 ~8%, Year 10+ targets 1% floor or 0% if fees sufficient). dApp incentives (success-based, per-dApp capped) align developer success with adoption. Cross-chain DeFi via boing.finance captures value from swap fees and liquidity.</p>
+    </section>
+
+    <section class="investor-section">
+      <h2>Validation</h2>
+      <p><strong>Technical:</strong> Core protocol implemented—consensus (HotStuff), execution (custom VM), state (Sparse Merkle), P2P (libp2p). Node runs single- and multi-node. CLI and SDK scaffold and deploy dApps. Protocol QA design includes opcode whitelist, blocklist, scam patterns. Build and tests pass; fuzz harness for primitives.</p>
+      <p><strong>Operational:</strong> Testnet infrastructure ready—bootnodes, faucet, public RPC. Documentation supports validators and developers. boing.network live with docs, faucet, investor materials.</p>
+      <p><strong>Market:</strong> Design aligns with user pain (scams, congestion, opacity). Six-pillar philosophy and sustainable tokenomics documented. Incentivized testnet plan defined. Next: bootnode launch, public testnet, early validator/developer feedback.</p>
     </section>
 
     <section class="investor-section">
@@ -113,6 +138,7 @@ import Layout from '../layouts/Layout.astro';
           <div class="deck-slide active" data-slide="0">
             <h3>Boing Network</h3>
             <p class="slide-tagline">Authentic. Decentralized. Optimal. Quality-Assured.</p>
+            <p class="slide-stage">MVP · Testnet Live · SDK & CLI Ready</p>
             <p class="slide-sub">Executive Summary for Investors</p>
           </div>
           <div class="deck-slide" data-slide="1">
@@ -137,16 +163,32 @@ import Layout from '../layouts/Layout.astro';
             </ul>
           </div>
           <div class="deck-slide" data-slide="3">
-            <h3>Why Boing</h3>
-            <p>Protocol QA · 100% Transparency · Rust + BFT · Ecosystem Ready</p>
+            <h3>Competitive Advantage</h3>
             <p>No other L1 enforces deployment standards at the protocol layer.</p>
+            <p>Protocol QA · 100% Transparency · Rust + BFT · boing.finance integration</p>
           </div>
           <div class="deck-slide" data-slide="4">
-            <h3>Tokenomics</h3>
-            <p><strong>55%</strong> Staking · <strong>30%</strong> Treasury · <strong>15%</strong> Community & Grants</p>
-            <p>Uncapped supply, floor-triggered waves. No reward cliffs.</p>
+            <h3>Target Market</h3>
+            <p>DeFi users, protocols, validators seeking scam-resistant L1. Global DeFi TVL &gt;$50B. We target security-conscious protocols, validators, and users burned by scams.</p>
           </div>
           <div class="deck-slide" data-slide="5">
+            <h3>Go-to-Market</h3>
+            <ul>
+              <li>Phase 1: Testnet, incentivized program</li>
+              <li>Phase 2: Mainnet, audits, boing.finance</li>
+              <li>Phase 3: Ecosystem, dApp incentives</li>
+            </ul>
+          </div>
+          <div class="deck-slide" data-slide="6">
+            <h3>Tokenomics & Value</h3>
+            <p><strong>55%</strong> Staking · <strong>30%</strong> Treasury · <strong>15%</strong> Community & Grants</p>
+            <p>Fee revenue dominates at maturity. No reward cliffs.</p>
+          </div>
+          <div class="deck-slide" data-slide="7">
+            <h3>Validation</h3>
+            <p>Technical: Core protocol live. Operational: Testnet infra ready. Market: Design aligns with user pain; incentivized testnet plan defined.</p>
+          </div>
+          <div class="deck-slide" data-slide="8">
             <h3>Use of Funds</h3>
             <ul>
               <li>Mainnet launch — audits, infrastructure</li>
@@ -155,7 +197,7 @@ import Layout from '../layouts/Layout.astro';
               <li>Community & education</li>
             </ul>
           </div>
-          <div class="deck-slide" data-slide="6">
+          <div class="deck-slide" data-slide="9">
             <h3>Get in Touch</h3>
             <p><a href="https://github.com/chiku524/boing.network" target="_blank" rel="noopener">GitHub</a> · <a href="https://boing.network">Website</a> · <a href="/community">Community</a></p>
           </div>
@@ -223,6 +265,15 @@ import Layout from '../layouts/Layout.astro';
     color: var(--text-secondary);
     font-size: 1.05rem;
     margin: 0;
+  }
+  .investor-stage {
+    margin-top: 1rem;
+    padding: 0.5rem 1rem;
+    background: rgba(124, 58, 237, 0.15);
+    border: 1px solid rgba(124, 58, 237, 0.3);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
   }
   .investor-section {
     margin-bottom: 2.5rem;
@@ -405,6 +456,11 @@ import Layout from '../layouts/Layout.astro';
     font-size: 1.2rem !important;
     color: var(--text-primary) !important;
     margin-bottom: 0.5rem !important;
+  }
+  .slide-stage {
+    color: var(--accent-teal) !important;
+    font-size: 0.9rem !important;
+    margin: 0.25rem 0 0.5rem !important;
   }
   .slide-sub {
     color: var(--text-tertiary) !important;
