@@ -25,6 +25,7 @@ import Layout from '../layouts/Layout.astro';
       <h2>The Problem</h2>
       <ul>
         <li><strong>Scam proliferation</strong> — Most chains allow any bytecode; users and protocols bear the risk of malicious or low-quality deployments.</li>
+        <li><strong>Network congestion</strong> — When anything and everything can be deployed, chains become clogged with low-value or spam transactions, driving up fees and degrading UX for legitimate users.</li>
         <li><strong>Fragmented liquidity</strong> — Value is spread across dozens of chains; cross-chain coordination is trust-heavy and complex.</li>
         <li><strong>Opaque governance</strong> — Many networks lack verifiable transparency in tokenomics, treasury, and upgrades.</li>
         <li><strong>Unsustainable incentives</strong> — Reward cliffs and unchecked inflation undermine long-term viability.</li>
@@ -33,8 +34,9 @@ import Layout from '../layouts/Layout.astro';
 
     <section class="investor-section">
       <h2>Our Solution</h2>
-      <p>Boing introduces <strong>protocol-enforced quality assurance</strong> — the first L1 where only deployments meeting defined rules (bytecode, security heuristics, purpose declaration) are accepted. Automation handles known cases; a community QA pool handles edge cases. We combine this with:</p>
+      <p>Boing introduces <strong>protocol-enforced quality assurance</strong> — the first L1 where only deployments meeting defined rules (bytecode, security heuristics, purpose declaration) are accepted. By ensuring that not anything and everything can be deployed to the chain, our built-in QA directly reduces network congestion: the mempool and blocks stay focused on legitimate, high-quality transactions instead of spam and low-value deployments. Automation handles known cases; a community QA pool handles edge cases. We combine this with:</p>
       <ul>
+        <li><strong>QA at the infrastructure layer</strong> — Protocol-enforced filtering so only quality deployments reach the chain, reducing congestion from the start</li>
         <li><strong>Native account abstraction</strong> — Gasless UX, social recovery, session keys at the protocol level</li>
         <li><strong>Adaptive gas model</strong> — Dynamic pricing with predictable caps</li>
         <li><strong>Cross-chain DeFi coordination</strong> — Light client verification, unified liquidity routing via boing.finance</li>
