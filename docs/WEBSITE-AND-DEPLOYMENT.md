@@ -171,6 +171,8 @@ wrangler pages project create boing-network --production-branch main
 wrangler pages deploy dist --project-name=boing-network
 ```
 
+If you see **504 Gateway Timeout** or "upstream request timeout" from the Cloudflare API, the API was temporarily overloaded. Retry the deploy in a few minutes; the GitHub Actions workflow retries up to 3 times with a 30s delay.
+
 ### Step 6: Custom domain
 
 1. **Workers & Pages** → **boing-network** → **Custom domains**
