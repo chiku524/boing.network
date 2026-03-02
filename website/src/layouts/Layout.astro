@@ -85,11 +85,11 @@ const ogImage = `${siteUrl}/og.png`;
           <>
             <a href="/docs/getting-started">Docs</a>
             <a href="/developers/quickstart">Developers</a>
-            <a href="/testnet" class="nav-cta">Testnet Portal</a>
             <a href="/network/testnet">Join Testnet</a>
             <a href="/network/faucet">Faucet</a>
             <a href="/about">About</a>
             <a href="/community">Community</a>
+            <a href="/testnet" class="nav-testnet">Testnet</a>
           </>
         )}
       </nav>
@@ -215,6 +215,16 @@ const ogImage = `${siteUrl}/og.png`;
   .site-header nav a:hover,
   .site-header nav a.active {
     color: var(--accent-teal);
+  }
+
+  /* Testnet: far right, distinct color (amber/gold) */
+  .site-header nav a.nav-testnet {
+    margin-left: auto;
+    color: #f59e0b;
+    font-weight: 600;
+  }
+  .site-header nav a.nav-testnet:hover {
+    color: #fbbf24;
   }
 
   /* Cosmic Foundation: primary CTA = violet → cyan gradient */
