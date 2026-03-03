@@ -80,7 +80,8 @@ impl Transaction {
                 format!("Call contract {}", hex::encode(&contract.0[..8]))
             }
             TransactionPayload::ContractDeploy { .. }
-            | TransactionPayload::ContractDeployWithPurpose { .. } => "Deploy contract".into(),
+            | TransactionPayload::ContractDeployWithPurpose { .. }
+            | TransactionPayload::ContractDeployWithPurposeAndMetadata { .. } => "Deploy contract".into(),
         };
         format!(
             "From: {} | Nonce: {} | {}",
@@ -106,11 +107,21 @@ pub enum TransactionPayload {
     ContractCall { contract: AccountId, calldata: Vec<u8> },
     /// Contract deploy (legacy; no purpose declaration).
     ContractDeploy { bytecode: Vec<u8> },
-    /// Contract deploy with optional QA purpose declaration.
+    /// Contract deploy with optional QA purpose declaration (no deploy-time metadata).
     ContractDeployWithPurpose {
         bytecode: Vec<u8>,
         purpose_category: String,
         description_hash: Option<Vec<u8>>,
+    },
+    /// Contract deploy with purpose and optional asset metadata (name/symbol) for content-policy checks.
+    ContractDeployWithPurposeAndMetadata {
+        bytecode: Vec<u8>,
+        purpose_category: String,
+        description_hash: Option<Vec<u8>>,
+        /// Optional asset name (e.g. token name). Checked against governance content blocklist. Max 256 bytes UTF-8.
+        asset_name: Option<String>,
+        /// Optional asset symbol (e.g. ticker). Checked against governance content blocklist. Max 32 bytes UTF-8.
+        asset_symbol: Option<String>,
     },
     /// Bond stake to become/l remain a validator.
     Bond { amount: u128 },
@@ -119,11 +130,16 @@ pub enum TransactionPayload {
 }
 
 impl TransactionPayload {
-    /// Returns (bytecode, purpose_category, description_hash) if this is a contract deploy payload.
-    pub fn as_contract_deploy(&self) -> Option<(&[u8], Option<&str>, Option<&[u8]>)> {
+    /// Max length for asset_name in ContractDeployWithPurpose (UTF-8 bytes).
+    pub const MAX_ASSET_NAME_LEN: usize = 256;
+    /// Max length for asset_symbol in ContractDeployWithPurpose (UTF-8 bytes).
+    pub const MAX_ASSET_SYMBOL_LEN: usize = 32;
+
+    /// Returns (bytecode, purpose_category, description_hash, asset_name, asset_symbol) if this is a contract deploy payload.
+    pub fn as_contract_deploy(&self) -> Option<(&[u8], Option<&str>, Option<&[u8]>, Option<&str>, Option<&str>)> {
         match self {
             TransactionPayload::ContractDeploy { bytecode } => {
-                Some((bytecode.as_slice(), None, None))
+                Some((bytecode.as_slice(), None, None, None, None))
             }
             TransactionPayload::ContractDeployWithPurpose {
                 bytecode,
@@ -133,6 +149,21 @@ impl TransactionPayload {
                 bytecode.as_slice(),
                 Some(purpose_category.as_str()),
                 description_hash.as_deref(),
+                None,
+                None,
+            )),
+            TransactionPayload::ContractDeployWithPurposeAndMetadata {
+                bytecode,
+                purpose_category,
+                description_hash,
+                asset_name,
+                asset_symbol,
+            } => Some((
+                bytecode.as_slice(),
+                Some(purpose_category.as_str()),
+                description_hash.as_deref(),
+                asset_name.as_deref(),
+                asset_symbol.as_deref(),
             )),
             _ => None,
         }

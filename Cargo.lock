@@ -511,6 +511,8 @@ name = "boing-qa"
 version = "0.1.0"
 dependencies = [
  "boing-primitives",
+ "serde",
+ "serde_json",
  "thiserror 1.0.69",
 ]
 

@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::Mutex;
 
 use boing_primitives::{AccountId, SignedTransaction};
-use boing_qa::{check_contract_deploy_full, RuleRegistry, QaReject, QaResult};
+use boing_qa::{check_contract_deploy_full_with_metadata, RuleRegistry, QaReject, QaResult};
 
 /// Default max pending transactions per sender (matches SECURITY-STANDARDS / RateLimitConfig).
 pub const DEFAULT_MAX_PENDING_PER_SENDER: usize = 16;
@@ -14,6 +14,8 @@ pub const DEFAULT_MAX_PENDING_PER_SENDER: usize = 16;
 pub struct Mempool {
     inner: Mutex<MempoolInner>,
     max_pending_per_sender: usize,
+    /// QA rule registry (blocklist, content blocklist, etc.). Replace via [Mempool::with_qa_registry] or governance.
+    qa_registry: RuleRegistry,
 }
 
 impl Default for Mempool {
@@ -42,6 +44,7 @@ impl Mempool {
         Self {
             inner: Mutex::new(MempoolInner::default()),
             max_pending_per_sender: DEFAULT_MAX_PENDING_PER_SENDER,
+            qa_registry: default_qa_registry(),
         }
     }
 
@@ -50,16 +53,24 @@ impl Mempool {
         self
     }
 
+    /// Use a custom QA rule registry (e.g. loaded from file or from governance). Content blocklist and other rules are applied from this registry.
+    pub fn with_qa_registry(mut self, registry: RuleRegistry) -> Self {
+        self.qa_registry = registry;
+        self
+    }
+
     /// Insert a signed transaction. Rejects duplicates, invalid nonces, per-sender cap, and ContractDeploy that fail QA.
     pub fn insert(&self, signed: SignedTransaction) -> Result<(), MempoolError> {
         signed.verify().map_err(|_| MempoolError::InvalidSignature)?;
-        if let Some((bytecode, purpose, desc_hash)) = signed.tx.payload.as_contract_deploy() {
-            let registry = default_qa_registry();
-            match check_contract_deploy_full(
+        if let Some((bytecode, purpose, desc_hash, asset_name, asset_symbol)) = signed.tx.payload.as_contract_deploy() {
+            let registry = &self.qa_registry;
+            match check_contract_deploy_full_with_metadata(
                 bytecode,
                 purpose,
                 desc_hash,
-                &registry,
+                asset_name,
+                asset_symbol,
+                registry,
             ) {
                 QaResult::Reject(reject) => return Err(MempoolError::QaRejected(reject)),
                 QaResult::Unsure => return Err(MempoolError::QaPendingPool),

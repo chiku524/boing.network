@@ -416,8 +416,7 @@ Use `boing_qaCheck([hex_bytecode]` or `boing_qaCheck([hex_bytecode, purpose_cate
 | [BOING-NETWORK-ESSENTIALS.md](BOING-NETWORK-ESSENTIALS.md) | Six pillars, design philosophy, quick reference |
 | [BOING-BLOCKCHAIN-DESIGN-PLAN.md](BOING-BLOCKCHAIN-DESIGN-PLAN.md) | Full architecture, innovations, tokenomics |
 | [RPC-API-SPEC.md](RPC-API-SPEC.md) | Complete RPC method specs and examples |
-| [QUALITY-ASSURANCE-NETWORK.md](QUALITY-ASSURANCE-NETWORK.md) | QA design, automation, community pool |
-| [QA-PASS-GUIDE.md](QA-PASS-GUIDE.md) | Deployer checklist for passing QA |
+| [QUALITY-ASSURANCE-NETWORK.md](QUALITY-ASSURANCE-NETWORK.md) | QA design, automation, community pool; Appendix A: deployer checklist |
 | [BOING-EXPRESS-WALLET.md](BOING-EXPRESS-WALLET.md) | Wallet integration, signing spec |
 | [RUNBOOK.md](RUNBOOK.md) | Node operation, monitoring, incidents |
 | [SECURITY-STANDARDS.md](SECURITY-STANDARDS.md) | Security requirements and practices |

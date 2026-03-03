@@ -59,8 +59,8 @@ Complete these **before** running bootnodes. See [BOING-NETWORK-ESSENTIALS.md](B
 | 2 | Document security contacts in SECURITY-STANDARDS | Security |
 | 3 | Add "Scalability characteristics" (block time, TPS) to RUNBOOK | Scalability |
 | 4 | Add "Decentralization design" note to RUNBOOK | Decentralization |
-| 5 | [QA-PASS-GUIDE.md](QA-PASS-GUIDE.md) (deployer checklist) | QA, Transparency |
-| 6 | [CANONICAL-MALICE-DEFINITION.md](CANONICAL-MALICE-DEFINITION.md) | QA, Transparency |
+| 5 | [QUALITY-ASSURANCE-NETWORK.md](QUALITY-ASSURANCE-NETWORK.md) Appendix A (deployer checklist) | QA, Transparency |
+| 6 | [QUALITY-ASSURANCE-NETWORK.md](QUALITY-ASSURANCE-NETWORK.md) Appendix B (canonical malice definition) | QA, Transparency |
 
 ---
 

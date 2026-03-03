@@ -164,7 +164,8 @@ impl Vm {
                 self.execute_contract_call(state, tx, contract, calldata)?
             }
             TransactionPayload::ContractDeploy { bytecode }
-            | TransactionPayload::ContractDeployWithPurpose { bytecode, .. } => {
+            | TransactionPayload::ContractDeployWithPurpose { bytecode, .. }
+            | TransactionPayload::ContractDeployWithPurposeAndMetadata { bytecode, .. } => {
                 self.execute_contract_deploy(state, tx, bytecode)?
             }
         };

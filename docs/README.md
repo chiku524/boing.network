@@ -16,8 +16,9 @@ Start with [BOING-NETWORK-ESSENTIALS.md](BOING-NETWORK-ESSENTIALS.md) for the si
 | Doc | Description |
 |-----|-------------|
 | [READINESS.md](READINESS.md) | Beta checklist, six-pillar readiness, launch-blocking path |
-| [INCENTIVIZED-TESTNET.md](INCENTIVIZED-TESTNET.md) | Incentive design, promotion, mainnet migration |
+| [INCENTIVIZED-TESTNET.md](INCENTIVIZED-TESTNET.md) | Incentive design, promotion, mainnet migration (includes Reddit post draft in Appendix A) |
 | [TESTNET.md](TESTNET.md) | Join testnet: bootnodes, faucet, single vs multi-node |
+| [TESTNET-PORTAL.md](TESTNET-PORTAL.md) | Testnet portal: registration, dashboards, community quests (§10) |
 | [INFRASTRUCTURE-SETUP.md](INFRASTRUCTURE-SETUP.md) | Bootnodes, Cloudflare tunnel |
 | [VIBEMINER-INTEGRATION.md](VIBEMINER-INTEGRATION.md) | One-click mining via VibeMiner |
 
@@ -25,9 +26,8 @@ Start with [BOING-NETWORK-ESSENTIALS.md](BOING-NETWORK-ESSENTIALS.md) for the si
 
 | Doc | Description |
 |-----|-------------|
-| [QUALITY-ASSURANCE-NETWORK.md](QUALITY-ASSURANCE-NETWORK.md) | Protocol QA: rules, automation, community pool |
-| [QA-PASS-GUIDE.md](QA-PASS-GUIDE.md) | Deployer checklist: how to pass QA |
-| [CANONICAL-MALICE-DEFINITION.md](CANONICAL-MALICE-DEFINITION.md) | Definition of malice for QA |
+| [QUALITY-ASSURANCE-NETWORK.md](QUALITY-ASSURANCE-NETWORK.md) | Protocol QA: rules, automation, community pool; includes **Appendix A: Deployer checklist** and **Appendix B: Canonical malice definition** |
+| [GOVERNANCE-QA-RULES.md](GOVERNANCE-QA-RULES.md) | How to update QA rules (content blocklist, blocklist, etc.) via governance — mutable, no redeploy |
 | [SECURITY-STANDARDS.md](SECURITY-STANDARDS.md) | Protocol, network, application security |
 
 ## Design & Build
@@ -49,3 +49,4 @@ Start with [BOING-NETWORK-ESSENTIALS.md](BOING-NETWORK-ESSENTIALS.md) for the si
 | [DECENTRALIZATION-AND-NETWORKING.md](DECENTRALIZATION-AND-NETWORKING.md) | P2P, discovery, WebRTC signaling |
 | [WEBSITE-AND-DEPLOYMENT.md](WEBSITE-AND-DEPLOYMENT.md) | Website and Cloudflare deployment |
 | [NOTION-INTEGRATION-SETUP.md](NOTION-INTEGRATION-SETUP.md) | Notion integration |
+| [BEACON-ACCELERATOR-APPLICATION-DRAFT.md](BEACON-ACCELERATOR-APPLICATION-DRAFT.md) | Draft answers for Beacon accelerator application |

@@ -31,7 +31,7 @@ use crate::security::RateLimitConfig;
 use boing_primitives::{
     AccessList, AccountId, SignedIntent, SignedTransaction, Transaction, TransactionPayload,
 };
-use boing_qa::{check_contract_deploy_full, QaResult, RuleRegistry};
+use boing_qa::{check_contract_deploy_full_with_metadata, QaResult, RuleRegistry};
 
 /// Shared node state for RPC and validator loop.
 pub type NodeState = Arc<RwLock<BoingNode>>;
@@ -372,7 +372,7 @@ async fn handle_rpc(State(state): State<RpcState>, Json(req): Json<JsonRpcReques
             let params = req.params.and_then(|p| serde_json::from_value::<Vec<serde_json::Value>>(p).ok());
             let hex_bytecode = match params.as_ref().and_then(|v| v.first()) {
                 Some(serde_json::Value::String(s)) => s.clone(),
-                _ => return (StatusCode::OK, Json(rpc_error(id, -32602, "Invalid params: expected [hex_bytecode] or [hex_bytecode, purpose_category?, description_hash?]".into()))),
+                _ => return (StatusCode::OK, Json(rpc_error(id, -32602, "Invalid params: expected [hex_bytecode] or [hex_bytecode, purpose_category?, description_hash?, asset_name?, asset_symbol?]".into()))),
             };
             let bytecode = match hex::decode(hex_bytecode.trim_start_matches("0x")) {
                 Ok(b) => b,
@@ -387,11 +387,15 @@ async fn handle_rpc(State(state): State<RpcState>, Json(req): Json<JsonRpcReques
                 .and_then(|v| v.as_str())
                 .and_then(|s| hex::decode(s.trim_start_matches("0x")).ok())
                 .filter(|b| b.len() == 32);
+            let asset_name = params.as_ref().and_then(|v| v.get(3)).and_then(|v| v.as_str()).map(|s| s.to_string());
+            let asset_symbol = params.as_ref().and_then(|v| v.get(4)).and_then(|v| v.as_str()).map(|s| s.to_string());
             let registry = RuleRegistry::new();
-            let result = check_contract_deploy_full(
+            let result = check_contract_deploy_full_with_metadata(
                 &bytecode,
                 purpose.as_deref(),
                 desc_hash.as_deref(),
+                asset_name.as_deref(),
+                asset_symbol.as_deref(),
                 &registry,
             );
             let (result_str, rule_id, message, doc_url) = match result {

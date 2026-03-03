@@ -27,12 +27,12 @@ pub enum QaResult {
 pub struct QaReject {
     pub rule_id: RuleId,
     pub message: String,
-    /// Optional link to QA docs (e.g. QA-PASS-GUIDE) for actionable feedback.
+    /// Optional link to QA docs (deployer checklist in QUALITY-ASSURANCE-NETWORK) for actionable feedback.
     pub doc_url: Option<String>,
 }
 
-/// Doc URL for QA guidance. Override with env or config in production.
-pub const QA_PASS_GUIDE_URL: &str = "https://github.com/chiku524/boing.network/blob/main/docs/QA-PASS-GUIDE.md";
+/// Doc URL for QA guidance (QUALITY-ASSURANCE-NETWORK Appendix A: Deployer checklist). Override with env or config in production.
+pub const QA_PASS_GUIDE_URL: &str = "https://github.com/chiku524/boing.network/blob/main/docs/QUALITY-ASSURANCE-NETWORK.md#appendix-a-deployer-checklist-how-to-pass-qa";
 
 fn doc_url_for_rule(_rule_id: &str) -> Option<String> {
     Some(format!("{}#common-rejections-and-fixes", QA_PASS_GUIDE_URL))
@@ -71,6 +71,10 @@ impl RuleId {
     pub const PURPOSE_DECLARATION_INVALID: &'static str = "PURPOSE_DECLARATION_INVALID";
     pub const ALWAYS_REVIEW_CATEGORY: &'static str = "ALWAYS_REVIEW_CATEGORY";
     pub const SOFT_RULE_FAILED: &'static str = "SOFT_RULE_FAILED";
+    /// Asset name or symbol exceeds max length.
+    pub const METADATA_TOO_LONG: &'static str = "METADATA_TOO_LONG";
+    /// Asset name or symbol contains governance-forbidden content (vulgarity, offensiveness, etc.).
+    pub const CONTENT_POLICY_VIOLATION: &'static str = "CONTENT_POLICY_VIOLATION";
 }
 
 fn is_valid_opcode(b: u8) -> bool {
@@ -113,6 +117,11 @@ fn check_well_formed(bytecode: &[u8]) -> Result<(), (usize, bool, &'static str)>
 
 /// Default maximum bytecode size (bytes). Governance can change via rule registry.
 pub const DEFAULT_MAX_BYTECODE_SIZE: usize = 32 * 1024; // 32 KiB
+
+/// Max length for asset_name (UTF-8 bytes). Must match boing_primitives::TransactionPayload::MAX_ASSET_NAME_LEN.
+pub const MAX_ASSET_NAME_LEN: usize = 256;
+/// Max length for asset_symbol (UTF-8 bytes). Must match boing_primitives::TransactionPayload::MAX_ASSET_SYMBOL_LEN.
+pub const MAX_ASSET_SYMBOL_LEN: usize = 32;
 
 /// Valid purpose categories per QUALITY-ASSURANCE-NETWORK.md §5.3, §10 (meme leniency).
 pub const VALID_PURPOSE_CATEGORIES: &[&str] = &[
@@ -168,13 +177,51 @@ pub fn check_contract_deploy(
 }
 
 /// Full check using the complete rule registry. Applies all rules: hard rules, blocklist,
-/// scam patterns, always-review categories, and soft rules.
+/// scam patterns, always-review categories, content policy (vulgarity/offensiveness), and soft rules.
 pub fn check_contract_deploy_full(
     bytecode: &[u8],
     purpose_category: Option<&str>,
     description_hash: Option<&[u8]>,
     registry: &RuleRegistry,
 ) -> QaResult {
+    check_contract_deploy_full_with_metadata(
+        bytecode,
+        purpose_category,
+        description_hash,
+        None,
+        None,
+        registry,
+    )
+}
+
+/// Full check with optional deploy-time metadata (asset_name, asset_symbol) for content policy.
+/// If asset_name or asset_symbol exceed max length, or contain governance-forbidden strings, Reject.
+pub fn check_contract_deploy_full_with_metadata(
+    bytecode: &[u8],
+    purpose_category: Option<&str>,
+    description_hash: Option<&[u8]>,
+    asset_name: Option<&str>,
+    asset_symbol: Option<&str>,
+    registry: &RuleRegistry,
+) -> QaResult {
+    // Metadata length (when provided)
+    if let Some(name) = asset_name {
+        if name.len() > MAX_ASSET_NAME_LEN {
+            return QaResult::Reject(QaReject::new(
+                RuleId(RuleId::METADATA_TOO_LONG.to_string()),
+                format!("asset_name length {} exceeds max {}", name.len(), MAX_ASSET_NAME_LEN),
+            ));
+        }
+    }
+    if let Some(sym) = asset_symbol {
+        if sym.len() > MAX_ASSET_SYMBOL_LEN {
+            return QaResult::Reject(QaReject::new(
+                RuleId(RuleId::METADATA_TOO_LONG.to_string()),
+                format!("asset_symbol length {} exceeds max {}", sym.len(), MAX_ASSET_SYMBOL_LEN),
+            ));
+        }
+    }
+
     let base = check_contract_deploy_with_blocklist(
         bytecode,
         purpose_category,
@@ -195,6 +242,11 @@ pub fn check_contract_deploy_full(
         }
     }
 
+    // Content policy: vulgarity / offensiveness blocklist (governance-mutable)
+    if let Some(reject) = check_content_policy(asset_name, asset_symbol, registry.content_blocklist()) {
+        return QaResult::Reject(reject);
+    }
+
     // Policy "always review" categories → Unsure
     if let Some(cat) = purpose_category {
         let cat_lower = cat.trim().to_lowercase();
@@ -209,6 +261,41 @@ pub fn check_contract_deploy_full(
     }
 
     QaResult::Allow
+}
+
+/// Check asset name/symbol against governance content blocklist (forbidden substrings).
+/// Case-insensitive. Returns Some(QaReject) if any forbidden term is contained.
+fn check_content_policy(
+    asset_name: Option<&str>,
+    asset_symbol: Option<&str>,
+    forbidden_terms: &[String],
+) -> Option<QaReject> {
+    if forbidden_terms.is_empty() {
+        return None;
+    }
+    let check = |s: &str| {
+        let lower = s.trim().to_lowercase();
+        for term in forbidden_terms {
+            if !term.is_empty() && lower.contains(&term.to_lowercase()) {
+                return Some(QaReject::new(
+                    RuleId(RuleId::CONTENT_POLICY_VIOLATION.to_string()),
+                    format!("Deployment metadata contains governance-forbidden content (vulgarity/offensiveness policy)"),
+                ));
+            }
+        }
+        None
+    };
+    if let Some(name) = asset_name {
+        if let Some(r) = check(name) {
+            return Some(r);
+        }
+    }
+    if let Some(sym) = asset_symbol {
+        if let Some(r) = check(sym) {
+            return Some(r);
+        }
+    }
+    None
 }
 
 /// Same as [check_contract_deploy] but with an optional blocklist of bytecode hashes (e.g. known scams).
@@ -276,7 +363,9 @@ pub fn check_contract_deploy_with_blocklist(
 }
 
 /// In-memory rule registry. Production: on-chain or governance-driven registry.
-#[derive(Clone)]
+/// Governance can update blocklist, scam_patterns, always_review_categories, and content_blocklist
+/// via proposals (target_key "qa_registry", value = serialized RuleRegistry).
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct RuleRegistry {
     max_bytecode_size: usize,
     blocklist: Vec<[u8; 32]>,
@@ -284,6 +373,8 @@ pub struct RuleRegistry {
     scam_patterns: Vec<Vec<u8>>,
     /// Purpose categories that always go to pool (policy-required review).
     always_review_categories: std::collections::HashSet<String>,
+    /// Forbidden substrings in asset name/symbol (vulgarity, offensiveness). Case-insensitive match. Governance-mutable.
+    content_blocklist: Vec<String>,
 }
 
 impl Default for RuleRegistry {
@@ -299,6 +390,7 @@ impl RuleRegistry {
             blocklist: Vec::new(),
             scam_patterns: Vec::new(),
             always_review_categories: std::collections::HashSet::new(),
+            content_blocklist: Vec::new(),
         }
     }
 
@@ -322,6 +414,12 @@ impl RuleRegistry {
         self
     }
 
+    /// Set the content blocklist (forbidden terms for asset name/symbol). Replaces existing.
+    pub fn with_content_blocklist(mut self, terms: impl IntoIterator<Item = String>) -> Self {
+        self.content_blocklist = terms.into_iter().filter(|s| !s.is_empty()).collect();
+        self
+    }
+
     pub fn add_blocklist_entry(&mut self, hash: [u8; 32]) {
         if !self.blocklist.iter().any(|h| h == &hash) {
             self.blocklist.push(hash);
@@ -336,6 +434,25 @@ impl RuleRegistry {
 
     pub fn add_always_review_category(&mut self, category: impl Into<String>) {
         self.always_review_categories.insert(category.into().to_lowercase());
+    }
+
+    /// Add a forbidden term to the content blocklist (governance-mutable). Case-insensitive.
+    pub fn add_forbidden_content(&mut self, term: impl Into<String>) {
+        let t = term.into().trim().to_string();
+        if !t.is_empty() && !self.content_blocklist.iter().any(|s| s.eq_ignore_ascii_case(&t)) {
+            self.content_blocklist.push(t);
+        }
+    }
+
+    /// Remove a term from the content blocklist. Returns true if removed.
+    pub fn remove_forbidden_content(&mut self, term: &str) -> bool {
+        let lower = term.trim().to_lowercase();
+        if let Some(pos) = self.content_blocklist.iter().position(|s| s.to_lowercase() == lower) {
+            self.content_blocklist.remove(pos);
+            true
+        } else {
+            false
+        }
     }
 
     pub fn max_bytecode_size(&self) -> usize {
@@ -353,9 +470,24 @@ impl RuleRegistry {
     pub fn always_review_categories(&self) -> &std::collections::HashSet<String> {
         &self.always_review_categories
     }
+
+    pub fn content_blocklist(&self) -> &[String] {
+        &self.content_blocklist
+    }
 }
 
 pub mod pool;
+
+/// Governance target key for updating the QA rule registry. When a governance proposal is executed
+/// with this key, the node (or operator) should replace the in-memory RuleRegistry with the
+/// deserialized value. Value format: JSON-serialized RuleRegistry (see [RuleRegistry] and serde).
+pub const GOVERNANCE_QA_REGISTRY_KEY: &str = "qa_registry";
+
+/// Load a [RuleRegistry] from JSON bytes (e.g. governance proposal target_value).
+/// Use this when applying an executed governance proposal to update QA rules.
+pub fn rule_registry_from_json(bytes: &[u8]) -> Result<RuleRegistry, serde_json::Error> {
+    serde_json::from_slice(bytes)
+}
 
 #[cfg(test)]
 mod tests {
@@ -447,6 +579,49 @@ mod tests {
     fn full_check_other_with_description_allow() {
         let reg = RuleRegistry::new();
         let r = check_contract_deploy_full(&[0x00], Some("other"), Some(&[1u8; 8]), &reg);
+        assert!(matches!(r, QaResult::Allow));
+    }
+
+    #[test]
+    fn full_check_metadata_too_long_reject() {
+        let reg = RuleRegistry::new();
+        let long_name = "a".repeat(MAX_ASSET_NAME_LEN + 1);
+        let r = check_contract_deploy_full_with_metadata(
+            &[0x00],
+            None,
+            None,
+            Some(&long_name),
+            None,
+            &reg,
+        );
+        assert!(matches!(r, QaResult::Reject(ref rej) if rej.rule_id.0 == RuleId::METADATA_TOO_LONG));
+    }
+
+    #[test]
+    fn full_check_content_policy_reject() {
+        let reg = RuleRegistry::new().with_content_blocklist(vec!["forbidden_term".to_string()]);
+        let r = check_contract_deploy_full_with_metadata(
+            &[0x00],
+            Some("token"),
+            None,
+            Some("My forbidden_term asset"),
+            None,
+            &reg,
+        );
+        assert!(matches!(r, QaResult::Reject(ref rej) if rej.rule_id.0 == RuleId::CONTENT_POLICY_VIOLATION));
+    }
+
+    #[test]
+    fn full_check_content_policy_allow_when_no_match() {
+        let reg = RuleRegistry::new().with_content_blocklist(vec!["forbidden".to_string()]);
+        let r = check_contract_deploy_full_with_metadata(
+            &[0x00],
+            Some("token"),
+            None,
+            Some("Clean Asset Name"),
+            Some("SYM"),
+            &reg,
+        );
         assert!(matches!(r, QaResult::Allow));
     }
 }

@@ -5,6 +5,18 @@
 
 ---
 
+## Quick reference — Primary factors: Reject vs Allow vs Unsure
+
+| Outcome | When it happens | Primary deterring / enabling factors |
+|--------|-------------------|--------------------------------------|
+| **Reject** | Deployment is **blocked** and never enters a block. | **Bytecode:** empty, over size limit (e.g. 32 KiB), invalid opcode, malformed (truncated PUSH, trailing bytes). **Purpose:** invalid category when provided (must be one of: dApp, token, NFT, meme, community, entertainment, tooling, other). **Legitimacy:** bytecode hash on blocklist (known scam/malware), or bytecode contains a known scam/malware **pattern** (governance-defined). |
+| **Allow** | Deployment is **accepted** and can be included in a block. | **All hard rules pass:** bytecode within size limit, only valid Boing VM opcodes, well-formed instruction stream, not on blocklist, no scam pattern match. **Purpose** (if provided) is a valid category; **missing purpose is allowed** per spec. **No** policy-required pool review for this category; **no** soft rule triggering Unsure (e.g. "other" with minimal description). Meme, community, entertainment are valid and not discriminated against. |
+| **Unsure** | Deployment is **referred to the community QA pool**; not auto-accepted. | **Soft rules:** e.g. purpose category `"other"` with very short or empty description (description length &lt; 4 bytes). **Policy:** category is in the governance-defined "always review" list (e.g. high-stakes financial). When automation lacks sufficient evidence to Allow or Reject, the pool decides. |
+
+**Summary:** The main **reject** triggers are: **specs failure** (size, opcodes, well-formedness), **blocklist match**, **scam pattern match**, and **invalid purpose category**. The main **allow** condition is: **all hard rules pass** and **purpose is valid or omitted**. **Unsure** is used for **edge cases** (ambiguous declaration, policy-required review) so the community pool can decide without a single gatekeeper.
+
+---
+
 ## Table of Contents
 
 1. [Vision](#1-vision)
@@ -20,9 +32,14 @@
 11. [Resolving Currently Known Edge Cases by Automation (Pillar Optimization)](#11-resolving-currently-known-edge-cases-by-automation-pillar-optimization)
 12. [Automated and Decentralized by Design](#12-automated-and-decentralized-by-design)
 13. [Integration with the Existing Network](#13-integration-with-the-existing-network)
+  - 13.1 [What automated QA does about malicious assets (morality / harm)](#131-what-automated-qa-does-about-malicious-assets-morality--harm)
+  - 13.2 [Implementation standards & industry alignment](#132-implementation-standards--industry-alignment)
 14. [Implementation Phases](#14-implementation-phases)
 15. [Chain Restart vs. Extension](#15-chain-restart-vs-extension)
 16. [Additional Enhancements & Optimizations](#16-additional-enhancements--optimizations)
+17. [Appendix A: Deployer Checklist (How to Pass QA)](#appendix-a-deployer-checklist-how-to-pass-qa)
+18. [Appendix B: Canonical Definition of Malice](#appendix-b-canonical-definition-of-malice)
+19. [Summary](#summary)
 
 ---
 
@@ -370,6 +387,37 @@ The goal is that **all currently known edge cases are resolved by automation**; 
   - `boing_submitTransaction` returns `-32050` (or similar) with message “Deployment rejected by QA: rule X”.
   - Optional: `boing_qaCheck(bytecode)` for pre-flight checks without submitting.
 
+### 13.1 What automated QA does about malicious assets (morality / harm)
+
+Automated QA does **not** apply open-ended "moral" judgment. It operationalizes **malice** (harm, abuse, scams) through **deterministic, protocol-defined rules** so that:
+
+| Layer | What automation does about malicious assets |
+|-------|---------------------------------------------|
+| **Blocklist** | Governance maintains a list of **bytecode hashes** of known scam/malware/phishing/rug-pull contracts. If the deployment’s bytecode hash matches any entry → **Reject**. No deployment of that exact (or identical) code. |
+| **Scam patterns** | Governance can add **byte sequences** (or behavioral signatures) that indicate known malicious code. If bytecode contains a listed pattern → **Reject**. Catches variants and copies of known-bad contracts. |
+| **Purpose** | Only **valid purpose categories** are accepted (dApp, token, NFT, meme, community, entertainment, tooling, other). There is no "scam" or "malware" category; declaring a harmful purpose is not possible. Invalid category → Reject. |
+| **Hard rules** | Size, opcodes, and well-formedness limit what can be deployed (e.g. no invalid opcodes that could hide exploit code). These are **spec** checks, not moral ones, but they reduce the space for harmful bytecode. |
+| **Edge cases (Unsure)** | When automation is unsure, the **community QA pool** decides using the **canonical definition of malice** (Appendix B): scams, phishing, rug-pulls, malware, impersonation, deceptive naming, Ponzi patterns, spam/abuse. Pool members vote Reject if the asset fits those categories; otherwise Allow (with leniency for meme/experimental). |
+
+**In short:** Automation **rejects** malicious assets when they match the **blocklist** or **scam patterns** (governance-defined). It does **not** deploy vague morality—only the bar set by the protocol and governance. The **canonical malice definition** (Appendix B) is the **moral/harm bar**; automation enforces it via blocklist + patterns, and the **pool** enforces it for Unsure cases. **No scams whatsoever** is policy; automation and the pool together enforce it.
+
+### 13.2 Implementation standards & industry alignment
+
+The Boing QA implementation is designed to meet **quality and industry standards** for protocol-level deployment gating:
+
+| Standard | How Boing QA meets it |
+|----------|------------------------|
+| **Determinism & consensus** | All automated checks are **deterministic**: same (bytecode, purpose, rule set) → same Allow/Reject/Unsure on every node. No randomness, no external calls. Ensures consensus and replayability (see §6.1). |
+| **Single source of truth for opcodes** | The **opcode whitelist** in `boing-qa` is aligned with `boing-execution` bytecode: only Stop, Add, Sub, Mul, MLoad, MStore, SLoad, SStore, Jump, JumpI, Push1..Push32, Return. Any other byte → Reject. Prevents deployment of bytecode the VM cannot execute. |
+| **Defense in depth** | QA runs at **mempool insert** (reject before broadcast) and again at **execution** (Vm::execute_contract_deploy). A bug or bypass in one layer does not allow bad bytecode into state. |
+| **Structured rejection** | Every Reject carries a **rule_id**, **message**, and optional **doc_url** (link to deployer checklist). Clients and wallets can show actionable feedback; RPC `boing_qaCheck` returns the same structure for pre-flight. |
+| **Bounded resource usage** | **Max bytecode size** (e.g. 32 KiB) limits state growth and DoS; **well-formedness** (no truncated PUSH, no trailing bytes) ensures a single linear pass. No unbounded loops or recursion in the checker. |
+| **Governance-updatable rules** | Blocklist, scam patterns, and "always review" categories live in a **RuleRegistry**; production can use an on-chain or config-driven registry so rules evolve without a chain restart. |
+| **Transparent, auditable rules** | Rule IDs and valid purpose categories are **documented** in this spec and in code constants; canonical malice definition (Appendix B) gives the pool a clear bar. |
+| **No single gatekeeper** | Unsure → community QA pool; pool parameters and membership are governance-defined. Automation handles the vast majority; edge cases are decided collectively. |
+
+**Primary deterring factors (reject)** are implemented as **hard rules**: empty bytecode, size over limit, invalid opcode, malformed stream, blocklist match, scam pattern match, invalid purpose category. **Allow** requires all hard rules to pass and no soft/policy trigger for Unsure. This aligns with industry practice: **gate at deployment time**, **deterministic checks**, **clear error reporting**, and **decentralized edge-case handling**.
+
 ---
 
 ## 14. Implementation Phases
@@ -436,6 +484,106 @@ The following enhancements would further strengthen the QA pillar. They are not 
 ---
 
 Prioritizing **pre-flight checks**, **structured errors**, **public metrics**, and **versioned rule sets** would yield the highest impact for the QA pillar; **appeal path** and **canonical malice definition** strengthen fairness and clarity. The rest can be adopted as the network matures.
+
+---
+
+## Appendix A: Deployer Checklist (How to Pass QA)
+
+Quick reference for developers deploying contracts on Boing Network.
+
+### Pre-flight: Use `boing_qaCheck` First
+
+Before submitting a deployment, run a pre-flight check:
+
+```bash
+curl -s -X POST http://127.0.0.1:8545/ -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"boing_qaCheck","params":["0x<hex_bytecode>","meme",""]}'
+```
+
+Result will be `allow`, `reject`, or `unsure`. If `reject`, the response includes `rule_id` and `message`.
+
+### Hard Rules (Must Pass)
+
+| Rule | Limit | Action |
+|------|-------|--------|
+| **Bytecode size** | ≤ 32 KiB | Shrink or split contract |
+| **Valid opcodes only** | Stop, Add, Sub, Mul, MLoad, MStore, SLoad, SStore, Jump, JumpI, Push1..Push32, Return | Remove invalid bytes |
+| **Well-formed** | No truncated PUSH, no trailing bytes | Fix bytecode stream |
+| **Not blocklisted** | Bytecode hash not in blocklist | Contact governance if wrongly blocked |
+| **Purpose (if provided)** | Must be valid category | Use one of the valid categories below |
+
+### Valid Purpose Categories
+
+dApp / dapp, token, NFT / nft, meme, community, entertainment, tooling, other (provide description hash for best outcome).
+
+### Common Rejections and Fixes
+
+| rule_id | Cause | Fix |
+|---------|-------|-----|
+| `MAX_BYTECODE_SIZE` | Bytecode > 32 KiB | Reduce size or split |
+| `INVALID_OPCODE` | Byte contains non-Boing opcode | Use only Boing VM opcodes |
+| `MALFORMED_BYTECODE` | Truncated PUSH or trailing bytes | Validate instruction stream |
+| `BLOCKLIST_MATCH` | Hash matches known scam/malware | Cannot deploy; contact if error |
+| `SCAM_PATTERN_MATCH` | Contains known malicious pattern | Remove or refactor |
+| `PURPOSE_DECLARATION_INVALID` | Invalid category | Use valid category from list above |
+
+### When You Get "Unsure"
+
+"Unsure" means the deployment is referred to the community QA pool. Common triggers: purpose = "other" with minimal or no description; category in "always review" list. Provide a clear purpose category and (for "other") a description hash to reduce pool referrals. **Meme, community, and entertainment are valid purposes** — no extra justification required.
+
+---
+
+## Appendix B: Canonical Definition of Malice
+
+Single source of truth for what "maliciousness" and "malignancy" mean in Boing's QA system. Pool members and implementers use this as the bar.
+
+### Scope
+
+**Malice** = assets that should be **Rejected** (or never Allowed by the pool) because they cause harm or abuse.
+
+### Malice Categories
+
+| Category | Definition | Examples |
+|----------|------------|----------|
+| **Scams** | Deceptive schemes to extract value without fair exchange | Fake tokens, phishing contracts |
+| **Phishing** | Impersonation or deceptive UX to steal credentials or funds | Fake wallet interfaces, fake airdrops |
+| **Rug-pulls** | Promised functionality removed or disabled to trap funds | Liquidity withdrawal, exit scams |
+| **Malware** | Code designed to harm user systems or steal data | Keyloggers, backdoors |
+| **Impersonation** | Misleading naming or branding to appear as a trusted entity | Fake "official" tokens, copycat projects |
+| **Deceptive naming** | Names intended to mislead about purpose or risk | "Safe" in name of risky asset, misleading tickers |
+| **Ponzi patterns** | Unsustainable reward structures that rely on new deposits | Pyramid schemes, unsustainable yields |
+| **Spam / abuse** | Bulk low-value deployments to clog state or confuse users | Mass empty contracts |
+
+### How This Is Enforced
+
+- **Automation:** Blocklist (bytecode hashes), scam patterns (byte sequences), hard rules (size, opcodes).
+- **Community pool:** When automation returns Unsure, pool members vote Allow or Reject using this definition.
+- **Governance:** Can add blocklist entries, scam patterns, or "always review" categories.
+
+### What Is NOT Malice
+
+- **Meme assets** — Legitimate purpose when declared.
+- **Experimental or novel** — New patterns that don't match malice categories.
+- **Unconventional art or culture** — As long as not deceptive or harmful.
+- **Failed or unpopular projects** — Poor quality ≠ malice.
+
+### Pool Member Guidance
+
+When voting on an Unsure item: (1) Does it match any malice category above? → **Reject**. (2) Is there reasonable doubt it could cause harm? → **Reject**. (3) Is it merely unproven or unconventional? → **Allow** (per meme/community leniency). (4) In doubt? → Default to **Reject** (safety-first).
+
+### Vulgarity, offensiveness, and content moderation (current scope)
+
+**Current scope:** The canonical malice definition above is **harm-focused** (scams, phishing, malware, impersonation, etc.). The protocol does **not** today filter deployments for **vulgarity**, **offensiveness**, or other purely content-based criteria (e.g. slurs, obscenity, hate speech in names or metadata).
+
+**Why:** (1) **Bytecode** is opaque — the QA layer sees opcodes and data bytes, not human-readable text. (2) **Purpose** is a category plus an optional **description hash**, not plaintext, so the protocol does not see deployer-written text to scan for offensive strings. (3) **Token names, symbols, NFT metadata** are not part of the current ContractDeploy payload that QA inspects; they typically live in contract storage or off-chain metadata, which the deploy-time checker does not evaluate.
+
+**Can it be added?** Yes, **in principle**, if the protocol or ecosystem exposes **metadata** (e.g. token name, symbol, NFT name/description) at deploy or registration time and governance adopts a policy:
+
+- **Blocklist of forbidden strings** — e.g. a governance-maintained list of slurs or hate terms; metadata containing a listed string → Reject (or Unsure for pool).
+- **Pool policy** — Governance can instruct the community QA pool to Reject deployments whose **known metadata** (if any is submitted) is vulgar, offensive, or otherwise in violation of a published content policy.
+- **"Always review" for certain asset types** — e.g. tokens or NFTs with a metadata field could be routed to the pool when metadata is present, and pool members apply a content policy.
+
+**Trade-offs:** Protocol-level filtering of vulgarity/offensiveness is **subjective** and **jurisdiction-dependent**; what counts as offensive varies by culture and law. It can also be seen as **content moderation** or **censorship**, and can conflict with **leniency for meme culture** and **no discrimination** if applied unevenly. Deciding whether to extend QA to cover vulgarity/offensiveness is therefore a **governance and policy choice**, not a technical limitation. The current design keeps the bar **objective and harm-based**; any future content policy would need to be clearly defined and adopted through governance.
 
 ---
 

@@ -1,7 +1,7 @@
 # Testnet Portal — Design & Implementation
 
 > **Purpose:** A dedicated testnet portal where participants register as **developer**, **user**, or **node operator**, with role-specific dashboards, community pages, and metrics. Replaces the standalone quests page with a unified experience.  
-> **References:** [INCENTIVIZED-TESTNET.md](INCENTIVIZED-TESTNET.md), [COMMUNITY-QUESTS.md](COMMUNITY-QUESTS.md), [DEVELOPMENT-AND-ENHANCEMENTS.md](DEVELOPMENT-AND-ENHANCEMENTS.md), [BOING-BLOCKCHAIN-DESIGN-PLAN.md](BOING-BLOCKCHAIN-DESIGN-PLAN.md).
+> **References:** [INCENTIVIZED-TESTNET.md](INCENTIVIZED-TESTNET.md), [DEVELOPMENT-AND-ENHANCEMENTS.md](DEVELOPMENT-AND-ENHANCEMENTS.md), [BOING-BLOCKCHAIN-DESIGN-PLAN.md](BOING-BLOCKCHAIN-DESIGN-PLAN.md).
 
 ---
 
@@ -53,7 +53,7 @@ The existing **Join Testnet** hub stays at `/network/testnet` (bootnodes, faucet
 
 - **Community page:** `/testnet/users` — Quests, faucet link, feedback, and “how to qualify” for user rewards.
 - **Dashboard (per account):**
-  - **Quest progress** — List of quests (from [COMMUNITY-QUESTS.md](COMMUNITY-QUESTS.md)) with completed / pending / not started. Uses `quest_completions` + optional on-chain verification.
+  - **Quest progress** — List of quests (see §10 Community Quests below) with completed / pending / not started. Uses `quest_completions` + optional on-chain verification.
   - **Faucet / first tx** — Simple “used faucet” / “first tx sent” badges when verified.
 - **Rewards:** Faucet + quests + feedback; optional capped NFT/mainnet recognition per Incentivized Testnet Rules.
 
@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS portal_dapps (
 CREATE INDEX IF NOT EXISTS idx_portal_dapps_owner ON portal_dapps(owner_account_hex);
 ```
 
-`quest_completions` and `quests` remain as in [COMMUNITY-QUESTS.md](COMMUNITY-QUESTS.md); they are used by the **Users** dashboard.
+`quest_completions` and `quests` are defined in §10 (Community Quests) below; they are used by the **Users** dashboard.
 
 ---
 
@@ -150,7 +150,78 @@ The portal’s **Developers** page and dashboard should state this clearly and l
 - [x] Implement `/testnet` (landing), `/testnet/register`, `/testnet/developers`, `/testnet/users`, `/testnet/operators` (static or with API).
 - [x] Implement `POST /api/portal/register` and `GET /api/portal/me` (and optional `POST /api/portal/dapps`; user quest progress via portal/me).
 - [x] From `/network/testnet`, add prominent “Testnet Portal → Register & dashboards” link; from quests, redirect or link to `/testnet/users`.
-- [x] Document portal in INCENTIVIZED-TESTNET.md and COMMUNITY-QUESTS.md (quests live under Users in the portal).
+- [x] Document portal in INCENTIVIZED-TESTNET.md and in this doc §10 (Community Quests; quests live under Users in the portal).
+
+---
+
+## 10. Community Quests
+
+Community quests are user-facing tasks (e.g. "Use the faucet", "Send a transaction", "Share feedback") that qualify participants for testnet rewards. Completion can be **auto-verifiable on-chain** (e.g. faucet receipt, first tx via RPC/D1 indexer) or **manual with proof** (user submits account ID + proof; team verifies later). Publish a single **Quests** page listing tasks, verification type, and reward eligibility. Collect submissions via a form (website form → API → D1, or external form + spreadsheet) and process them before testnet end.
+
+### 10.1 Quest types and examples
+
+| Quest ID | Name | Description | Verification | Reward tier |
+|----------|------|--------------|--------------|-------------|
+| `faucet` | First drip | Request testnet BOING from the faucet | On-chain: faucet tx or balance > 0 | Base user |
+| `first_tx` | First transaction | Send any transaction on testnet | On-chain: account has nonce ≥ 1 or tx in block | Base user |
+| `validator_connect` | Join the network | Run a node connected to testnet bootnodes | Manual: submit node ID / multiaddr or screenshot | Validator track |
+| `feedback` | Share feedback | Answer 3–5 short questions (UX, docs, bugs) | Manual: form submission + optional account ID | Bonus |
+| `social` | Join community | Join Discord and post in #testnet-intros | Manual: Discord handle + account ID | Bonus |
+| `docs` | Read and confirm | Visit Getting Started + Testnet docs, confirm checkbox | Manual: form with "I have read" + account ID | Base user |
+
+**Phase 1 recommendation:** Start with 3–5 quests: `faucet`, `first_tx`, `feedback`, and optionally `social` and `validator_connect`.
+
+### 10.2 Verification methods
+
+**On-chain (auto):** After user requests from faucet, call testnet RPC to check balance or index faucet txs in D1. For first tx: RPC `eth_getTransactionCount(account_id, "latest")` > 0 or D1 query for any tx where `from = account_id`. Use a Cloudflare Worker (or cron) that reads pending submissions from D1 where `verification_type = 'on_chain'` and `verified_at IS NULL`, calls testnet RPC or D1, and updates `verified_at` and `proof_value`.
+
+**Manual (proof submitted):** User submits account ID (32-byte hex) plus proof (tx hash, Discord username, link, or form answers). Team reviews and sets `verified_at` and optionally `rejected_reason`. Store in D1: `quest_id`, `account_id`, `proof_type`, `proof_value`, `submitted_at`, `verified_at`, `rejected_reason`.
+
+### 10.3 D1 tables (quests)
+
+```sql
+CREATE TABLE IF NOT EXISTS quests (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  verification_type TEXT NOT NULL,  -- 'on_chain' | 'manual'
+  reward_tier TEXT,                 -- 'base' | 'validator' | 'bonus'
+  active INTEGER DEFAULT 1,
+  created_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS quest_completions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  quest_id TEXT NOT NULL,
+  account_id_hex TEXT NOT NULL,
+  proof_type TEXT,
+  proof_value TEXT,
+  submitted_at TEXT NOT NULL,
+  verified_at TEXT,
+  rejected_reason TEXT,
+  FOREIGN KEY (quest_id) REFERENCES quests(id)
+);
+CREATE INDEX IF NOT EXISTS idx_quest_completions_account ON quest_completions(account_id_hex);
+CREATE INDEX IF NOT EXISTS idx_quest_completions_quest ON quest_completions(quest_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_quest_completions_unique ON quest_completions(quest_id, account_id_hex);
+```
+
+### 10.4 Quest API
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/quests` | List active quests (id, name, description, verification_type, reward_tier). |
+| POST | `/api/quests/submit` | Submit a completion: `{ "quest_id", "account_id_hex", "proof_type?", "proof_value?" }`. Validate account_id format; insert into `quest_completions`; return `{ "ok": true, "id" }`. Rate limit per IP/account. |
+| GET | `/api/quests/status?account_id_hex=0x...` | Return list of quest completions for that account (for "My progress" UI). |
+
+### 10.5 Incentive rules and implementation checklist
+
+Define in a single **Incentivized Testnet Rules** page (e.g. `/network/incentivized-rules`): which quests are live and their reward tier; cap per user; that quest completion qualifies for Community & Grants pool rewards. Link from the Quests page and announcements.
+
+- **Phase 0 (no backend):** Static `/network/quests` page; define 3–5 quests in copy; link to external form for manual submissions.
+- **Phase 1 (backend):** Add D1 tables `quests`, `quest_completions`; seed `quests`; implement GET `/api/quests` and POST `/api/quests/submit`; add form on Quests page; optional GET `/api/quests/status`.
+- **Phase 2 (auto-verify):** Implement on-chain verification (scheduled or on-demand) for `faucet` and `first_tx`; update `verified_at` in D1.
+- **Launch:** Publish Incentivized Testnet Rules; link Quests from testnet hub and announcements; at testnet end, export completions and distribute rewards per rules.
 
 ---
 

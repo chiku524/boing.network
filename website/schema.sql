@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS network_stats (
   updated_at TEXT
 );
 
--- Community quests (incentivized testnet). See docs/COMMUNITY-QUESTS.md.
+-- Community quests (incentivized testnet). See docs/TESTNET-PORTAL.md §10.
 CREATE TABLE IF NOT EXISTS quests (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
