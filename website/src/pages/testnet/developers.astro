@@ -6,21 +6,36 @@ import Layout from '../../layouts/Layout.astro';
   title="Developers — Testnet Portal"
   description="Boing Network testnet: developer community, dApp registration, and success-based dApp incentive pool."
 >
-  <article class="portal-page">
+  <article class="portal-page role-hub developers-hub">
     <nav class="portal-nav">
       <a href="/testnet">Portal</a>
-      <a href="/testnet/register">Register</a>
       <a href="/testnet/developers" class="active">Developers</a>
       <a href="/testnet/users">Users</a>
       <a href="/testnet/operators">Operators</a>
     </nav>
 
-    <h1>Developers</h1>
-    <p class="lead">
-      Build dApps on testnet, register for incentive tracking, and qualify for grants. At mainnet, a <strong>dedicated portion of the ecosystem pool</strong> rewards successful dApps (success-based, with a value cap per dApp).
-    </p>
+    <div class="hub-hero">
+      <h1>Developers</h1>
+      <p class="lead">
+        Build dApps on testnet, register for incentive tracking, and qualify for grants. At mainnet, a <strong>dedicated portion of the ecosystem pool</strong> rewards successful dApps (success-based, with a value cap per dApp).
+      </p>
+      <div class="hub-ctas">
+        <a href="/testnet/register/developer" class="btn btn-primary">Register as developer</a>
+        <a href="#dashboard" class="btn btn-secondary">Go to dashboard</a>
+      </div>
+    </div>
 
-    <section class="section dashboard-section">
+    <section class="section steps-section">
+      <h2>Your journey</h2>
+      <ol class="steps-list">
+        <li><strong>Register</strong> — Add your account ID and optional GitHub/Discord on the <a href="/testnet/register/developer">developer registration</a> page.</li>
+        <li><strong>Get testnet BOING</strong> — Use the <a href="/network/faucet">faucet</a> for gas and deployment.</li>
+        <li><strong>Build & deploy</strong> — Follow the <a href="/developers/quickstart">quickstart</a> (CLI, SDK). Deploy a contract.</li>
+        <li><strong>Register your dApp</strong> — Add your contract below (or use <code>boing_registerDappMetrics</code> at mainnet) to track it for incentives.</li>
+      </ol>
+    </section>
+
+    <section class="section dashboard-section" id="dashboard">
       <h2>Your dashboard</h2>
       <p class="muted">Register with your testnet account to see your registered dApps here. On mainnet, use <code>boing_registerDappMetrics</code> and the chain indexer for live metrics.</p>
       <div class="dashboard-load">
@@ -30,7 +45,7 @@ import Layout from '../../layouts/Layout.astro';
       </div>
       <div id="dashboard-placeholder" class="dashboard-placeholder">
         <p>Registered dApps and metrics will appear here once you register and add contracts.</p>
-        <p><a href="/testnet/register?role=developer">Register as developer</a> · <a href="/developers/quickstart">Quickstart</a></p>
+        <p><a href="/testnet/register/developer">Register as developer</a> · <a href="/developers/quickstart">Quickstart</a></p>
       </div>
       <div id="dashboard-loaded" class="dashboard-loaded" style="display: none;"></div>
       <div id="dapp-register" class="subsection">
@@ -92,7 +107,7 @@ import Layout from '../../layouts/Layout.astro';
           placeholder.style.display = 'none';
           loaded.style.display = 'block';
           if (!data.ok) { loaded.innerHTML = '<p class="err">' + (data.message || 'Failed to load.') + '</p>'; return; }
-          if (!data.registered) { loaded.innerHTML = '<p>Not registered. <a href="/testnet/register?role=developer">Register as developer</a>.</p>'; return; }
+          if (!data.registered) { loaded.innerHTML = '<p>Not registered. <a href="/testnet/register/developer">Register as developer</a>.</p>'; return; }
           if (data.role !== 'developer') { loaded.innerHTML = '<p>This account is registered as <strong>' + data.role + '</strong>. Use the correct dashboard.</p>'; return; }
           const dapps = data.dapps || [];
           let html = '<p><strong>Registered as developer.</strong>' + (data.github_username ? ' GitHub: ' + data.github_username : '') + '</p>';
@@ -158,6 +173,17 @@ import Layout from '../../layouts/Layout.astro';
   .portal-nav { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color); }
   .portal-nav a { color: var(--text-secondary); font-weight: 500; }
   .portal-nav a:hover, .portal-nav a.active { color: var(--accent-teal); }
+  .hub-hero { margin-bottom: 2rem; }
+  .hub-hero .lead { margin-bottom: 1.25rem; }
+  .hub-ctas { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+  .btn { display: inline-block; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600; text-decoration: none; }
+  .btn-primary { background: linear-gradient(135deg, var(--accent-teal), var(--accent-cyan)); color: var(--bg-primary); }
+  .btn-secondary { background: rgba(34,211,238,0.15); color: var(--accent-teal); border: 1px solid rgba(34,211,238,0.3); }
+  .btn-secondary:hover { background: rgba(34,211,238,0.25); }
+  .steps-section { margin-top: 2rem; }
+  .steps-list { margin: 0.5rem 0 0 1.25rem; padding-left: 1rem; color: var(--text-secondary); line-height: 1.6; }
+  .steps-list li { margin-bottom: 0.5rem; }
+  .steps-list a { color: var(--accent-teal); }
   .lead { color: var(--text-secondary); margin-bottom: 1.5rem; }
   .section { margin-top: 2rem; }
   .section h2 { font-size: 1.2rem; color: var(--text-primary); margin-bottom: 0.5rem; }
