@@ -13,15 +13,19 @@ import { TESTNET_RPC_URL, BOOTNODES, isTestnetLive } from '../../config/testnet'
       <a href="/testnet/developers">Developers</a>
       <a href="/testnet/users">Users</a>
       <a href="/testnet/operators" class="active">Operators</a>
+      <span id="portal-auth" class="portal-auth"></span>
     </nav>
+
+    <div id="wrong-role-banner" class="wrong-role-banner" style="display: none;"></div>
 
     <div class="hub-hero">
       <h1>Node operators &amp; miners</h1>
       <p class="lead">
         Run a validator or miner, connect to the testnet with bootnodes or VibeMiner, and compete on the leaderboard. Earn testnet BOING for blocks produced and qualify for mainnet recognition (e.g. allocation or NFT for top N).
       </p>
-      <div class="hub-ctas">
+      <div class="hub-ctas" id="hub-ctas">
         <a href="/testnet/register/operator" class="btn btn-primary">Register as operator</a>
+        <a href="/testnet/sign-in" class="btn btn-secondary">Sign in</a>
         <a href="#leaderboard" class="btn btn-secondary">Leaderboard</a>
         <a href="/network/faucet" class="btn btn-secondary">Faucet</a>
       </div>
@@ -77,11 +81,58 @@ import { TESTNET_RPC_URL, BOOTNODES, isTestnetLive } from '../../config/testnet'
   </article>
 </Layout>
 
+<script is:inline src="/portal-session.js"></script>
+<script>
+  (function () {
+    var expectedRole = 'node_operator';
+    var session = window.BoingPortalSession && window.BoingPortalSession.getSession();
+    var authEl = document.getElementById('portal-auth');
+    var wrongBanner = document.getElementById('wrong-role-banner');
+    var hubCtas = document.getElementById('hub-ctas');
+
+    function renderAuth() {
+      if (!authEl) return;
+      if (!session) {
+        authEl.innerHTML = '<a href="/testnet/sign-in" class="auth-link">Sign in</a>';
+        return;
+      }
+      var short = window.BoingPortalSession ? window.BoingPortalSession.shortAccount(session.account_id_hex) : session.account_id_hex;
+      var path = window.BoingPortalSession ? window.BoingPortalSession.roleAppPath(session.role) : '';
+      var signOut = '<button type="button" id="portal-signout" class="auth-signout">Sign out</button>';
+      if (session.role !== expectedRole) {
+        authEl.innerHTML = 'Signed in as <span class="account-short">' + short + '</span> · <a href="' + path + '">My hub</a> · ' + signOut;
+        if (wrongBanner) {
+          wrongBanner.style.display = 'block';
+          wrongBanner.innerHTML = 'You’re signed in as <strong>' + session.role + '</strong>. <a href="' + path + '">Go to your dashboard</a> or sign out below.';
+        }
+        if (hubCtas) hubCtas.style.display = 'flex';
+      } else {
+        authEl.innerHTML = 'Signed in as <span class="account-short">' + short + '</span> · ' + signOut;
+        if (wrongBanner) wrongBanner.style.display = 'none';
+        if (hubCtas) hubCtas.style.display = 'none';
+      }
+      var so = document.getElementById('portal-signout');
+      if (so) so.addEventListener('click', function () {
+        if (window.BoingPortalSession) window.BoingPortalSession.clearSession();
+        window.location.href = '/testnet';
+      });
+    }
+    renderAuth();
+  })();
+</script>
+
 <style>
   .portal-page { max-width: 720px; margin: 0 auto; padding: 2rem; }
   .portal-nav { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color); }
   .portal-nav a { color: var(--text-secondary); font-weight: 500; }
   .portal-nav a:hover, .portal-nav a.active { color: var(--accent-teal); }
+  .portal-auth { margin-left: auto; font-size: 0.9rem; color: var(--text-secondary); }
+  .portal-auth .account-short { font-family: var(--font-mono); color: var(--accent-teal); }
+  .portal-auth a { color: var(--accent-teal); }
+  .auth-signout { background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: inherit; padding: 0; }
+  .auth-signout:hover { color: var(--accent-teal); }
+  .wrong-role-banner { background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.5rem; font-size: 0.9rem; color: var(--text-secondary); }
+  .wrong-role-banner a { color: var(--accent-teal); font-weight: 600; }
   .hub-hero { margin-bottom: 2rem; }
   .hub-hero .lead { margin-bottom: 1.25rem; }
   .hub-ctas { display: flex; flex-wrap: wrap; gap: 0.75rem; }

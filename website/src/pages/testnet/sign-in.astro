@@ -1,0 +1,124 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout
+  title="Sign in — Testnet Portal"
+  description="Sign in to the Boing Network testnet portal with your account ID. Access your developer, user, or operator dashboard."
+>
+  <article class="portal-page sign-in-page">
+    <nav class="portal-nav">
+      <a href="/testnet">Portal</a>
+      <a href="/testnet/developers">Developers</a>
+      <a href="/testnet/users">Users</a>
+      <a href="/testnet/operators">Operators</a>
+    </nav>
+
+    <div class="sign-in-hero">
+      <h1>Sign in</h1>
+      <p class="lead">
+        Enter your testnet account ID (32-byte hex). If you’re registered, we’ll take you to your role’s dashboard. New? <a href="/testnet/register">Register first</a>.
+      </p>
+    </div>
+
+    <form id="signin-form" class="auth-form">
+      <label for="account-id">Account ID (0x... 64 hex chars)</label>
+      <input id="account-id" name="account_id_hex" type="text" placeholder="0x..." maxlength="66" required autocomplete="off" />
+      <button type="submit" id="submit-btn">Sign in</button>
+      <p id="form-message" class="form-message" aria-live="polite"></p>
+    </form>
+
+    <section class="section">
+      <p class="muted">Not registered yet? <a href="/testnet/register">Choose your role and register</a> (developer, user, or node operator).</p>
+    </section>
+  </article>
+</Layout>
+
+<script is:inline src="/portal-session.js"></script>
+<script>
+  (function () {
+    var form = document.getElementById('signin-form');
+    if (!form) return;
+    var accountInput = document.getElementById('account-id');
+    var submitBtn = document.getElementById('submit-btn');
+    var messageEl = document.getElementById('form-message');
+
+    function setMessage(text, isError) {
+      if (messageEl) {
+        messageEl.textContent = text;
+        messageEl.style.color = isError ? 'var(--error-color, #f87171)' : 'var(--text-secondary)';
+      }
+    }
+
+    try {
+      var session = window.BoingPortalSession && window.BoingPortalSession.getSession();
+      if (session && session.account_id_hex) {
+        var path = window.BoingPortalSession.roleAppPath(session.role);
+        if (path && path !== '/testnet') {
+          window.location.href = path;
+          return;
+        }
+      }
+    } catch (e) {}
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var accountHex = (accountInput && accountInput.value || '').trim();
+      if (!accountHex.startsWith('0x')) accountHex = '0x' + accountHex;
+      if (accountHex.length !== 66) {
+        setMessage('Account ID must be 32 bytes (64 hex chars + 0x).', true);
+        return;
+      }
+
+      if (submitBtn) submitBtn.disabled = true;
+      setMessage('Signing in…');
+
+      try {
+        var res = await fetch('/api/portal/me?account_id_hex=' + encodeURIComponent(accountHex));
+        var data = await res.json().catch(function () { return {}; });
+
+        if (!data.ok) {
+          setMessage(data.message || 'Could not load account.', true);
+          if (submitBtn) submitBtn.disabled = false;
+          return;
+        }
+        if (!data.registered) {
+          setMessage('This account is not registered. Register as developer, user, or operator first.', true);
+          if (submitBtn) submitBtn.disabled = false;
+          return;
+        }
+
+        if (window.BoingPortalSession) {
+          window.BoingPortalSession.setSession(accountHex, data.role);
+        }
+        var appPath = window.BoingPortalSession ? window.BoingPortalSession.roleAppPath(data.role) : '/testnet';
+        setMessage('Signed in. Redirecting…');
+        setTimeout(function () {
+          window.location.href = appPath || '/testnet';
+        }, 400);
+      } catch (err) {
+        setMessage('Network error. Try again.', true);
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+  })();
+</script>
+
+<style>
+  .portal-page { max-width: 480px; margin: 0 auto; padding: 2rem; }
+  .portal-nav { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color); }
+  .portal-nav a { color: var(--text-secondary); font-weight: 500; }
+  .portal-nav a:hover { color: var(--accent-teal); }
+  .sign-in-hero { margin-bottom: 2rem; }
+  .sign-in-hero h1 { color: var(--text-primary); margin-bottom: 0.5rem; }
+  .lead { color: var(--text-secondary); margin-bottom: 0.5rem; }
+  .auth-form label { display: block; margin-top: 1rem; color: var(--text-secondary); font-size: 0.9rem; }
+  .auth-form input { width: 100%; max-width: 400px; padding: 12px 16px; margin-top: 0.25rem; font-family: var(--font-mono); font-size: 0.9rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-tertiary); color: var(--text-primary); }
+  .auth-form button { margin-top: 1.25rem; padding: 0.6rem 1.2rem; font-size: 1rem; font-weight: 600; border: none; border-radius: 6px; background: linear-gradient(135deg, var(--accent-teal), var(--accent-cyan)); color: var(--bg-primary); cursor: pointer; }
+  .auth-form button:hover:not(:disabled) { opacity: 0.9; }
+  .auth-form button:disabled { opacity: 0.6; cursor: not-allowed; }
+  .form-message { margin-top: 1rem; min-height: 1.5em; font-size: 0.95rem; }
+  .section { margin-top: 2rem; }
+  .muted { color: var(--text-tertiary); font-size: 0.9rem; }
+  .muted a { color: var(--accent-teal); }
+</style>

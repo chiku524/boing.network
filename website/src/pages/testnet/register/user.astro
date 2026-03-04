@@ -7,6 +7,7 @@ import Layout from '../../../layouts/Layout.astro';
   description="Register as a user on the Boing Network testnet. Use the faucet, complete quests, earn rewards."
 >
   <article class="portal-page register-page">
+    <script is:inline src="/portal-session.js"></script>
     <nav class="portal-nav">
       <a href="/testnet">Portal</a>
       <a href="/testnet/developers">Developers</a>
@@ -90,6 +91,7 @@ import Layout from '../../../layouts/Layout.astro';
         if (res.ok && data.ok) {
           setMessage('Registered. Taking you to your dashboard…');
           try { localStorage.setItem('boing_portal_account', accountHex); } catch (_) {}
+          if (window.BoingPortalSession) window.BoingPortalSession.setSession(accountHex, 'user');
           setTimeout(() => { window.location.href = '/testnet/users'; }, 1200);
         } else if (res.status === 404 || res.status === 502) {
           setMessage('API not available yet. Please try again later or submit in Discord.', true);

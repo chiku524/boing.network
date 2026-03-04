@@ -12,15 +12,19 @@ import Layout from '../../layouts/Layout.astro';
       <a href="/testnet/developers" class="active">Developers</a>
       <a href="/testnet/users">Users</a>
       <a href="/testnet/operators">Operators</a>
+      <span id="portal-auth" class="portal-auth"></span>
     </nav>
+
+    <div id="wrong-role-banner" class="wrong-role-banner" style="display: none;"></div>
 
     <div class="hub-hero">
       <h1>Developers</h1>
       <p class="lead">
         Build dApps on testnet, register for incentive tracking, and qualify for grants. At mainnet, a <strong>dedicated portion of the ecosystem pool</strong> rewards successful dApps (success-based, with a value cap per dApp).
       </p>
-      <div class="hub-ctas">
+      <div class="hub-ctas" id="hub-ctas">
         <a href="/testnet/register/developer" class="btn btn-primary">Register as developer</a>
+        <a href="/testnet/sign-in" class="btn btn-secondary">Sign in</a>
         <a href="#dashboard" class="btn btn-secondary">Go to dashboard</a>
       </div>
     </div>
@@ -38,7 +42,7 @@ import Layout from '../../layouts/Layout.astro';
     <section class="section dashboard-section" id="dashboard">
       <h2>Your dashboard</h2>
       <p class="muted">Register with your testnet account to see your registered dApps here. On mainnet, use <code>boing_registerDappMetrics</code> and the chain indexer for live metrics.</p>
-      <div class="dashboard-load">
+      <div class="dashboard-load" id="dashboard-load">
         <label for="me-account">Account ID to load dashboard</label>
         <input id="me-account" type="text" placeholder="0x..." maxlength="66" />
         <button type="button" id="me-load-btn">Load dashboard</button>
@@ -83,34 +87,63 @@ import Layout from '../../layouts/Layout.astro';
   </article>
 </Layout>
 
+<script is:inline src="/portal-session.js"></script>
 <script>
   (function () {
-    const meInput = document.getElementById('me-account');
-    const loadBtn = document.getElementById('me-load-btn');
-    const placeholder = document.getElementById('dashboard-placeholder');
-    const loaded = document.getElementById('dashboard-loaded');
-    if (meInput && loadBtn && placeholder && loaded) {
-      try { if (localStorage.getItem('boing_portal_account')) meInput.value = localStorage.getItem('boing_portal_account'); } catch (_) {}
-      loadBtn.addEventListener('click', async () => {
-        let hex = (meInput.value || '').trim();
-        if (!hex.startsWith('0x')) hex = '0x' + hex;
-        if (hex.length !== 66) {
-          placeholder.style.display = 'none';
-          loaded.innerHTML = '<p class="err">Enter a valid 32-byte hex account ID.</p>';
-          loaded.style.display = 'block';
-          return;
+    var expectedRole = 'developer';
+    var session = window.BoingPortalSession && window.BoingPortalSession.getSession();
+    var authEl = document.getElementById('portal-auth');
+    var wrongBanner = document.getElementById('wrong-role-banner');
+    var hubCtas = document.getElementById('hub-ctas');
+    var dashboardLoad = document.getElementById('dashboard-load');
+    var meInput = document.getElementById('me-account');
+    var loadBtn = document.getElementById('me-load-btn');
+    var placeholder = document.getElementById('dashboard-placeholder');
+    var loaded = document.getElementById('dashboard-loaded');
+
+    function renderAuth() {
+      if (!authEl) return;
+      if (!session) {
+        authEl.innerHTML = '<a href="/testnet/sign-in" class="auth-link">Sign in</a>';
+        return;
+      }
+      var short = window.BoingPortalSession ? window.BoingPortalSession.shortAccount(session.account_id_hex) : session.account_id_hex;
+      var path = window.BoingPortalSession ? window.BoingPortalSession.roleAppPath(session.role) : '';
+      var signOut = '<button type="button" id="portal-signout" class="auth-signout">Sign out</button>';
+      if (session.role !== expectedRole) {
+        authEl.innerHTML = 'Signed in as <span class="account-short">' + short + '</span> · <a href="' + path + '">My hub</a> · ' + signOut;
+        if (wrongBanner) {
+          wrongBanner.style.display = 'block';
+          wrongBanner.innerHTML = 'You’re signed in as <strong>' + session.role + '</strong>. <a href="' + path + '">Go to your dashboard</a> or sign out below.';
         }
-        loadBtn.textContent = 'Loading…';
-        try {
-          const res = await fetch('/api/portal/me?account_id_hex=' + encodeURIComponent(hex));
-          const data = await res.json().catch(() => ({}));
-          placeholder.style.display = 'none';
-          loaded.style.display = 'block';
+        if (hubCtas) hubCtas.style.display = 'flex';
+        if (dashboardLoad) dashboardLoad.style.display = 'block';
+      } else {
+        authEl.innerHTML = 'Signed in as <span class="account-short">' + short + '</span> · ' + signOut;
+        if (wrongBanner) wrongBanner.style.display = 'none';
+        if (hubCtas) hubCtas.style.display = 'none';
+        if (dashboardLoad) dashboardLoad.style.display = 'none';
+      }
+      var so = document.getElementById('portal-signout');
+      if (so) so.addEventListener('click', function () {
+        if (window.BoingPortalSession) window.BoingPortalSession.clearSession();
+        window.location.href = '/testnet';
+      });
+    }
+
+    function loadDashboard(hex) {
+      if (!loadBtn || !placeholder || !loaded) return;
+      loadBtn.textContent = 'Loading…';
+      placeholder.style.display = 'none';
+      loaded.style.display = 'block';
+      fetch('/api/portal/me?account_id_hex=' + encodeURIComponent(hex))
+        .then(function (res) { return res.json().catch(function () { return {}; }); })
+        .then(function (data) {
           if (!data.ok) { loaded.innerHTML = '<p class="err">' + (data.message || 'Failed to load.') + '</p>'; return; }
           if (!data.registered) { loaded.innerHTML = '<p>Not registered. <a href="/testnet/register/developer">Register as developer</a>.</p>'; return; }
           if (data.role !== 'developer') { loaded.innerHTML = '<p>This account is registered as <strong>' + data.role + '</strong>. Use the correct dashboard.</p>'; return; }
-          const dapps = data.dapps || [];
-          let html = '<p><strong>Registered as developer.</strong>' + (data.github_username ? ' GitHub: ' + data.github_username : '') + '</p>';
+          var dapps = data.dapps || [];
+          var html = '<p><strong>Registered as developer.</strong>' + (data.github_username ? ' GitHub: ' + data.github_username : '') + '</p>';
           if (dapps.length === 0) html += '<p>No dApps registered yet. Add one below.</p>';
           else {
             html += '<p><strong>Your dApps (' + dapps.length + '):</strong></p><ul class="dapp-list">';
@@ -118,53 +151,71 @@ import Layout from '../../layouts/Layout.astro';
             html += '</ul>';
           }
           loaded.innerHTML = html;
-        } catch (e) {
-          loaded.innerHTML = '<p class="err">Network error. Is the API deployed?</p>';
+        })
+        .catch(function () { loaded.innerHTML = '<p class="err">Network error. Is the API deployed?</p>'; })
+        .finally(function () { if (loadBtn) loadBtn.textContent = 'Load dashboard'; });
+    }
+
+    renderAuth();
+
+    if (session && session.role === expectedRole && session.account_id_hex) {
+      loadDashboard(session.account_id_hex);
+      if (meInput) meInput.value = session.account_id_hex;
+    } else if (meInput && loadBtn && placeholder && loaded) {
+      try { if (localStorage.getItem('boing_portal_account')) meInput.value = localStorage.getItem('boing_portal_account'); } catch (_) {}
+      loadBtn.addEventListener('click', function () {
+        var hex = (meInput.value || '').trim();
+        if (!hex.startsWith('0x')) hex = '0x' + hex;
+        if (hex.length !== 66) {
+          placeholder.style.display = 'none';
+          loaded.innerHTML = '<p class="err">Enter a valid 32-byte hex account ID.</p>';
           loaded.style.display = 'block';
+          return;
         }
-        loadBtn.textContent = 'Load dashboard';
+        loadDashboard(hex);
       });
     }
 
-    const form = document.getElementById('dapp-form');
-    if (!form) return;
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const contract = (document.getElementById('dapp-contract') as HTMLInputElement)?.value?.trim();
-      const name = (document.getElementById('dapp-name') as HTMLInputElement)?.value?.trim();
-      let ownerHex = (document.getElementById('dapp-owner') as HTMLInputElement)?.value?.trim() || '';
-      if (!ownerHex.startsWith('0x')) ownerHex = ownerHex ? '0x' + ownerHex : '';
-      const msgEl = document.getElementById('dapp-message') as HTMLParagraphElement;
-      if (!contract || contract.length < 20) {
-        if (msgEl) msgEl.textContent = 'Enter a valid contract address (0x...).';
-        return;
-      }
-      if (ownerHex && ownerHex.length !== 66) {
-        if (msgEl) msgEl.textContent = 'Account ID must be 32 bytes (64 hex + 0x).';
-        return;
-      }
-      try {
-        const res = await fetch('/api/portal/dapps', {
+    var form = document.getElementById('dapp-form');
+    if (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var contract = (document.getElementById('dapp-contract') && document.getElementById('dapp-contract').value || '').trim();
+        var name = (document.getElementById('dapp-name') && document.getElementById('dapp-name').value || '').trim();
+        var ownerHex = (document.getElementById('dapp-owner') && document.getElementById('dapp-owner').value || '').trim() || '';
+        if (!ownerHex.startsWith('0x')) ownerHex = ownerHex ? '0x' + ownerHex : '';
+        var msgEl = document.getElementById('dapp-message');
+        if (!contract || contract.length < 20) {
+          if (msgEl) msgEl.textContent = 'Enter a valid contract address (0x...).';
+          return;
+        }
+        if (ownerHex && ownerHex.length !== 66) {
+          if (msgEl) msgEl.textContent = 'Account ID must be 32 bytes (64 hex + 0x).';
+          return;
+        }
+        var ownerToUse = ownerHex || (session && session.role === 'developer' ? session.account_id_hex : '');
+        if (!ownerToUse && meInput) ownerToUse = (meInput.value || '').trim();
+        if (!ownerToUse.startsWith('0x') && ownerToUse.length === 64) ownerToUse = '0x' + ownerToUse;
+        fetch('/api/portal/dapps', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contract_hex: contract.startsWith('0x') ? contract : '0x' + contract,
-            owner_account_hex: ownerHex || undefined,
+            owner_account_hex: ownerToUse || undefined,
             name: name || undefined,
           }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (msgEl) msgEl.textContent = res.ok && data.ok ? 'dApp registered.' : (data.message || 'API not available; try again later.');
-        if (res.ok && data.ok && loaded && meInput) {
-          const ownerInput = form.querySelector('#dapp-owner');
-          const ov = ownerInput?.value?.trim();
-          const h = ov ? (ov.startsWith('0x') ? ov : '0x' + ov) : (meInput.value || '').trim();
-          if (h.length === 66) { meInput.value = h; document.getElementById('me-load-btn')?.click(); }
-        }
-      } catch {
-        if (msgEl) msgEl.textContent = 'Network error. API may not be deployed yet.';
-      }
-    });
+        })
+          .then(function (res) { return res.json().catch(function () { return {}; }); })
+          .then(function (data) {
+            if (msgEl) msgEl.textContent = (data.ok ? 'dApp registered.' : (data.message || 'API not available; try again later.'));
+            if (data.ok && loaded && (meInput || session)) {
+              var h = ownerToUse || (session && session.account_id_hex) || (meInput && meInput.value);
+              if (h && h.length === 66 && loadBtn) { if (meInput) meInput.value = h; loadDashboard(h); }
+            }
+          })
+          .catch(function () { if (msgEl) msgEl.textContent = 'Network error. API may not be deployed yet.'; });
+      });
+    }
   })();
 </script>
 
@@ -173,6 +224,13 @@ import Layout from '../../layouts/Layout.astro';
   .portal-nav { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color); }
   .portal-nav a { color: var(--text-secondary); font-weight: 500; }
   .portal-nav a:hover, .portal-nav a.active { color: var(--accent-teal); }
+  .portal-auth { margin-left: auto; font-size: 0.9rem; color: var(--text-secondary); }
+  .portal-auth .account-short { font-family: var(--font-mono); color: var(--accent-teal); }
+  .portal-auth a { color: var(--accent-teal); }
+  .auth-signout { background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: inherit; padding: 0; }
+  .auth-signout:hover { color: var(--accent-teal); }
+  .wrong-role-banner { background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.5rem; font-size: 0.9rem; color: var(--text-secondary); }
+  .wrong-role-banner a { color: var(--accent-teal); font-weight: 600; }
   .hub-hero { margin-bottom: 2rem; }
   .hub-hero .lead { margin-bottom: 1.25rem; }
   .hub-ctas { display: flex; flex-wrap: wrap; gap: 0.75rem; }
