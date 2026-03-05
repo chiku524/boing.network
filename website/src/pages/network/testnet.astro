@@ -164,10 +164,10 @@ import { TESTNET_RPC_URL, BOOTNODES, isTestnetLive } from '../../config/testnet'
     .dedicated-card:hover .card-icon { transform: none; }
   }
   .dedicated-card {
-    display: block;
+    display: flex;
+    flex-direction: column;
     position: relative;
     padding: 1.25rem;
-    padding-bottom: 2.25rem;
     background: rgba(30,41,59,0.35);
     border: 1px solid rgba(34,211,238,0.2);
     border-radius: 1rem;
@@ -178,11 +178,10 @@ import { TESTNET_RPC_URL, BOOTNODES, isTestnetLive } from '../../config/testnet'
   .dedicated-card:hover { border-color: rgba(34,211,238,0.5); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(6,182,212,0.2); }
   .dedicated-card.featured { border-color: rgba(34,211,238,0.4); background: rgba(6,182,212,0.06); }
   .dedicated-card h2 { font-size: 1.1rem; margin: 0 0 0.5rem; color: var(--text-primary); }
-  .dedicated-card p { font-size: 0.9rem; color: var(--text-secondary); margin: 0 0 0.75rem; line-height: 1.4; }
+  .dedicated-card p { font-size: 0.9rem; color: var(--text-secondary); margin: 0; line-height: 1.4; flex: 1; min-height: 0; }
   .card-arrow {
-    position: absolute;
-    bottom: 1rem;
-    right: 1.25rem;
+    display: inline-block;
+    margin-top: 1rem;
     font-size: 0.8rem;
     color: var(--accent-teal);
     font-weight: 500;
