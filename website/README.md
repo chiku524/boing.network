@@ -19,18 +19,26 @@ Output: `dist/`
 
 ## Deploy to Cloudflare Pages
 
-1. Connect the repo in Cloudflare dashboard (Workers & Pages → Create → Pages → Connect to Git)
-2. Build command: `cd website && npm run build`
-3. Build output: `website/dist`
-4. Add custom domain: `boing.network`
+**From this repo (recommended):** Pushes to `main` trigger a GitHub Action that builds and deploys. You only need one secret in the repo: **Settings → Secrets and variables → Actions → `CLOUDFLARE_API_TOKEN`**. The workflow uses a fixed account ID.
 
-Or via Wrangler:
+**Local deploy (if you need to deploy without pushing):**
+
+```bash
+cd website
+export CLOUDFLARE_API_TOKEN=your_token   # from Cloudflare Dashboard → My Profile → API Tokens
+export CLOUDFLARE_ACCOUNT_ID=10374f367672f4d19db430601db0926b   # optional if using default
+npm run deploy
+```
+
+Or build then deploy manually:
 
 ```bash
 cd website
 npm run build
-wrangler pages deploy dist --project-name=boing-network
+npx wrangler pages deploy dist --project-name=boing-network
 ```
+
+**Cloudflare Dashboard (alternative):** Workers & Pages → Create → Pages → Connect to Git; build command `cd website && npm run build`, output `website/dist`.
 
 ## Documentation
 

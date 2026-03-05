@@ -39,5 +39,6 @@ jobs:
           echo "Deploy failed after 3 attempts."
           exit 1
         env:
+          # Only CLOUDFLARE_API_TOKEN is required (Settings → Secrets → Actions). Account ID is set here so no secret needed.
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: 10374f367672f4d19db430601db0926b
+          CLOUDFLARE_ACCOUNT_ID: "10374f367672f4d19db430601db0926b"
