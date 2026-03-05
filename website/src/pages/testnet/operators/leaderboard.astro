@@ -15,19 +15,19 @@ import '../../../styles/hub-common.css';
 
     <section class="section fade-in-up">
       <h1>Leaderboard</h1>
-      <p class="muted">Blocks proposed and uptime will appear here once the testnet indexer is live. <a href="/testnet/register/operator">Register as node operator</a> to be counted.</p>
+      <p class="muted">Blocks proposed and uptime will appear here once the testnet indexer is live. <a href="https://github.com/chiku524/boing.network/blob/main/docs/INDEXER-OPERATOR-STATS.md" target="_blank" rel="noopener">What to build to enable live stats</a>. <a href="/testnet/register/operator">Register as node operator</a> to be counted.</p>
 
       <div class="hub-metrics">
         <div class="hub-metric-card">
-          <span class="value">—</span>
+          <span class="value" id="leaderboard-operator-count">—</span>
           <span class="label">Operators</span>
         </div>
         <div class="hub-metric-card">
-          <span class="value">—</span>
+          <span class="value" id="leaderboard-total-blocks">—</span>
           <span class="label">Blocks (total)</span>
         </div>
         <div class="hub-metric-card">
-          <span class="value">Soon</span>
+          <span class="value" id="leaderboard-indexer-status">Soon</span>
           <span class="label">Indexer status</span>
         </div>
       </div>
@@ -41,13 +41,13 @@ import '../../../styles/hub-common.css';
             <th>Uptime</th>
           </tr>
         </thead>
-        <tbody>
-          <tr>
-            <td colspan="4" style="text-align: center; color: var(--text-tertiary); padding: 2rem;">Leaderboard data will appear when the indexer is live.</td>
+        <tbody id="leaderboard-tbody">
+          <tr id="leaderboard-placeholder-row">
+            <td colspan="4" style="text-align: center; color: var(--text-tertiary); padding: 2rem;">Loading…</td>
           </tr>
         </tbody>
       </table>
-      <p class="leaderboard-placeholder-note">
+      <p class="leaderboard-placeholder-note" id="leaderboard-note">
         Leaderboard and per-operator metrics coming when indexer/RPC data is available. See <a href="/network/testnet">Join Testnet</a> for bootnodes and <a href="/pdfs/VIBEMINER-INTEGRATION.pdf" target="_blank" rel="noopener">VibeMiner (PDF)</a> for one-click setup.
       </p>
     </section>
@@ -98,5 +98,57 @@ import '../../../styles/hub-common.css';
       });
     }
     renderAuth();
+
+    function shortAccount(hex) {
+      if (!hex || hex.length < 20) return hex || '';
+      return hex.slice(0, 10) + '…' + hex.slice(-6);
+    }
+
+    function formatUptime(first, last) {
+      if (!first && !last) return '—';
+      var f = first ? first.slice(0, 10) : '';
+      var l = last ? last.slice(0, 10) : '';
+      if (f && l) return f === l ? f : f + ' – ' + l;
+      return f || l;
+    }
+
+    var tbody = document.getElementById('leaderboard-tbody');
+    var placeholderRow = document.getElementById('leaderboard-placeholder-row');
+    var operatorCountEl = document.getElementById('leaderboard-operator-count');
+    var totalBlocksEl = document.getElementById('leaderboard-total-blocks');
+    var indexerStatusEl = document.getElementById('leaderboard-indexer-status');
+    var noteEl = document.getElementById('leaderboard-note');
+
+    fetch('/api/portal/operator-leaderboard')
+      .then(function (res) { return res.json().catch(function () { return {}; }); })
+      .then(function (data) {
+        if (!data.ok) {
+          if (placeholderRow) placeholderRow.innerHTML = '<td colspan="4" style="text-align: center; color: var(--text-tertiary); padding: 2rem;">Unable to load leaderboard.</td>';
+          return;
+        }
+        if (operatorCountEl) operatorCountEl.textContent = data.total_operators ?? 0;
+        if (totalBlocksEl) totalBlocksEl.textContent = data.total_blocks ?? 0;
+        if (indexerStatusEl) indexerStatusEl.textContent = (data.total_blocks > 0) ? 'Live' : 'Soon';
+
+        var operators = data.operators || [];
+        if (operators.length === 0) {
+          if (placeholderRow) placeholderRow.innerHTML = '<td colspan="4" style="text-align: center; color: var(--text-tertiary); padding: 2rem;">Leaderboard data will appear when the indexer is live.</td>';
+          return;
+        }
+        if (placeholderRow) placeholderRow.remove();
+        operators.forEach(function (op) {
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td>' + op.rank + '</td>' +
+            '<td><code class="account-short" title="' + (op.proposer || '') + '">' + shortAccount(op.proposer) + '</code></td>' +
+            '<td>' + op.blocks_proposed + '</td>' +
+            '<td>' + formatUptime(op.first_block_at, op.last_block_at) + '</td>';
+          if (tbody) tbody.appendChild(tr);
+        });
+        if (noteEl) noteEl.style.display = 'none';
+      })
+      .catch(function () {
+        if (placeholderRow) placeholderRow.innerHTML = '<td colspan="4" style="text-align: center; color: var(--text-tertiary); padding: 2rem;">Leaderboard data will appear when the indexer is live.</td>';
+      });
   })();
 </script>
