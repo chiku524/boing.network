@@ -1,0 +1,116 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import Breadcrumbs from '../../../components/Breadcrumbs.astro';
+import HubNav from '../../../components/HubNav.astro';
+import '../../../styles/hub-common.css';
+---
+
+<Layout
+  title="Community — Developer Hub — Testnet Portal"
+  description="Published dApps, distribution progress, and developer hub leaderboard on Boing Network testnet."
+>
+  <article class="portal-page role-hub developers-hub hub-page hub-developer" data-hub="developer">
+    <script is:inline src="/portal-session.js"></script>
+    <Breadcrumbs items={[{ label: 'Testnet Portal', href: '/testnet' }, { label: 'Developer Hub', href: '/testnet/developers' }, { label: 'Community' }]} />
+
+    <div class="hub-page-main">
+      <HubNav hub="developer" current="community" />
+      <section class="section fade-in-up">
+        <h1>Developer Community</h1>
+        <p class="muted">Hub-wide progress: published dApps, distribution, and leaderboard. For your own dApps and registration, go to <a href="/testnet/developers/dashboard">My Dashboard</a>.</p>
+      </section>
+
+      <section class="section fade-in-up delay-1">
+        <h2>Published dApps</h2>
+        <p class="muted">All dApps registered on testnet. Count and list update when the API is available.</p>
+        <div class="hub-metrics">
+          <div class="hub-metric-card">
+            <span class="value" id="dapp-count">—</span>
+            <span class="label">dApps registered</span>
+          </div>
+        </div>
+        <div id="dapp-list-wrap" class="dashboard-placeholder">
+          <p>Loading…</p>
+        </div>
+      </section>
+
+      <section class="section fade-in-up delay-2">
+        <h2>Distribution progress</h2>
+        <p class="muted">dApp incentive pool allocation and distribution will appear here once mainnet and the indexer are live. Testnet participation qualifies you for the ecosystem pool at mainnet.</p>
+        <div class="hub-metrics">
+          <div class="hub-metric-card">
+            <span class="value">—</span>
+            <span class="label">Pool allocated</span>
+          </div>
+          <div class="hub-metric-card">
+            <span class="value">—</span>
+            <span class="label">Distributed this epoch</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section fade-in-up delay-3">
+        <h2>Quick links</h2>
+        <p><a href="/testnet/developers/dashboard">My Dashboard</a> · <a href="/testnet/developers/resources">Resources</a> · <a href="/developers/quickstart">Quickstart</a></p>
+      </section>
+    </div>
+  </article>
+</Layout>
+
+<script is:inline src="/portal-session.js"></script>
+<script>
+  (function () {
+    var expectedRole = 'developer';
+    var session = window.BoingPortalSession && window.BoingPortalSession.getSession();
+    var authEl = document.getElementById('portal-auth');
+    if (session && session.role !== expectedRole) {
+      var path = window.BoingPortalSession ? window.BoingPortalSession.roleAppPath(session.role) : '/testnet';
+      window.location.href = path;
+      return;
+    }
+    function renderAuth() {
+      if (!authEl) return;
+      if (!session) {
+        authEl.innerHTML = '<a href="/testnet/sign-in" class="auth-link">Sign in</a>';
+        return;
+      }
+      var short = window.BoingPortalSession ? window.BoingPortalSession.shortAccount(session.account_id_hex) : session.account_id_hex;
+      authEl.innerHTML = 'Signed in as <span class="account-short">' + short + '</span> · <button type="button" id="portal-signout" class="auth-signout">Logout</button>';
+      var so = document.getElementById('portal-signout');
+      if (so) so.addEventListener('click', function () {
+        if (window.BoingPortalSession && window.BoingPortalSession.logout) window.BoingPortalSession.logout();
+        else { try { localStorage.removeItem('boing_portal_session'); } catch(_){} window.location.href = '/'; }
+      });
+    }
+    renderAuth();
+
+    var countEl = document.getElementById('dapp-count');
+    var listWrap = document.getElementById('dapp-list-wrap');
+    fetch('/api/portal/dapps')
+      .then(function (res) { return res.json().catch(function () { return {}; }); })
+      .then(function (data) {
+        if (!listWrap) return;
+        if (!data.ok) {
+          listWrap.innerHTML = '<p class="muted">Unable to load dApps. API may not be deployed yet.</p>';
+          return;
+        }
+        var dapps = data.dapps || [];
+        if (countEl) countEl.textContent = dapps.length;
+        if (dapps.length === 0) {
+          listWrap.innerHTML = '<p class="muted">No dApps registered yet. Be the first — <a href="/testnet/developers/dashboard">register on My Dashboard</a>.</p>';
+          return;
+        }
+        var html = '<ul class="resources-list">';
+        dapps.forEach(function (d) {
+          var short = (d.contract_hex || '').slice(0, 18) + '…';
+          var name = d.name ? (' — ' + d.name) : '';
+          html += '<li><code>' + short + '</code>' + name + (d.registered_at ? ' <span class="muted">' + d.registered_at.slice(0, 10) + '</span>' : '') + '</li>';
+        });
+        html += '</ul>';
+        listWrap.innerHTML = html;
+      })
+      .catch(function () {
+        if (listWrap) listWrap.innerHTML = '<p class="muted">Network error. API may not be deployed yet.</p>';
+      });
+  })();
+</script>

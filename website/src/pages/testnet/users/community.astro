@@ -1,0 +1,111 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import Breadcrumbs from '../../../components/Breadcrumbs.astro';
+import HubNav from '../../../components/HubNav.astro';
+import '../../../styles/hub-common.css';
+---
+
+<Layout
+  title="Community — Community Hub — Testnet Portal"
+  description="Quest progress, leaderboard, and community-wide stats on Boing Network testnet."
+>
+  <article class="portal-page role-hub users-hub hub-page hub-community" data-hub="user">
+    <script is:inline src="/portal-session.js"></script>
+    <Breadcrumbs items={[{ label: 'Testnet Portal', href: '/testnet' }, { label: 'Community Hub', href: '/testnet/users' }, { label: 'Community' }]} />
+
+    <div class="hub-page-main">
+      <HubNav hub="user" current="community" />
+      <section class="section fade-in-up">
+        <h1>Community Hub</h1>
+        <p class="muted">Hub-wide progress: quest completions, leaderboard, and distribution. For your own progress, go to <a href="/testnet/users/dashboard">My Dashboard</a>.</p>
+      </section>
+
+      <section class="section fade-in-up delay-1">
+        <h2>Quest completions</h2>
+        <p class="muted">Total completions across the community. Per-quest counts update when the API is available.</p>
+        <div class="hub-metrics">
+          <div class="hub-metric-card">
+            <span class="value" id="total-completions">—</span>
+            <span class="label">Total completions</span>
+          </div>
+        </div>
+        <div id="quest-stats-wrap" class="dashboard-placeholder">
+          <p>Loading…</p>
+        </div>
+      </section>
+
+      <section class="section fade-in-up delay-2">
+        <h2>Community leaderboard</h2>
+        <p class="muted">Top quest completers and distribution progress will appear here once the indexer is live.</p>
+        <div class="hub-metrics">
+          <div class="hub-metric-card">
+            <span class="value">—</span>
+            <span class="label">Leaderboard (soon)</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section fade-in-up delay-3">
+        <h2>Quick links</h2>
+        <p><a href="/testnet/users/dashboard">My Dashboard</a> · <a href="/testnet/users/quests">Quests</a> · <a href="/network/faucet">Faucet</a></p>
+      </section>
+    </div>
+  </article>
+</Layout>
+
+<script is:inline src="/portal-session.js"></script>
+<script>
+  (function () {
+    var expectedRole = 'user';
+    var session = window.BoingPortalSession && window.BoingPortalSession.getSession();
+    var authEl = document.getElementById('portal-auth');
+    if (session && session.role !== expectedRole) {
+      var path = window.BoingPortalSession ? window.BoingPortalSession.roleAppPath(session.role) : '/testnet';
+      window.location.href = path;
+      return;
+    }
+    function renderAuth() {
+      if (!authEl) return;
+      if (!session) {
+        authEl.innerHTML = '<a href="/testnet/sign-in" class="auth-link">Sign in</a>';
+        return;
+      }
+      var short = window.BoingPortalSession ? window.BoingPortalSession.shortAccount(session.account_id_hex) : session.account_id_hex;
+      authEl.innerHTML = 'Signed in as <span class="account-short">' + short + '</span> · <button type="button" id="portal-signout" class="auth-signout">Logout</button>';
+      var so = document.getElementById('portal-signout');
+      if (so) so.addEventListener('click', function () {
+        if (window.BoingPortalSession && window.BoingPortalSession.logout) window.BoingPortalSession.logout();
+        else { try { localStorage.removeItem('boing_portal_session'); } catch(_){} window.location.href = '/'; }
+      });
+    }
+    renderAuth();
+
+    var totalEl = document.getElementById('total-completions');
+    var statsWrap = document.getElementById('quest-stats-wrap');
+    fetch('/api/portal/quests-stats')
+      .then(function (res) { return res.json().catch(function () { return {}; }); })
+      .then(function (data) {
+        if (!statsWrap) return;
+        if (!data.ok) {
+          statsWrap.innerHTML = '<p class="muted">Unable to load stats. API may not be deployed yet.</p>';
+          return;
+        }
+        if (totalEl) totalEl.textContent = data.total_completions ?? 0;
+        var byQuest = data.by_quest || {};
+        var keys = Object.keys(byQuest);
+        if (keys.length === 0) {
+          statsWrap.innerHTML = '<p class="muted">No completions yet. <a href="/testnet/users/quests">Complete a quest</a> to be first.</p>';
+          return;
+        }
+        var html = '<ul class="resources-list">';
+        keys.forEach(function (qid) {
+          html += '<li><strong>' + qid + '</strong>: ' + byQuest[qid] + ' completion(s)</li>';
+        });
+        html += '</ul>';
+        statsWrap.innerHTML = html;
+      })
+      .catch(function () {
+        if (statsWrap) statsWrap.innerHTML = '<p class="muted">Network error. API may not be deployed yet.</p>';
+      });
+  })();
+</script>

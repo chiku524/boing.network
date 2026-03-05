@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
 import Breadcrumbs from '../../../components/Breadcrumbs.astro';
+import HubNav from '../../../components/HubNav.astro';
 import '../../../styles/hub-common.css';
 ---
 
@@ -10,9 +11,9 @@ import '../../../styles/hub-common.css';
 >
   <article class="portal-page role-hub developers-hub hub-page hub-developer" data-hub="developer">
     <script is:inline src="/portal-session.js"></script>
-    <Breadcrumbs items={[{ label: 'Dashboard', href: '/testnet' }, { label: 'Developer Hub' }]} />
-
+    <Breadcrumbs items={[{ label: 'Testnet Portal', href: '/testnet' }, { label: 'Developer Hub' }]} />
     <div class="hub-page-main">
+    <HubNav hub="developer" current="index" />
     <div class="hub-hero fade-in-up">
       <h1>Developer Hub</h1>
       <p class="lead">
@@ -43,7 +44,7 @@ import '../../../styles/hub-common.css';
         and
         <a href="/pdfs/DEVELOPMENT-AND-ENHANCEMENTS.pdf" target="_blank" rel="noopener">DEVELOPMENT-AND-ENHANCEMENTS (PDF)</a>.
       </p>
-      <p><a href="/testnet/developers/dashboard" class="btn btn-secondary">Open dashboard</a> · <a href="/testnet/developers/resources" class="btn btn-secondary">Resources</a></p>
+      <p><a href="/testnet/developers/dashboard" class="btn btn-secondary">My Dashboard</a> · <a href="/testnet/developers/community" class="btn btn-secondary">Community</a> · <a href="/testnet/developers/resources" class="btn btn-secondary">Resources</a></p>
     </section>
     </div>
   </article>

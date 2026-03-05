@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
 import Breadcrumbs from '../../../components/Breadcrumbs.astro';
+import HubNav from '../../../components/HubNav.astro';
 import { TESTNET_RPC_URL, BOOTNODES, isTestnetLive } from '../../../config/testnet';
 import '../../../styles/hub-common.css';
 ---
@@ -12,7 +13,8 @@ import '../../../styles/hub-common.css';
   <article class="portal-page role-hub operators-hub hub-page hub-operator" data-hub="node_operator">
     <script is:inline src="/portal-session.js"></script>
     <Breadcrumbs items={[{ label: 'Testnet Portal', href: '/testnet' }, { label: 'Operator Hub', href: '/testnet/operators' }, { label: 'Leaderboard' }]} />
-
+    <div class="hub-page-main">
+    <HubNav hub="operator" current="leaderboard" />
     <section class="section fade-in-up">
       <h1>Leaderboard</h1>
       <p class="muted">Blocks proposed and uptime will appear here once the testnet indexer is live. <a href="https://github.com/chiku524/boing.network/blob/main/docs/INDEXER-OPERATOR-STATS.md" target="_blank" rel="noopener">What to build to enable live stats</a>. <a href="/testnet/register/operator">Register as node operator</a> to be counted.</p>
@@ -69,6 +71,7 @@ import '../../../styles/hub-common.css';
         <p>Testnet endpoints will appear here when live. Until then, use <a href="/network/single-vs-multi">local multi-node</a> or run with placeholder bootnodes.</p>
       )}
     </section>
+  </div>
   </article>
 </Layout>
 

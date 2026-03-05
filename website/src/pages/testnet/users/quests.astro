@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
 import Breadcrumbs from '../../../components/Breadcrumbs.astro';
+import HubNav from '../../../components/HubNav.astro';
 import { QUESTS, EXTERNAL_QUEST_FORM_URL } from '../../../config/quests';
 import '../../../styles/hub-common.css';
 ---
@@ -12,7 +13,8 @@ import '../../../styles/hub-common.css';
   <article class="portal-page role-hub users-hub hub-page hub-community" data-hub="user">
     <script is:inline src="/portal-session.js"></script>
     <Breadcrumbs items={[{ label: 'Testnet Portal', href: '/testnet' }, { label: 'Community Hub', href: '/testnet/users' }, { label: 'Quests' }]} />
-
+    <div class="hub-page-main">
+    <HubNav hub="user" current="quests" />
     <section class="section fade-in-up">
       <h1>Community quests</h1>
       <p class="muted">Complete these to qualify for rewards. Rewards and caps are in the <a href="/pdfs/TESTNET.pdf" target="_blank" rel="noopener">Testnet doc (PDF)</a> rules.</p>
@@ -62,6 +64,7 @@ import '../../../styles/hub-common.css';
       <h2>Quick links</h2>
       <p><a href="/network/faucet">Faucet</a> · <a href="/network/testnet">Join Testnet</a> · <a href="/testnet/users/dashboard">Your progress</a> · <a href="/pdfs/TESTNET.pdf" target="_blank" rel="noopener">Testnet doc (PDF) Part 2 § Community Quests</a></p>
     </section>
+  </div>
   </article>
 </Layout>
 

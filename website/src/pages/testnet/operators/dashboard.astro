@@ -1,0 +1,197 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import Breadcrumbs from '../../../components/Breadcrumbs.astro';
+import { TESTNET_RPC_URL, BOOTNODES, isTestnetLive } from '../../../config/testnet';
+import '../../../styles/hub-common.css';
+---
+
+<Layout
+  title="My Dashboard — Operator Hub — Testnet Portal"
+  description="Your node operator contribution, blocks proposed, and uptime on Boing Network testnet."
+>
+  <article class="portal-page role-hub operators-hub hub-page hub-operator" data-hub="node_operator">
+    <script is:inline src="/portal-session.js"></script>
+    <Breadcrumbs items={[{ label: 'Testnet Portal', href: '/testnet' }, { label: 'Operator Hub', href: '/testnet/operators' }, { label: 'My Dashboard' }]} />
+    <div class="hub-page-main">
+      <HubNav hub="operator" current="dashboard" />
+      <section class="section fade-in-up">
+        <h1>My Dashboard</h1>
+        <p class="muted">Your contribution as a node operator or miner. Load your account to see registration and stats. For the full operator leaderboard, see <a href="/testnet/operators/leaderboard">Community Leaderboard</a>.</p>
+        <div class="dashboard-load" id="dashboard-load">
+          <label for="me-account">Account ID to load</label>
+          <input id="me-account" type="text" placeholder="0x..." maxlength="66" />
+          <button type="button" id="me-load-btn">Load dashboard</button>
+        </div>
+      </section>
+
+      <section id="contrib-section" class="section fade-in-up delay-1" style="display: none;">
+        <h2>Your contribution</h2>
+        <p class="muted">Blocks proposed and rank come from the testnet indexer. <a href="https://github.com/chiku524/boing.network/blob/main/docs/INDEXER-OPERATOR-STATS.md" target="_blank" rel="noopener">What to build to enable live stats →</a></p>
+        <div id="metrics-row" class="hub-metrics">
+          <div class="hub-metric-card">
+            <span class="value" id="metric-blocks">—</span>
+            <span class="label">Blocks proposed</span>
+          </div>
+          <div class="hub-metric-card">
+            <span class="value" id="metric-uptime">—</span>
+            <span class="label">Uptime</span>
+          </div>
+          <div class="hub-metric-card">
+            <span class="value" id="metric-rank">—</span>
+            <span class="label">Rank</span>
+          </div>
+        </div>
+        <p><a href="/testnet/operators/leaderboard" class="btn btn-secondary">View full leaderboard</a></p>
+      </section>
+
+      <section id="registration-section" class="section fade-in-up delay-2" style="display: none;">
+        <h2>Your registration</h2>
+        <div id="registration-content" class="dashboard-placeholder"></div>
+        <p class="muted">To add or update your node multiaddr, <a href="/testnet/register/operator">re-register</a> with the same account ID.</p>
+      </section>
+
+      <section class="section fade-in-up delay-3">
+        <h2>Your node</h2>
+        <p>Run <code>boing-node</code> with P2P and bootnodes to join the public testnet. Stake testnet BOING (from the faucet) to participate in consensus.</p>
+        {isTestnetLive ? (
+          <>
+            <p><strong>RPC:</strong> <code>{TESTNET_RPC_URL}</code></p>
+            {BOOTNODES.length > 0 && (
+              <>
+                <p><strong>Bootnodes:</strong></p>
+                <pre class="code-block"><code>{BOOTNODES.join("\n")}</code></pre>
+              </>
+            )}
+          </>
+        ) : (
+          <p>Testnet endpoints will appear here when live. See <a href="/network/testnet">Join Testnet</a> and <a href="/pdfs/VIBEMINER-INTEGRATION.pdf" target="_blank" rel="noopener">VibeMiner (PDF)</a>.</p>
+        )}
+        <p><a href="/network/faucet">Faucet</a> · <a href="/testnet/operators/resources">Resources</a></p>
+      </section>
+
+      <section class="section fade-in-up delay-4">
+        <h2>Quick links</h2>
+        <p><a href="/testnet/operators/leaderboard">Leaderboard</a> · <a href="/testnet/operators/resources">Resources</a> · <a href="/network/faucet">Faucet</a> · <a href="/network/testnet">Join Testnet</a></p>
+      </section>
+    </div>
+  </article>
+</Layout>
+
+<script is:inline src="/portal-session.js"></script>
+<script>
+  (function () {
+    var expectedRole = 'node_operator';
+    var session = window.BoingPortalSession && window.BoingPortalSession.getSession();
+    var authEl = document.getElementById('portal-auth');
+    var dashboardLoad = document.getElementById('dashboard-load');
+    var contribSection = document.getElementById('contrib-section');
+    var registrationSection = document.getElementById('registration-section');
+    var registrationContent = document.getElementById('registration-content');
+    var meInput = document.getElementById('me-account');
+    var loadBtn = document.getElementById('me-load-btn');
+
+    if (session && session.role !== expectedRole) {
+      var path = window.BoingPortalSession ? window.BoingPortalSession.roleAppPath(session.role) : '/testnet';
+      window.location.href = path;
+      return;
+    }
+
+    function renderAuth() {
+      if (!authEl) return;
+      if (!session) {
+        authEl.innerHTML = '<a href="/testnet/sign-in" class="auth-link">Sign in</a>';
+        return;
+      }
+      var short = window.BoingPortalSession ? window.BoingPortalSession.shortAccount(session.account_id_hex) : session.account_id_hex;
+      authEl.innerHTML = 'Signed in as <span class="account-short">' + short + '</span> · <button type="button" id="portal-signout" class="auth-signout">Logout</button>';
+      if (dashboardLoad) dashboardLoad.style.display = 'none';
+      var so = document.getElementById('portal-signout');
+      if (so) so.addEventListener('click', function () {
+        if (window.BoingPortalSession && window.BoingPortalSession.logout) window.BoingPortalSession.logout();
+        else { try { localStorage.removeItem('boing_portal_session'); } catch(_){} window.location.href = '/'; }
+      });
+    }
+
+    function loadDashboard(hex) {
+      if (!loadBtn || !registrationContent) return;
+      loadBtn.textContent = 'Loading…';
+      registrationContent.innerHTML = '<p>Loading…</p>';
+      fetch('/api/portal/me?account_id_hex=' + encodeURIComponent(hex))
+        .then(function (res) { return res.json().catch(function () { return {}; }); })
+        .then(function (data) {
+          if (!data.ok) {
+            registrationContent.innerHTML = '<p class="err">' + (data.message || 'Failed to load.') + '</p>';
+            if (contribSection) contribSection.style.display = 'block';
+            registrationSection.style.display = 'block';
+            return;
+          }
+          if (!data.registered) {
+            registrationContent.innerHTML = '<p>Not registered as operator. <a href="/testnet/register/operator">Register as node operator</a> to be counted.</p>';
+            if (contribSection) contribSection.style.display = 'block';
+            registrationSection.style.display = 'block';
+            return;
+          }
+          if (data.role !== 'node_operator') {
+            registrationContent.innerHTML = '<p>This account is registered as <strong>' + data.role + '</strong>. Use the correct hub dashboard.</p>';
+            registrationSection.style.display = 'block';
+            return;
+          }
+          var short = window.BoingPortalSession ? window.BoingPortalSession.shortAccount(data.account_id_hex) : data.account_id_hex.slice(0, 18) + '…';
+          var html = '<p><strong>Account:</strong> <code class="account-short">' + short + '</code></p>';
+          if (data.node_multiaddr) {
+            html += '<p><strong>Node multiaddr:</strong> <code>' + data.node_multiaddr + '</code></p>';
+          } else {
+            html += '<p><strong>Node multiaddr:</strong> <span class="muted">Not set. <a href="/testnet/register/operator">Add one when re-registering</a>.</span></p>';
+          }
+          html += '<p class="muted">Registered ' + (data.created_at ? data.created_at.slice(0, 10) : '') + '.</p>';
+          registrationContent.innerHTML = html;
+          if (contribSection) contribSection.style.display = 'block';
+          registrationSection.style.display = 'block';
+          var blocksEl = document.getElementById('metric-blocks');
+          var uptimeEl = document.getElementById('metric-uptime');
+          var rankEl = document.getElementById('metric-rank');
+          if (blocksEl) blocksEl.textContent = '—';
+          if (uptimeEl) uptimeEl.textContent = '—';
+          if (rankEl) rankEl.textContent = '—';
+          fetch('/api/portal/operator-stats?account_id_hex=' + encodeURIComponent(hex))
+            .then(function (res) { return res.json().catch(function () { return {}; }); })
+            .then(function (stats) {
+              if (!stats.ok || !blocksEl) return;
+              if (stats.blocks_proposed != null) blocksEl.textContent = stats.blocks_proposed;
+              if (stats.rank != null && rankEl) rankEl.textContent = '#' + stats.rank;
+              if (stats.uptime_estimate && uptimeEl) {
+                var first = stats.uptime_estimate.first_block_at ? stats.uptime_estimate.first_block_at.slice(0, 10) : '';
+                var last = stats.uptime_estimate.last_block_at ? stats.uptime_estimate.last_block_at.slice(0, 10) : '';
+                uptimeEl.textContent = first && last ? (first === last ? first : first + ' – ' + last) : '—';
+              }
+            });
+          return;
+        })
+        .catch(function () {
+          registrationContent.innerHTML = '<p class="err">Network error. Is the API deployed?</p>';
+          if (contribSection) contribSection.style.display = 'block';
+          registrationSection.style.display = 'block';
+        })
+        .finally(function () { if (loadBtn) loadBtn.textContent = 'Load dashboard'; });
+    }
+
+    renderAuth();
+
+    if (session && session.role === expectedRole && session.account_id_hex) {
+      loadDashboard(session.account_id_hex);
+      if (meInput) meInput.value = session.account_id_hex;
+    } else if (meInput && loadBtn && registrationContent) {
+      try { if (localStorage.getItem('boing_portal_account')) meInput.value = localStorage.getItem('boing_portal_account'); } catch (_) {}
+      loadBtn.addEventListener('click', function () {
+        var hex = (meInput.value || '').trim();
+        if (!hex.startsWith('0x')) hex = '0x' + hex;
+        if (hex.length !== 66) {
+          registrationContent.innerHTML = '<p class="err">Enter a valid 32-byte hex account ID.</p>';
+          registrationSection.style.display = 'block';
+          return;
+        }
+        loadDashboard(hex);
+      });
+    }
+  })();
+</script>

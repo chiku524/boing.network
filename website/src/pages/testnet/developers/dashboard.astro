@@ -1,5 +1,7 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
+import Breadcrumbs from '../../../components/Breadcrumbs.astro';
+import HubNav from '../../../components/HubNav.astro';
 import '../../../styles/hub-common.css';
 ---
 
@@ -9,7 +11,9 @@ import '../../../styles/hub-common.css';
 >
   <article class="portal-page role-hub developers-hub hub-page hub-developer" data-hub="developer">
     <script is:inline src="/portal-session.js"></script>
-
+    <Breadcrumbs items={[{ label: 'Testnet Portal', href: '/testnet' }, { label: 'Developer Hub', href: '/testnet/developers' }, { label: 'My Dashboard' }]} />
+    <div class="hub-page-main">
+    <HubNav hub="developer" current="dashboard" />
     <section class="section fade-in-up">
       <h1>Your dashboard</h1>
       <p class="muted">Register with your testnet account to see your registered dApps here. On mainnet, use <code>boing_registerDappMetrics</code> and the chain indexer for live metrics.</p>
@@ -36,6 +40,7 @@ import '../../../styles/hub-common.css';
         <p id="dapp-message" class="form-message"></p>
       </div>
     </section>
+  </div>
   </article>
 </Layout>
 
