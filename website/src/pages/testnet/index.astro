@@ -4,13 +4,14 @@ import Icon from '../../components/Icon.astro';
 ---
 
 <Layout
-  title="Testnet Portal"
-  description="Boing Network testnet: sign in or register. Access your developer, community, or operator hub."
+  title="Dashboard — Boing Network Testnet"
+  description="Boing Network testnet dashboard: sign in or register. Access your developer, community, or operator hub."
 >
-  <article class="portal-page portal-entry">
+  <article class="portal-page portal-entry page-wrap-full">
     <script is:inline src="/portal-session.js"></script>
+    <div class="portal-entry-inner page-wrap-inner">
     <div class="portal-hero fade-in-up">
-      <h1 class="portal-hero-title"><Icon name="portal" size={36} class="title-icon" /> Testnet Portal</h1>
+      <h1 class="portal-hero-title"><Icon name="portal" size={36} class="title-icon" /> Dashboard</h1>
       <p class="lead portal-hero-lead fade-in-up delay-1">
         Sign in to open your hub, or register as a <strong>developer</strong>, <strong>community user</strong>, or <strong>node operator</strong>. Each hub is separate — you'll be directed there after sign-in or registration.
       </p>
@@ -48,6 +49,7 @@ import Icon from '../../components/Icon.astro';
     <section class="section section-back">
       <p><a href="/" class="back-to-site">← Back to Boing Network</a></p>
     </section>
+    </div>
   </article>
 </Layout>
 
@@ -64,7 +66,8 @@ import Icon from '../../components/Icon.astro';
 </script>
 
 <style>
-  .portal-page { max-width: 720px; margin: 0 auto; padding: 2rem; }
+  .portal-page { padding: 0; margin: 0; }
+  .portal-entry-inner { padding-top: 2rem; padding-bottom: 3rem; max-width: 1280px; }
   .portal-entry .portal-hero { margin-bottom: 2.5rem; }
   .portal-hero-title {
     display: flex;

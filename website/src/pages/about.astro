@@ -1,41 +1,63 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import Icon from '../components/Icon.astro';
 ---
 
 <Layout title="About" description="The DeFi that always bounces back. Boing Network design philosophy — authentic L1 blockchain built from first principles, decentralized by design." canonical="/about">
-  <article class="page">
-    <h1>About Boing Network</h1>
-    <p class="lead">The DeFi that always bounces back. An authentic L1 blockchain built from first principles — optimized for efficiency, free from dependencies on other chains, and designed for absolute decentralization.</p>
+  <article class="page-wrap-full">
+    <header class="page-hero-full">
+      <div class="page-wrap-inner" style="max-width: 720px;">
+        <span class="stage-badge-global">Testnet</span>
+        <h1 class="about-title"><Icon name="shield" size={36} class="about-title-icon" /> About Boing Network</h1>
+        <p class="lead">The DeFi that always bounces back. An authentic L1 blockchain built from first principles — optimized for efficiency, free from dependencies on other chains, and designed for absolute decentralization.</p>
+      </div>
+    </header>
+    <div class="page-wrap-inner about-content" style="max-width: 720px;">
+    <section class="about-section section-reveal delay-1">
+      <h2><Icon name="shield" size={22} class="section-icon" /> Design Philosophy</h2>
+      <ul>
+        <li><strong>Authentic</strong> — Our own architecture, not a fork or framework</li>
+        <li><strong>Independent</strong> — Zero reliance on Solana, Cosmos, Ethereum, or other chains</li>
+        <li><strong>Optimal</strong> — Adopt the best ideas from the ecosystem when they are demonstrably superior</li>
+        <li><strong>Unique</strong> — A distinct identity and technical story</li>
+        <li><strong>Decentralized</strong> — Absolute decentralization as a foundational requirement</li>
+        <li><strong>Transparent</strong> — 100% openness in design, governance, and operations — trust through verification</li>
+      </ul>
+    </section>
 
-    <h2>Design Philosophy</h2>
-    <ul>
-      <li><strong>Authentic</strong> — Our own architecture, not a fork or framework</li>
-      <li><strong>Independent</strong> — Zero reliance on Solana, Cosmos, Ethereum, or other chains</li>
-      <li><strong>Optimal</strong> — Adopt the best ideas from the ecosystem when they are demonstrably superior</li>
-      <li><strong>Unique</strong> — A distinct identity and technical story</li>
-      <li><strong>Decentralized</strong> — Absolute decentralization as a foundational requirement</li>
-      <li><strong>Transparent</strong> — 100% openness in design, governance, and operations — trust through verification</li>
-    </ul>
+    <section class="about-section section-reveal delay-2">
+      <h2><Icon name="shield" size={22} class="section-icon" /> The Six Pillars</h2>
+      <p>The network prioritizes, in order: <strong>Security</strong> (safety over speed) → <strong>Scalability</strong> (throughput, efficiency) → <strong>Decentralization</strong> (permissionless at every layer) → <strong>Authenticity</strong> (unique architecture) → <strong>Transparency</strong> (100% openness) → <strong>True quality assurance</strong> (protocol-enforced QA: only quality assets on-chain; automation + community pool for edge cases; leniency for meme culture; no malice).</p>
+    </section>
 
-    <h2>The Six Pillars</h2>
-    <p>The network prioritizes, in order: <strong>Security</strong> (safety over speed) → <strong>Scalability</strong> (throughput, efficiency) → <strong>Decentralization</strong> (permissionless at every layer) → <strong>Authenticity</strong> (unique architecture) → <strong>Transparency</strong> (100% openness) → <strong>True quality assurance</strong> (protocol-enforced QA: only quality assets on-chain; automation + community pool for edge cases; leniency for meme culture; no malice).</p>
+    <section class="about-section section-reveal delay-3">
+      <h2><Icon name="rocket" size={22} class="section-icon" /> Unique Innovations</h2>
+      <ul>
+        <li>Native Account Abstraction (protocol-level, not contract-based)</li>
+        <li>Adaptive Gas Model (dynamic pricing with predictable caps)</li>
+        <li>Native Cross-Chain Primitives (light client verification)</li>
+        <li>Transparent Slashing with appeal mechanisms</li>
+        <li>Phased Governance with time locks</li>
+        <li>State Rent with grace periods</li>
+      </ul>
+    </section>
 
-    <h2>Unique Innovations</h2>
-    <ul>
-      <li>Native Account Abstraction (protocol-level, not contract-based)</li>
-      <li>Adaptive Gas Model (dynamic pricing with predictable caps)</li>
-      <li>Native Cross-Chain Primitives (light client verification)</li>
-      <li>Transparent Slashing with appeal mechanisms</li>
-      <li>Phased Governance with time locks</li>
-      <li>State Rent with grace periods</li>
-    </ul>
-
-    <p><a href="/docs/getting-started">Get started</a> or explore the <a href="/developers/quickstart">developer docs</a>.</p>
+    <p class="section-reveal delay-4"><a href="/docs/getting-started">Get started</a> or explore the <a href="/developers/quickstart">developer docs</a>.</p>
+    </div>
   </article>
 </Layout>
 
 <style>
-  .page { max-width: 720px; margin: 0 auto; padding: 2rem; }
-  .lead { font-size: 1.125rem; color: var(--text-muted); }
-  .page h2 { margin-top: 2rem; }
+  .about-title { display: flex; align-items: center; justify-content: center; gap: 0.5rem; flex-wrap: wrap; margin: 0 0 0.5rem; }
+  .about-title-icon { color: var(--accent-teal); flex-shrink: 0; }
+  .page-hero-full .lead { color: var(--text-secondary); margin: 0; }
+  .about-content { padding-bottom: 3rem; }
+  .about-section { margin-top: 2.5rem; }
+  .about-section h2 { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.75rem; color: var(--text-primary); font-size: 1.35rem; }
+  .section-icon { color: var(--accent-teal); flex-shrink: 0; }
+  .about-section ul { padding-left: 1.5rem; margin: 0.5rem 0; }
+  .about-section li, .about-section p { color: var(--text-secondary); line-height: 1.6; }
+  .about-section a { color: var(--accent-teal); }
+  .about-content > p { margin-top: 2rem; }
+  .about-content > p a { color: var(--accent-teal); }
 </style>

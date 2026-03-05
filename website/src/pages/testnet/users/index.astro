@@ -12,8 +12,9 @@ import '../../../styles/hub-common.css';
   <article class="portal-page role-hub users-hub hub-page hub-community" data-hub="user">
     <script is:inline src="/portal-session.js"></script>
     <HubNav hub="user" current="index" />
-    <Breadcrumbs items={[{ label: 'Testnet Portal', href: '/testnet' }, { label: 'Community Hub' }]} />
+    <Breadcrumbs items={[{ label: 'Dashboard', href: '/testnet' }, { label: 'Community Hub' }]} />
 
+    <div class="hub-page-main">
     <div id="wrong-role-banner" class="wrong-role-banner" style="display: none;"></div>
 
     <div class="hub-hero fade-in-up">
@@ -43,6 +44,7 @@ import '../../../styles/hub-common.css';
       <h2>Quick links</h2>
       <p><a href="/testnet/users/dashboard" class="btn btn-secondary">Your progress</a> · <a href="/testnet/users/quests" class="btn btn-secondary">Quests</a> · <a href="/network/faucet">Faucet</a> · <a href="/network/testnet">Join Testnet</a></p>
     </section>
+    </div>
   </article>
 </Layout>
 

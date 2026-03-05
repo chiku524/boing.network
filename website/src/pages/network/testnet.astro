@@ -9,39 +9,42 @@ import { TESTNET_RPC_URL, BOOTNODES, isTestnetLive } from '../../config/testnet'
   title="Join Testnet"
   description="Boing Network testnet: run a node, get testnet BOING from the faucet, and join as a validator."
 >
-  <article class="page testnet-page">
-    <h1 class="page-title"><Icon name="network" size={32} class="title-icon" /> Join the Testnet</h1>
-    <p class="lead">
-      Run a node, get testnet BOING from the faucet, and participate as a validator or developer. Everything you need is below — or jump to dedicated pages for <strong>Bootnodes</strong>, <strong>Single vs multi-node</strong>, and the <strong>Faucet</strong>.
-    </p>
-
-    <!-- Dedicated section cards: link to full pages -->
+  <article class="page-wrap-full">
+    <header class="page-hero-full">
+      <div class="page-wrap-inner">
+        <span class="stage-badge-global">Testnet</span>
+        <h1 class="page-title"><Icon name="network" size={32} class="title-icon" /> Join the Testnet</h1>
+        <p class="lead">
+          Run a node, get testnet BOING from the faucet, and participate as a validator or developer. Everything you need is below — or jump to dedicated pages for <strong>Bootnodes</strong>, <strong>Single vs multi-node</strong>, and the <strong>Faucet</strong>.
+        </p>
+      </div>
+    </header>
+    <div class="page-wrap-inner testnet-content">
     <div class="dedicated-cards">
-      <a href="/testnet" class="dedicated-card featured">
-        <span class="card-icon"><Icon name="portal" size={28} /></span>
-        <h2>Testnet Portal</h2>
+      <a href="/testnet" class="dedicated-card featured card-reveal"><span class="card-icon"><Icon name="portal" size={28} /></span>
+        <h2>Dashboard</h2>
         <p>Choose your path: developer, user, or node operator. Each role has its own hub with registration, dashboard, and resources.</p>
         <span class="card-arrow">Open portal →</span>
       </a>
-      <a href="/network/single-vs-multi" class="dedicated-card">
+      <a href="/network/single-vs-multi" class="dedicated-card card-reveal">
         <span class="card-icon"><Icon name="node" size={28} /></span>
         <h2>Single node vs multi-node</h2>
         <p>When to run alone vs joining the public testnet. Commands and comparison.</p>
         <span class="card-arrow">Read more →</span>
       </a>
-      <a href="/network/bootnodes" class="dedicated-card">
+      <a href="/network/bootnodes" class="dedicated-card card-reveal">
         <span class="card-icon"><Icon name="network" size={28} /></span>
         <h2>Bootnodes</h2>
         <p>What bootnodes are, how to use them, and where to get the official list.</p>
         <span class="card-arrow">Read more →</span>
       </a>
-      <a href="/network/faucet" class="dedicated-card featured">
+      <a href="/network/faucet" class="dedicated-card featured card-reveal">
         <span class="card-icon"><Icon name="faucet" size={28} /></span>
         <h2>Faucet</h2>
         <p>Get testnet BOING for gas and staking. One request per account per 60 seconds.</p>
         <span class="card-arrow">Get testnet BOING →</span>
       </a>
-      <a href="/testnet/users" class="dedicated-card">
+      <a href="/testnet/users" class="dedicated-card card-reveal">
         <span class="card-icon"><Icon name="quest" size={28} /></span>
         <h2>Community Quests (Users)</h2>
         <p>Complete quests in the Testnet Portal to qualify for user rewards. Faucet, first tx, feedback, and more.</p>
@@ -119,11 +122,12 @@ import { TESTNET_RPC_URL, BOOTNODES, isTestnetLive } from '../../config/testnet'
         <li><a href="/pdfs/RUNBOOK.pdf" target="_blank" rel="noopener">RUNBOOK (PDF)</a> — Node setup and RPC</li>
       </ul>
     </section>
+    </div>
   </article>
 </Layout>
 
 <style>
-  .page { max-width: 720px; margin: 0 auto; padding: 2rem; }
+  .testnet-content { padding-bottom: 3rem; }
   .page-title {
     display: flex;
     align-items: center;
@@ -135,6 +139,30 @@ import { TESTNET_RPC_URL, BOOTNODES, isTestnetLive } from '../../config/testnet'
   .testnet-page h1 { color: var(--text-primary); }
   .lead { color: var(--text-secondary); font-size: 1.1rem; }
   .dedicated-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 2rem 0; }
+  .dedicated-card {
+    animation: card-reveal 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  .dedicated-card:nth-child(1) { animation-delay: 0.05s; }
+  .dedicated-card:nth-child(2) { animation-delay: 0.12s; }
+  .dedicated-card:nth-child(3) { animation-delay: 0.19s; }
+  .dedicated-card:nth-child(4) { animation-delay: 0.26s; }
+  .dedicated-card:nth-child(5) { animation-delay: 0.33s; }
+  @keyframes card-reveal { to { opacity: 1; transform: translateY(0); } }
+  .dedicated-card:hover .card-icon {
+    transform: scale(1.08);
+  }
+  .card-icon {
+    display: block;
+    margin-bottom: 0.75rem;
+    color: var(--accent-teal);
+    transition: transform 0.25s ease;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dedicated-card { animation: none; opacity: 1; transform: none; }
+    .dedicated-card:hover .card-icon { transform: none; }
+  }
   .dedicated-card {
     display: block;
     position: relative;
@@ -149,7 +177,6 @@ import { TESTNET_RPC_URL, BOOTNODES, isTestnetLive } from '../../config/testnet'
   }
   .dedicated-card:hover { border-color: rgba(34,211,238,0.5); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(6,182,212,0.2); }
   .dedicated-card.featured { border-color: rgba(34,211,238,0.4); background: rgba(6,182,212,0.06); }
-  .card-icon { display: block; margin-bottom: 0.75rem; color: var(--accent-teal); }
   .dedicated-card h2 { font-size: 1.1rem; margin: 0 0 0.5rem; color: var(--text-primary); }
   .dedicated-card p { font-size: 0.9rem; color: var(--text-secondary); margin: 0 0 0.75rem; line-height: 1.4; }
   .card-arrow {

@@ -8,12 +8,17 @@ import { BOOTNODES, isTestnetLive } from '../../config/testnet';
   title="Bootnodes"
   description="What bootnodes are and how to use them to join the Boing Network testnet."
 >
-  <article class="page">
-    <h1 class="page-title"><Icon name="network" size={32} class="title-icon" /> Bootnodes</h1>
-    <p class="lead">
-      Bootnodes are well-known peer addresses that your node <strong>dials on startup</strong> to join the testnet. Without them, your node would only discover peers on the same LAN (via mDNS).
-    </p>
-
+  <article class="page-wrap-full">
+    <header class="page-hero-full">
+      <div class="page-wrap-inner">
+        <span class="stage-badge-global">Testnet</span>
+        <h1 class="page-title"><Icon name="network" size={32} class="title-icon" /> Bootnodes</h1>
+        <p class="lead">
+          Bootnodes are well-known peer addresses that your node <strong>dials on startup</strong> to join the testnet. Without them, your node would only discover peers on the same LAN (via mDNS).
+        </p>
+      </div>
+    </header>
+    <div class="page-wrap-inner bootnodes-content">
     <section class="section">
       <h2>What they are</h2>
       <p>When you run a node with P2P enabled (<code>--p2p_listen</code>), it needs to find other peers. On a local network, <strong>mDNS</strong> can discover nearby nodes. To join the <strong>public testnet</strong> from anywhere, your node must connect to at least one stable peer — a <strong>bootnode</strong>.</p>
@@ -55,14 +60,15 @@ import { BOOTNODES, isTestnetLive } from '../../config/testnet';
       <a href="/network/testnet">← Join Testnet</a>
       <a href="/network/faucet">Faucet →</a>
     </nav>
+    </div>
   </article>
 </Layout>
 
 <style>
-  .page { max-width: 720px; margin: 0 auto; padding: 2rem; }
+  .bootnodes-content { padding-bottom: 3rem; }
   .page-title { display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary); }
   .title-icon { color: var(--accent-teal); flex-shrink: 0; }
-  .page h1 { color: var(--text-primary); }
+  .bootnodes-content h1 { color: var(--text-primary); }
   .lead { color: var(--text-secondary); font-size: 1.1rem; }
   .section { margin-top: 2rem; }
   .section h2 { font-size: 1.25rem; color: var(--text-primary); margin-bottom: 0.5rem; }

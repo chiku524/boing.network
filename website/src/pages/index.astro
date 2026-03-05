@@ -37,9 +37,11 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
       <div class="shooting-star shooting-star-8"><div class="shooting-star-line line-8"></div></div>
     </div>
     <div class="hero-content">
+      <span class="stage-badge" aria-hidden="true">Testnet</span>
       <img src="/assets/icon-only-transparent.png" alt="Boing Network" class="hero-logo-img" width="120" height="120" />
       <h1 class="hero-title gradient-text-hero animate-pulse-glow">Boing Network</h1>
       <p class="tagline gradient-text-hero">Authentic. Decentralized. Optimal. Quality-Assured.</p>
+      <p class="hero-stage">We're in <strong>Testnet</strong> — join now, run a node, and help shape the network.</p>
       <div class="hero-highlights">
         <span class="hero-highlight"><span class="hl-icon">🔐</span> Security</span>
         <span class="hero-highlight"><span class="hl-icon">⚡</span> Scalability</span>
@@ -47,61 +49,37 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
         <span class="hero-highlight"><span class="hl-icon">✓</span> Authenticity</span>
       </div>
       <div class="cta">
-        <a href="/network/testnet" class="btn btn-testnet">Join Testnet</a>
-        <a href="/docs/getting-started" class="btn btn-secondary">Get Started</a>
-        <a href="#tokenomics" class="btn btn-outline">Explore</a>
+        <a href="/testnet" class="btn btn-testnet">Open Dashboard</a>
+        <a href="/network/testnet" class="btn btn-secondary">Join Testnet</a>
+        <a href="/resources" class="btn btn-outline">Resources</a>
       </div>
     </div>
   </section>
 
   <!-- The Pillars of the Boing Network -->
-  <section class="section section-alt fade-in-up" id="pillars">
-    <h2 class="display-title">The Pillars of the Boing Network</h2>
-    <p class="section-lead">Six foundational principles that define who we are.</p>
+  <section class="section section-alt" id="pillars">
+    <h2 class="display-title section-reveal">The Pillars of the Boing Network</h2>
+    <p class="section-lead section-reveal delay-1">Six foundational principles that define who we are.</p>
     <div class="pillars-grid">
-      <div class="pillar-card">
-        <img src="/assets/pillar-security.png" alt="Security" class="pillar-img" width="200" height="280" />
-        <h3>Security</h3>
-        <p>Safety and correctness first — always over speed.</p>
-      </div>
-      <div class="pillar-card">
-        <img src="/assets/pillar-scalability.png" alt="Scalability" class="pillar-img" width="200" height="280" />
-        <h3>Scalability</h3>
-        <p>High throughput without compromising the other pillars.</p>
-      </div>
-      <div class="pillar-card">
-        <img src="/assets/pillar-decentralization.png" alt="Decentralization" class="pillar-img" width="200" height="280" />
-        <h3>Decentralization</h3>
-        <p>Anyone can participate. No one can shut the door.</p>
-      </div>
-      <div class="pillar-card">
-        <img src="/assets/pillar-authenticity.png" alt="Authenticity" class="pillar-img" width="200" height="280" />
-        <h3>Authenticity</h3>
-        <p>One chain, one identity — authentic and independent.</p>
-      </div>
-      <div class="pillar-card">
-        <img src="/assets/pillar-transparency.png" alt="Transparency" class="pillar-img" width="200" height="280" />
-        <h3>Transparency</h3>
-        <p>100% open — in design, governance, and operations. Trust through verification.</p>
-      </div>
-      <div class="pillar-card">
-        <img src="/assets/pillar-quality.png" alt="Quality Assurance" class="pillar-img" width="200" height="280" />
-        <h3>True Quality Assurance</h3>
-        <p>Only assets that meet protocol-defined rules and security bar are allowed on-chain. Automation resolves known cases; leniency for meme culture; no maliciousness. Community QA pool only for genuinely unknown cases.</p>
-      </div>
+      <div class="pillar-card section-reveal delay-2"><img src="/assets/pillar-security.png" alt="Security" class="pillar-img" width="200" height="280" /><h3>Security</h3><p>Safety and correctness first — always over speed.</p></div>
+      <div class="pillar-card section-reveal delay-3"><img src="/assets/pillar-scalability.png" alt="Scalability" class="pillar-img" width="200" height="280" /><h3>Scalability</h3><p>High throughput without compromising the other pillars.</p></div>
+      <div class="pillar-card section-reveal delay-4"><img src="/assets/pillar-decentralization.png" alt="Decentralization" class="pillar-img" width="200" height="280" /><h3>Decentralization</h3><p>Anyone can participate. No one can shut the door.</p></div>
+      <div class="pillar-card section-reveal delay-5"><img src="/assets/pillar-authenticity.png" alt="Authenticity" class="pillar-img" width="200" height="280" /><h3>Authenticity</h3><p>One chain, one identity — authentic and independent.</p></div>
+      <div class="pillar-card section-reveal delay-6"><img src="/assets/pillar-transparency.png" alt="Transparency" class="pillar-img" width="200" height="280" /><h3>Transparency</h3><p>100% open — in design, governance, and operations. Trust through verification.</p></div>
+      <div class="pillar-card section-reveal delay-7"><img src="/assets/pillar-quality.png" alt="Quality Assurance" class="pillar-img" width="200" height="280" /><h3>True Quality Assurance</h3><p>Only assets that meet protocol-defined rules and security bar are allowed on-chain. Automation resolves known cases; leniency for meme culture; no maliciousness. Community QA pool only for genuinely unknown cases.</p></div>
     </div>
   </section>
 
   <!-- Tokenomics -->
-  <section class="section section-alt fade-in-up" id="tokenomics">
-    <h2>Tokenomics</h2>
-    <p class="section-lead">Sustainable value design — <strong>uncapped total supply</strong> with a <strong>set initial supply</strong> at mainnet launch. When circulating supply reaches the floor, new waves are minted to rebalance.</p>
+  <section class="section section-alt" id="tokenomics">
+    <h2 class="section-reveal">Tokenomics</h2>
+    <p class="section-lead section-reveal delay-1">Sustainable value design — <strong>uncapped total supply</strong> with a <strong>set initial supply</strong> at mainnet launch. When circulating supply reaches the floor, new waves are minted to rebalance.</p>
     <div class="stats-grid">
-      <div class="stat-card fade-in-up delay-1"><span class="stat-value">Uncapped</span><span class="stat-label">Total Supply</span></div>
-      <div class="stat-card fade-in-up delay-2"><span class="stat-value">Set at launch</span><span class="stat-label">Initial Supply</span></div>
-      <div class="stat-card fade-in-up delay-3"><span class="stat-value">~2s</span><span class="stat-label">Block Time</span></div>
+      <div class="stat-card section-reveal delay-2"><span class="stat-value">Uncapped</span><span class="stat-label">Total Supply</span></div>
+      <div class="stat-card section-reveal delay-3"><span class="stat-value">Set at launch</span><span class="stat-label">Initial Supply</span></div>
+      <div class="stat-card section-reveal delay-4"><span class="stat-value">~2s</span><span class="stat-label">Block Time</span></div>
     </div>
-    <div class="chart-card chart-fullwidth">
+    <div class="chart-card chart-fullwidth section-reveal delay-5">
       <h3>Initial Supply Allocation</h3>
       <p class="chart-intro">How the fixed initial supply (at mainnet launch) is allocated. Staking rewards are topped up by new waves when supply reaches the floor, so the initial allocation leans more toward treasury and community.</p>
       <div class="chart-wrapper chart-supply chart-pie-wrap">
@@ -119,7 +97,7 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
       <p class="chart-note">Total supply is uncapped. Initial supply is fixed at mainnet launch; new waves mint when circulating supply reaches the floor.</p>
     </div>
     <div class="charts-row">
-      <div class="chart-card">
+      <div class="chart-card section-reveal delay-6">
         <h3>Fee Allocation</h3>
         <div class="chart-wrapper chart-doughnut">
           <svg viewBox="0 0 100 100" class="doughnut-svg">
@@ -132,7 +110,7 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
           <li><span class="dot dot-cyan"></span> Treasury 20%</li>
         </ul>
       </div>
-      <div class="chart-card">
+      <div class="chart-card section-reveal delay-7">
         <h3>Emission Schedule</h3>
         <div class="chart-wrapper chart-line">
           <svg viewBox="0 0 200 120" class="line-svg" preserveAspectRatio="none">
@@ -148,36 +126,36 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
         </div>
       </div>
     </div>
-    <p class="value-loop"><strong>Usage ↑</strong> → Fees ↑ → Validators & Treasury ↑ → Security & Ecosystem ↑ → <strong>Value ↑</strong></p>
+    <p class="value-loop section-reveal delay-8"><strong>Usage ↑</strong> → Fees ↑ → Validators & Treasury ↑ → Security & Ecosystem ↑ → <strong>Value ↑</strong></p>
   </section>
 
   <!-- Roadmap & Ecosystem (merged) -->
-  <section class="section section-alt fade-in-up" id="roadmap">
-    <h2>Roadmap</h2>
-    <p class="section-lead">Phased build from first principles.</p>
+  <section class="section section-alt" id="roadmap">
+    <h2 class="section-reveal">Roadmap</h2>
+    <p class="section-lead section-reveal delay-1">Phased build from first principles.</p>
     <div class="timeline-compact">
-      <div class="t-item complete"><span class="t-marker">✓</span><span>Foundation</span></div>
-      <div class="t-item complete"><span class="t-marker">✓</span><span>Networking</span></div>
-      <div class="t-item complete"><span class="t-marker">✓</span><span>Verkle & VM</span></div>
-      <div class="t-item in-progress"><span class="t-marker">●</span><span>PoS & Production</span></div>
-      <div class="t-item in-progress"><span class="t-marker">●</span><span>UX & Automation</span></div>
-      <div class="t-item planned"><span class="t-marker">○</span><span>Cross-chain</span></div>
-      <div class="t-item planned"><span class="t-marker">○</span><span>Testnet & Mainnet</span></div>
+      <div class="t-item complete section-reveal delay-2"><span class="t-marker">✓</span><span>Foundation</span></div>
+      <div class="t-item complete section-reveal delay-3"><span class="t-marker">✓</span><span>Networking</span></div>
+      <div class="t-item complete section-reveal delay-4"><span class="t-marker">✓</span><span>Verkle & VM</span></div>
+      <div class="t-item in-progress section-reveal delay-5"><span class="t-marker">●</span><span>PoS & Production</span></div>
+      <div class="t-item in-progress section-reveal delay-6"><span class="t-marker">●</span><span>UX & Automation</span></div>
+      <div class="t-item planned section-reveal delay-7"><span class="t-marker">○</span><span>Cross-chain</span></div>
+      <div class="t-item planned section-reveal delay-8"><span class="t-marker">○</span><span>Testnet & Mainnet</span></div>
     </div>
-    <h2 class="section-subtitle">Ecosystem</h2>
-    <p class="section-lead">Applications building on Boing Network.</p>
+    <h2 class="section-subtitle section-reveal delay-9">Ecosystem</h2>
+    <p class="section-lead section-reveal delay-10">Applications building on Boing Network.</p>
     <div class="apps-row">
-      <a href="https://boing.finance" class="app-card featured" target="_blank" rel="noopener">
+      <a href="https://boing.finance" class="app-card featured section-reveal delay-11" target="_blank" rel="noopener">
         <h3>boing.finance</h3>
         <p>Swap, bridge, deploy tokens, manage liquidity across EVM & Solana.</p>
         <span class="app-status live">Live</span>
       </a>
-      <a href="/docs/getting-started" class="app-card">
+      <a href="/docs/getting-started" class="app-card section-reveal delay-12">
         <h3>Boing Network</h3>
         <p>Run a node, stake, participate in governance. The foundation layer.</p>
         <span class="app-status live">Live</span>
       </a>
-      <a href="/developers/quickstart" class="app-card">
+      <a href="/developers/quickstart" class="app-card section-reveal delay-13">
         <h3>Build on Boing</h3>
         <p>Native AA, adaptive gas, success-based incentives for developers.</p>
         <span class="app-status build">Build</span>
@@ -186,17 +164,17 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
   </section>
 
   <!-- Build & Resources (merged: innovations, testnet CTA, CTA banner, resources) -->
-  <section class="section fade-in-up" id="build">
-    <h2>Unique Innovations</h2>
-    <p class="section-lead">Protocol-level features that set Boing apart.</p>
+  <section class="section" id="build">
+    <h2 class="section-reveal">Unique Innovations</h2>
+    <p class="section-lead section-reveal delay-1">Protocol-level features that set Boing apart.</p>
     <div class="grid">
-      <div class="card"><h3>Native Account Abstraction</h3><p>Gasless txs, social recovery, session keys — built into the protocol.</p></div>
-      <div class="card"><h3>Adaptive Gas Model</h3><p>Dynamic gas that responds to network conditions with predictable caps.</p></div>
-      <div class="card"><h3>Cross-Chain DeFi Hub</h3><p>Protocol-level primitives for liquidity routing across chains.</p></div>
-      <div class="card"><h3>Transparent Slashing</h3><p>Auditable slashing conditions and appeal mechanisms.</p></div>
+      <div class="card section-reveal delay-2"><h3>Native Account Abstraction</h3><p>Gasless txs, social recovery, session keys — built into the protocol.</p></div>
+      <div class="card section-reveal delay-3"><h3>Adaptive Gas Model</h3><p>Dynamic gas that responds to network conditions with predictable caps.</p></div>
+      <div class="card section-reveal delay-4"><h3>Cross-Chain DeFi Hub</h3><p>Protocol-level primitives for liquidity routing across chains.</p></div>
+      <div class="card section-reveal delay-5"><h3>Transparent Slashing</h3><p>Auditable slashing conditions and appeal mechanisms.</p></div>
     </div>
     <div class="build-banners-row">
-      <div class="testnet-banner">
+      <div class="testnet-banner section-reveal delay-6">
         <h3>🌐 Join the Testnet</h3>
         <p>Run a node, get testnet BOING from the faucet, and help secure the network. Single node for local dev or multi-node to join the public testnet.</p>
         <div class="testnet-banner-btns">
@@ -204,7 +182,7 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
           <a href="/network/faucet" class="btn btn-secondary">Get testnet BOING</a>
         </div>
       </div>
-      <div class="cta-banner">
+      <div class="cta-banner section-reveal delay-7">
         <h3>🚀 Build on Boing Network</h3>
         <p>Authentic L1 blockchain built from first principles. Native AA, adaptive gas, cross-chain DeFi hub.</p>
         <div class="cta-banner-links">
@@ -218,10 +196,12 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
         </div>
       </div>
     </div>
-    <h2 class="section-subtitle">Resources</h2>
+    <h2 class="section-subtitle section-reveal delay-8">Resources</h2>
     <div class="link-grid">
+      <a href="/testnet" class="link-highlight link-3d">Dashboard</a>
+      <a href="/resources" class="link-highlight link-3d">Resources</a>
       <a href="/network/testnet" class="link-highlight link-3d">Join Testnet</a>
-      <a href="/network/faucet" class="link-highlight link-3d">Faucet</a>
+      <a href="/network/faucet" class="link-3d">Faucet</a>
       <a href="/docs/getting-started" class="link-3d">Getting Started</a>
       <a href="/docs/rpc-api" class="link-3d">RPC API</a>
       <a href="/developers/quickstart" class="link-3d">Developer Quickstart</a>
@@ -230,8 +210,10 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
       <a href="/community" class="link-3d">Community</a>
     </div>
     <footer class="section-footer">
-      <p>Boing Network — Authentic. Decentralized. Optimal. Quality-Assured.</p>
+      <p>Boing Network — Authentic. Decentralized. Optimal. Quality-Assured. <strong>Currently in Testnet.</strong></p>
       <div class="footer-links">
+        <a href="/testnet">Dashboard</a>
+        <a href="/resources">Resources</a>
         <a href="/network/testnet">Join Testnet</a>
         <a href="/network/faucet">Faucet</a>
         <a href="https://github.com/chiku524/boing.network" target="_blank" rel="noopener">GitHub</a>
@@ -367,6 +349,8 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
   :global(html.intro-active) .hero-content .hero-logo-img,
   :global(html.intro-active) .hero-content .hero-title,
   :global(html.intro-active) .hero-content .tagline,
+  :global(html.intro-active) .hero-content .stage-badge,
+  :global(html.intro-active) .hero-content .hero-stage,
   :global(html.intro-active) .hero-content .hero-highlights,
   :global(html.intro-active) .hero-content .cta {
     opacity: 0;
@@ -375,6 +359,8 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
   :global(html.intro-complete) .hero-content .hero-logo-img,
   :global(html.intro-complete) .hero-content .hero-title,
   :global(html.intro-complete) .hero-content .tagline,
+  :global(html.intro-complete) .hero-content .stage-badge,
+  :global(html.intro-complete) .hero-content .hero-stage,
   :global(html.intro-complete) .hero-content .hero-highlights,
   :global(html.intro-complete) .hero-content .cta {
     opacity: 1;
@@ -383,6 +369,8 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
   .hero-content .hero-logo-img,
   .hero-content .hero-title,
   .hero-content .tagline,
+  .hero-content .stage-badge,
+  .hero-content .hero-stage,
   .hero-content .hero-highlights,
   .hero-content .cta {
     transition: opacity 0.85s cubic-bezier(0.22, 1, 0.36, 1), transform 0.85s cubic-bezier(0.22, 1, 0.36, 1);
@@ -390,11 +378,32 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
   :global(html.intro-complete) .hero-content .hero-logo-img { transition-delay: 0.02s; }
   :global(html.intro-complete) .hero-content .hero-title { transition-delay: 0.1s; }
   :global(html.intro-complete) .hero-content .tagline { transition-delay: 0.18s; }
+  :global(html.intro-complete) .hero-content .stage-badge { transition-delay: 0.05s; }
+  :global(html.intro-complete) .hero-content .hero-stage { transition-delay: 0.14s; }
   :global(html.intro-complete) .hero-content .hero-highlights { transition-delay: 0.26s; }
   :global(html.intro-complete) .hero-content .cta { transition-delay: 0.34s; }
   .hero-logo-img { display: block; max-width: min(120px, 28vw); height: auto; margin: 0 auto 0.5rem; object-fit: contain; filter: drop-shadow(0 0 16px var(--glow-cyan)); }
   .hero-title { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 700; margin: 0 0 0.5rem; background: linear-gradient(to right, var(--accent-teal), var(--accent-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; filter: drop-shadow(0 0 20px var(--glow-cyan)); }
   .tagline { font-size: 1.25rem; margin: 0 0 0.5rem; background: linear-gradient(to right, var(--accent-teal), var(--accent-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; filter: drop-shadow(0 0 12px var(--glow-cyan)); }
+  .stage-badge {
+    display: inline-block;
+    padding: 0.35rem 0.85rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    border-radius: 999px;
+    margin-bottom: 0.75rem;
+  }
+  .hero-stage {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin: 0 0 1rem;
+  }
+  .hero-stage strong { color: #f59e0b; }
   .hero-highlights { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; justify-content: center; margin: 1.5rem 0 2rem; }
   .hero-highlight { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.4rem 0.75rem; border-radius: 0.5rem; font-size: 0.9rem; color: var(--text-secondary); background: var(--bg-card); border: 1px solid var(--border-color); transition: all 0.3s; }
   .hero-highlight:hover { border-color: var(--border-hover); transform: scale(1.05); box-shadow: 0 4px 16px var(--glow-cyan); color: var(--text-primary); }
@@ -408,8 +417,20 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
   .btn-outline { background: transparent; color: var(--text-secondary); border: 1px solid var(--border-color); }
   .btn-outline:hover { border-color: var(--accent-neon); color: var(--accent-neon); }
 
-  /* Sections */
-  .section { position: relative; z-index: 1; padding: 4rem 2rem; max-width: 1000px; margin: 0 auto; }
+  /* Sections: full viewport width with inner max-width for readability */
+  .section {
+    position: relative;
+    z-index: 1;
+    padding: 4rem 2rem;
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .section > * {
+    max-width: 1280px;
+    margin-left: auto;
+    margin-right: auto;
+  }
   .section-alt { background: transparent; }
   .section h2 { text-align: center; margin-bottom: 0.5rem; color: var(--text-primary); }
   .section h2.section-subtitle { margin-top: 3rem; font-size: 1.35rem; }
@@ -448,11 +469,49 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
 
   /* Pillars */
   .pillars-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.5rem; margin-top: 1rem; }
-  .pillar-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 1rem; text-align: center; transition: border-color 0.3s ease, box-shadow 0.3s ease; backdrop-filter: blur(12px); }
-  .pillar-card:hover { border-color: var(--border-hover); box-shadow: 0 4px 30px var(--glow-cyan); }
+  .pillar-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 1rem; text-align: center; transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease; backdrop-filter: blur(12px); }
+  .pillar-card:hover { border-color: var(--border-hover); box-shadow: 0 4px 30px var(--glow-cyan); transform: translateY(-2px); }
   .pillar-img { width: 100%; height: auto; max-height: 220px; object-fit: contain; border-radius: 8px; display: block; margin: 0 auto 0.75rem; }
   .pillar-card h3 { font-size: 1rem; margin: 0 0 0.35rem; color: var(--text-primary); }
   .pillar-card p { font-size: 0.8rem; color: var(--text-secondary); margin: 0; line-height: 1.4; }
+
+  /* Section reveal: stronger entrance with stagger */
+  .section-reveal { opacity: 0; transform: translateY(28px); animation: section-reveal 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+  .section-reveal.delay-1 { animation-delay: 0.06s; }
+  .section-reveal.delay-2 { animation-delay: 0.12s; }
+  .section-reveal.delay-3 { animation-delay: 0.18s; }
+  .section-reveal.delay-4 { animation-delay: 0.24s; }
+  .section-reveal.delay-5 { animation-delay: 0.3s; }
+  .section-reveal.delay-6 { animation-delay: 0.36s; }
+  .section-reveal.delay-7 { animation-delay: 0.42s; }
+  .section-reveal.delay-8 { animation-delay: 0.48s; }
+  .section-reveal.delay-9 { animation-delay: 0.54s; }
+  .section-reveal.delay-10 { animation-delay: 0.6s; }
+  .section-reveal.delay-11 { animation-delay: 0.66s; }
+  .section-reveal.delay-12 { animation-delay: 0.72s; }
+  .section-reveal.delay-13 { animation-delay: 0.78s; }
+  @keyframes section-reveal { to { opacity: 1; transform: translateY(0); } }
+  @media (prefers-reduced-motion: reduce) { .section-reveal { animation: none; opacity: 1; transform: none; } .pillar-card:hover { transform: none; } }
+
+  /* Sections: full viewport width with inner max-width for readability */
+  .section {
+    position: relative;
+    z-index: 1;
+    padding: 4rem 2rem;
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .section > * {
+    max-width: 1280px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .section-alt { background: transparent; }
+  .section h2 { text-align: center; margin-bottom: 0.5rem; color: var(--text-primary); }
+  .section h2.section-subtitle { margin-top: 3rem; font-size: 1.35rem; }
+  .section-lead { text-align: center; color: var(--text-secondary); margin-bottom: 2rem; font-size: 1rem; }
+  #build .section-subtitle { margin-top: 2.5rem; }
 
   /* Tokenomics */
   .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem; }

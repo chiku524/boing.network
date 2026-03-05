@@ -3,15 +3,23 @@ import Layout from '../../layouts/Layout.astro';
 ---
 
 <Layout title="Network Status" description="Boing Network status and block explorer.">
-  <article class="page">
-    <h1>Network Status</h1>
-    <p>Network status and block explorer will be available once the testnet is live and an indexer/API is connected to D1.</p>
-    <p>Until then, query a node directly via <code>boing_chainHeight</code> and <code>boing_getBlockByHeight</code>.</p>
+  <article class="page-wrap-full">
+    <header class="page-hero-full">
+      <div class="page-wrap-inner">
+        <span class="stage-badge-global">Testnet</span>
+        <h1>Network Status</h1>
+        <p class="lead">Network status and block explorer will be available once the testnet is live and an indexer/API is connected. Until then, query a node directly via <code>boing_chainHeight</code> and <code>boing_getBlockByHeight</code>.</p>
+      </div>
+    </header>
+    <div class="page-wrap-inner status-content">
+      <p><a href="/network/testnet">Join Testnet</a> · <a href="/docs">Documentation</a></p>
+    </div>
   </article>
 </Layout>
 
 <style>
-  .page { max-width: 720px; margin: 0 auto; padding: 2rem; }
-  .page h1 { color: var(--text-primary); }
-  .page p { color: var(--text-secondary); }
+  .status-content { padding: 2rem 0 3rem; }
+  .status-content p { color: var(--text-secondary); }
+  .status-content a { color: var(--accent-teal); }
+  .page-hero-full .lead code { background: rgba(255,255,255,0.08); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.9em; }
 </style>

@@ -79,21 +79,21 @@ const ogImage = `${siteUrl}/og.png`;
         <span class="nav-main" data-testnet-hide>
           {(path === '/' || path === '') ? (
             <>
-              <a href="#hero" class="nav-section">Home</a>
+              <a href="#hero" class="nav-section">Overview</a>
               <a href="#pillars" class="nav-section">Pillars</a>
               <a href="#tokenomics" class="nav-section">Tokenomics</a>
               <a href="#roadmap" class="nav-section">Roadmap</a>
               <a href="#build" class="nav-section">Build</a>
-              <a href="/testnet" class="nav-testnet">Testnet</a>
+              <a href="/testnet" class="nav-testnet">Dashboard</a>
+              <a href="/resources" class="nav-section">Resources</a>
             </>
           ) : (
             <>
-              <a href="/docs/getting-started">Docs</a>
-              <a href="/developers/quickstart">Developers</a>
-              <a href="/network/faucet">Faucet</a>
-              <a href="/about">About</a>
-              <a href="/community">Community</a>
-              <a href="/testnet" class="nav-testnet">Testnet</a>
+              <a href="/" class="nav-link">Overview</a>
+              <a href="/testnet" class="nav-testnet">Dashboard</a>
+              <a href="/resources" class="nav-link">Resources</a>
+              <a href="/about" class="nav-link nav-link--secondary">About</a>
+              <a href="/community" class="nav-link nav-link--secondary">Community</a>
             </>
           )}
         </span>
@@ -114,9 +114,10 @@ const ogImage = `${siteUrl}/og.png`;
       </div>
     </footer>
     <footer class="site-footer site-footer-main" data-testnet-hide>
-      <p>Boing Network — Authentic. Decentralized. Optimal. Quality-Assured.</p>
+      <p>Boing Network — Authentic. Decentralized. Optimal. Quality-Assured. <strong>Currently in Testnet.</strong></p>
       <div class="footer-links">
-        <a href="/testnet">Testnet Portal</a>
+        <a href="/testnet">Dashboard</a>
+        <a href="/resources">Resources</a>
         <a href="/network/testnet">Join Testnet</a>
         <a href="/network/faucet">Faucet</a>
         <a href="https://github.com/chiku524/boing.network" target="_blank" rel="noopener">GitHub</a>
@@ -285,6 +286,13 @@ const ogImage = `${siteUrl}/og.png`;
   }
   .site-header nav a.nav-testnet:hover {
     color: #fbbf24;
+  }
+  .site-header nav a.nav-link--secondary {
+    color: var(--text-tertiary);
+    font-size: 0.9rem;
+  }
+  .site-header nav a.nav-link--secondary:hover {
+    color: var(--accent-teal);
   }
 
   /* Testnet app shell: show only testnet nav/footer when body has .testnet-app */

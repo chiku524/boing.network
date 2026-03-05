@@ -6,12 +6,17 @@ import Layout from '../../layouts/Layout.astro';
   title="Single node vs multi-node"
   description="When to run a single Boing node vs joining the multi-node testnet."
 >
-  <article class="page">
-    <h1>Single node vs multi-node</h1>
-    <p class="lead">
-      You can run Boing in two ways: <strong>single node</strong> (one machine, no P2P) or <strong>multi-node</strong> (join the testnet and sync with other nodes).
-    </p>
-
+  <article class="page-wrap-full">
+    <header class="page-hero-full">
+      <div class="page-wrap-inner">
+        <span class="stage-badge-global">Testnet</span>
+        <h1>Single node vs multi-node</h1>
+        <p class="lead">
+          You can run Boing in two ways: <strong>single node</strong> (one machine, no P2P) or <strong>multi-node</strong> (join the testnet and sync with other nodes).
+        </p>
+      </div>
+    </header>
+    <div class="page-wrap-inner single-multi-content">
     <section class="section">
       <h2>Single node</h2>
       <p><strong>Use case:</strong> Local development, trying the chain on your laptop, or running a private instance. No need to connect to anyone else.</p>
@@ -53,12 +58,13 @@ import Layout from '../../layouts/Layout.astro';
       <a href="/network/testnet">← Join Testnet</a>
       <a href="/network/bootnodes">Bootnodes →</a>
     </nav>
+    </div>
   </article>
 </Layout>
 
 <style>
-  .page { max-width: 720px; margin: 0 auto; padding: 2rem; }
-  .page h1 { color: var(--text-primary); }
+  .single-multi-content { padding-bottom: 3rem; }
+  .page-hero-full h1 { color: var(--text-primary); }
   .lead { color: var(--text-secondary); font-size: 1.1rem; }
   .section { margin-top: 2rem; }
   .section h2 { font-size: 1.25rem; color: var(--text-primary); margin-bottom: 0.5rem; }

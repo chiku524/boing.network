@@ -29,6 +29,16 @@
   margin: 0 auto;
   padding: 2rem;
 }
+.hub-page {
+  max-width: 100%;
+  padding: 0;
+  margin: 0;
+}
+.hub-page-main {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 2rem 3rem;
+}
 
 .wrong-role-banner {
   background: rgba(245, 158, 11, 0.12);

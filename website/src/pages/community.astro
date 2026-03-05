@@ -1,19 +1,34 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import Icon from '../components/Icon.astro';
 ---
 
 <Layout title="Community" description="Join the Boing Network community.">
-  <article class="page">
-    <h1>Community</h1>
-    <p>Links and resources will be added as the community grows.</p>
-    <ul>
-      <li><a href="https://github.com" target="_blank" rel="noopener">GitHub</a></li>
-    </ul>
+  <article class="page-wrap-full">
+    <header class="page-hero-full">
+      <div class="page-wrap-inner" style="max-width: 640px;">
+        <span class="stage-badge-global">Testnet</span>
+        <h1 class="community-title"><Icon name="quest" size={36} class="community-title-icon" /> Community</h1>
+        <p class="lead">Links and resources will be added as the community grows.</p>
+      </div>
+    </header>
+    <div class="page-wrap-inner community-content section-reveal delay-1" style="max-width: 640px;">
+      <ul class="community-links">
+        <li><a href="https://github.com/chiku524/boing.network" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="/resources">Resources</a> — Dashboard, faucet, docs</li>
+        <li><a href="/testnet">Dashboard</a> — Sign in or register</li>
+      </ul>
+    </div>
   </article>
 </Layout>
 
 <style>
-  .page { max-width: 720px; margin: 0 auto; padding: 2rem; }
-  .page h1 { color: var(--text-primary); }
-  .page p, .page li { color: var(--text-secondary); }
+  .community-title { display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin: 0 0 0.5rem; }
+  .community-title-icon { color: var(--accent-teal); flex-shrink: 0; }
+  .page-hero-full .lead { margin: 0; color: var(--text-secondary); }
+  .community-content { padding-bottom: 3rem; }
+  .community-links { list-style: none; padding: 0; margin: 0; }
+  .community-links li { margin-bottom: 0.75rem; color: var(--text-secondary); }
+  .community-links a { color: var(--accent-teal); font-weight: 500; }
+  .community-links a:hover { color: var(--accent-cyan); }
 </style>

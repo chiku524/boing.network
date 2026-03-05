@@ -1,44 +1,65 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import Icon from '../../components/Icon.astro';
 ---
 
 <Layout title="Developer Quickstart" description="Build on Boing Network with the CLI and RPC.">
-  <article class="page">
-    <h1>Developer Quickstart</h1>
+  <article class="page-wrap-full">
+    <header class="page-hero-full">
+      <div class="page-wrap-inner" style="max-width: 800px;">
+        <span class="stage-badge-global">Testnet</span>
+        <h1 class="quickstart-title"><Icon name="rocket" size={36} class="quickstart-title-icon" /> Developer Quickstart</h1>
+        <p class="lead">Build on Boing with the CLI and RPC. Crates, commands, and default port below.</p>
+      </div>
+    </header>
+    <div class="page-wrap-inner quickstart-content" style="max-width: 800px;">
+    <section class="section-reveal delay-1">
+      <h2><Icon name="book" size={22} class="section-icon" /> Crates</h2>
+      <table>
+        <thead>
+          <tr><th>Crate</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>boing-primitives</code></td><td>Types, hashing (BLAKE3), cryptography</td></tr>
+          <tr><td><code>boing-consensus</code></td><td>PoS + HotStuff BFT</td></tr>
+          <tr><td><code>boing-state</code></td><td>State store (Verkle tree)</td></tr>
+          <tr><td><code>boing-execution</code></td><td>VM + parallel scheduler</td></tr>
+          <tr><td><code>boing-automation</code></td><td>Scheduler, triggers, executor incentives</td></tr>
+          <tr><td><code>boing-cli</code></td><td><code>boing init</code>, <code>boing dev</code>, <code>boing deploy</code></td></tr>
+          <tr><td><code>boing-p2p</code></td><td>libp2p networking</td></tr>
+          <tr><td><code>boing-node</code></td><td>Node binary</td></tr>
+        </tbody>
+      </table>
+    </section>
 
-    <h2>Crates</h2>
-    <table>
-      <thead>
-        <tr><th>Crate</th><th>Description</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><code>boing-primitives</code></td><td>Types, hashing (BLAKE3), cryptography</td></tr>
-        <tr><td><code>boing-consensus</code></td><td>PoS + HotStuff BFT</td></tr>
-        <tr><td><code>boing-state</code></td><td>State store (Verkle tree)</td></tr>
-        <tr><td><code>boing-execution</code></td><td>VM + parallel scheduler</td></tr>
-        <tr><td><code>boing-automation</code></td><td>Scheduler, triggers, executor incentives</td></tr>
-        <tr><td><code>boing-cli</code></td><td><code>boing init</code>, <code>boing dev</code>, <code>boing deploy</code></td></tr>
-        <tr><td><code>boing-p2p</code></td><td>libp2p networking</td></tr>
-        <tr><td><code>boing-node</code></td><td>Node binary</td></tr>
-      </tbody>
-    </table>
+    <section class="section-reveal delay-2">
+      <h2><Icon name="link" size={22} class="section-icon" /> CLI</h2>
+      <ul>
+        <li><code>boing init</code> — Initialize a project</li>
+        <li><code>boing dev</code> — Local development</li>
+        <li><code>boing deploy</code> — Deploy</li>
+      </ul>
+    </section>
 
-    <h2>CLI</h2>
-    <ul>
-      <li><code>boing init</code> — Initialize a project</li>
-      <li><code>boing dev</code> — Local development</li>
-      <li><code>boing deploy</code> — Deploy</li>
-    </ul>
-
-    <h2>RPC</h2>
-    <p>Default port: <code>8545</code>. See <a href="/docs/rpc-api">RPC API reference</a>.</p>
+    <section class="section-reveal delay-3">
+      <h2><Icon name="node" size={22} class="section-icon" /> RPC</h2>
+      <p>Default port: <code>8545</code>. See <a href="/docs/rpc-api">RPC API reference</a>.</p>
+    </section>
+    </div>
   </article>
 </Layout>
 
 <style>
-  .page { max-width: 720px; margin: 0 auto; padding: 2rem; }
-  .page h1, .page h2 { color: var(--text-primary); }
+  .quickstart-title { display: flex; align-items: center; justify-content: center; gap: 0.5rem; flex-wrap: wrap; margin: 0 0 0.5rem; }
+  .quickstart-title-icon { color: var(--accent-teal); flex-shrink: 0; }
+  .page-hero-full .lead { margin: 0; color: var(--text-secondary); }
+  .quickstart-content { padding-bottom: 3rem; }
+  .quickstart-content section { margin-top: 2.5rem; }
+  .quickstart-content h2 { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.75rem; color: var(--text-primary); font-size: 1.25rem; }
+  .section-icon { color: var(--accent-teal); flex-shrink: 0; }
   table { width: 100%; border-collapse: collapse; }
-  th, td { padding: 0.5rem; text-align: left; border-bottom: 1px solid var(--border-color); color: var(--text-primary); }
-  th { color: var(--text-secondary); }
+  th, td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); }
+  th { color: var(--text-tertiary); font-weight: 600; }
+  .quickstart-content code { background: var(--bg-tertiary); padding: 0.2em 0.4em; border-radius: 4px; font-size: 0.9em; }
+  .quickstart-content a { color: var(--accent-teal); }
 </style>

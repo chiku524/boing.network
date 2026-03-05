@@ -12,8 +12,9 @@ import '../../../styles/hub-common.css';
   <article class="portal-page role-hub developers-hub hub-page hub-developer" data-hub="developer">
     <script is:inline src="/portal-session.js"></script>
     <HubNav hub="developer" current="index" />
-    <Breadcrumbs items={[{ label: 'Testnet Portal', href: '/testnet' }, { label: 'Developer Hub' }]} />
+    <Breadcrumbs items={[{ label: 'Dashboard', href: '/testnet' }, { label: 'Developer Hub' }]} />
 
+    <div class="hub-page-main">
     <div id="wrong-role-banner" class="wrong-role-banner" style="display: none;"></div>
 
     <div class="hub-hero fade-in-up">
@@ -48,6 +49,7 @@ import '../../../styles/hub-common.css';
       </p>
       <p><a href="/testnet/developers/dashboard" class="btn btn-secondary">Open dashboard</a> · <a href="/testnet/developers/resources" class="btn btn-secondary">Resources</a></p>
     </section>
+    </div>
   </article>
 </Layout>
 

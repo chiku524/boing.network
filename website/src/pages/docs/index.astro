@@ -11,8 +11,16 @@ const paramsObjectWrong = '{}';
 ---
 
 <Layout title="Documentation" description="Complete Boing Network documentation — getting started, tokenomics, RPC API, operations, and more. All in one place." canonical="/docs">
-  <article class="docs-page">
-    <aside class="docs-toc" aria-label="Table of contents">
+  <article class="docs-page page-wrap-full">
+    <header class="page-hero-full docs-hero">
+      <div class="page-wrap-inner">
+        <span class="stage-badge-global">Testnet</span>
+        <h1 class="docs-main-title"><Icon name="book" size={32} class="docs-title-icon" /> Boing Network Documentation</h1>
+        <p class="docs-lead">Select a section from the table of contents to view it. Only the selected section is shown.</p>
+      </div>
+    </header>
+    <div class="docs-body">
+      <aside class="docs-toc" aria-label="Table of contents">
       <nav>
         <h2 class="toc-title">On this page</h2>
         <ol class="toc-list">
@@ -32,9 +40,6 @@ const paramsObjectWrong = '{}';
       </nav>
     </aside>
     <div class="docs-content">
-      <h1 class="docs-main-title">Boing Network Documentation</h1>
-      <p class="docs-lead">Select a section from the table of contents to view it. Only the selected section is shown.</p>
-
       <section id="overview" class="doc-section active">
         <h2>Overview</h2>
         <p>Boing Network is an authentic L1 blockchain built from first principles. It is independent of other chains and designed for sustainable value, uncapped supply with floor-triggered rebalancing, and 100% transparent governance and tokenomics.</p>
@@ -402,13 +407,34 @@ cargo build --release</code></pre>
 
 <style>
   .docs-page {
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  .docs-hero .docs-main-title {
+    margin: 0 0 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .docs-title-icon { color: var(--accent-teal); flex-shrink: 0; }
+  .docs-body {
     display: grid;
     grid-template-columns: 220px 1fr;
     gap: 2rem;
-    max-width: 1200px;
+    max-width: 1280px;
     margin: 0 auto;
-    padding: 2rem;
+    padding: 0 2rem 4rem;
     align-items: start;
+  }
+  .docs-body .docs-toc {
+    grid-column: 1;
+  }
+  .docs-body .docs-content {
+    grid-column: 2;
+    min-width: 0;
   }
   .docs-toc {
     position: sticky;
@@ -598,9 +624,9 @@ cargo build --release</code></pre>
   .resource-card-cta { font-size: 0.8rem; font-weight: 600; color: var(--accent-teal); }
   @media (prefers-reduced-motion: reduce) { .resource-card:hover { transform: none; } }
   @media (max-width: 768px) {
-    .docs-page {
+    .docs-body {
       grid-template-columns: 1fr;
-      padding: 1.5rem;
+      padding: 1.5rem 1.25rem 3rem;
     }
     .docs-toc {
       position: static;
@@ -623,8 +649,8 @@ cargo build --release</code></pre>
     }
   }
   @media (max-width: 480px) {
-    .docs-page {
-      padding: 1rem;
+    .docs-body {
+      padding: 1rem 1.25rem 2rem;
     }
   }
 </style>

@@ -9,13 +9,18 @@ import { TESTNET_RPC_URL } from '../../config/testnet';
   title="Testnet Faucet"
   description="Request testnet BOING for the Boing Network testnet."
 >
-  <article class="page faucet-page">
-    <h1 class="page-title"><Icon name="faucet" size={32} class="title-icon" /> Testnet Faucet</h1>
-    <p class="lead">
-      Get testnet BOING to pay for gas and stake. Enter your account ID (32-byte hex) and the faucet will send <strong>1,000</strong> testnet BOING to your account. Rate limit: 1 request per 60 seconds per account.
-    </p>
-
-    <section class="faucet-form">
+  <article class="page-wrap-full">
+    <header class="page-hero-full">
+      <div class="page-wrap-inner">
+        <span class="stage-badge-global">Testnet</span>
+        <h1 class="page-title"><Icon name="faucet" size={32} class="title-icon" /> Testnet Faucet</h1>
+        <p class="lead">
+          Get testnet BOING to pay for gas and stake. Enter your account ID (32-byte hex) and the faucet will send <strong>1,000</strong> testnet BOING to your account. Rate limit: 1 request per 60 seconds per account.
+        </p>
+      </div>
+    </header>
+    <div class="page-wrap-inner faucet-content">
+      <section class="faucet-form">
       <div class="copy-wrapper input-group">
         <label for="rpc-url">Testnet RPC URL</label>
         <div class="input-with-copy">
@@ -52,6 +57,7 @@ import { TESTNET_RPC_URL } from '../../config/testnet';
       <h2>Docs</h2>
       <p><a href="/network/testnet">Join Testnet</a> · <a href="/pdfs/TESTNET.pdf" target="_blank" rel="noopener">TESTNET (PDF)</a></p>
     </section>
+    </div>
   </article>
 </Layout>
 
@@ -122,7 +128,7 @@ import { TESTNET_RPC_URL } from '../../config/testnet';
 </script>
 
 <style>
-  .page { max-width: 720px; margin: 0 auto; padding: 2rem; }
+  .faucet-content { padding-bottom: 3rem; max-width: 640px; }
   .page-title { display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary); }
   .title-icon { color: var(--accent-teal); flex-shrink: 0; }
   .faucet-page h1 { color: var(--text-primary); }

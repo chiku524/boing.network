@@ -6,16 +6,18 @@ import Layout from '../../layouts/Layout.astro';
   title="Sign in — Testnet Portal"
   description="Sign in to the Boing Network testnet portal with your account ID. Access your developer, user, or operator dashboard."
 >
-  <article class="portal-page sign-in-page">
-    <p class="back-link fade-in-up"><a href="/testnet">← Portal</a></p>
-
-    <div class="sign-in-hero fade-in-up delay-1">
-      <h1>Sign in</h1>
-      <p class="lead">
-        Enter your testnet account ID (32-byte hex). If you're registered, we'll take you to your role's dashboard. New? <a href="/testnet/register">Register first</a>.
-      </p>
-    </div>
-
+  <article class="portal-page sign-in-page page-wrap-full">
+    <header class="page-hero-full page-hero-signin">
+      <div class="page-wrap-inner" style="max-width: 560px;">
+        <span class="stage-badge-global">Testnet</span>
+        <p class="back-link fade-in-up" style="margin-bottom: 1rem;"><a href="/testnet">← Dashboard</a></p>
+        <h1 class="sign-in-hero-title">Sign in</h1>
+        <p class="lead">
+          Enter your testnet account ID (32-byte hex). If you're registered, we'll take you to your role's dashboard. New? <a href="/testnet/register">Register first</a>.
+        </p>
+      </div>
+    </header>
+    <div class="page-wrap-inner sign-in-content" style="max-width: 560px;">
     <form id="signin-form" class="auth-form fade-in-up delay-2">
       <label for="account-id">Account ID (0x... 64 hex chars)</label>
       <input id="account-id" name="account_id_hex" type="text" placeholder="0x..." maxlength="66" required autocomplete="off" />
@@ -27,6 +29,7 @@ import Layout from '../../layouts/Layout.astro';
       <p class="muted">Not registered? <a href="/testnet/register">Choose your role and register</a> — you'll be directed to your hub after registration.</p>
       <p><a href="/" class="back-to-site">← Back to Boing Network</a></p>
     </section>
+    </div>
   </article>
 </Layout>
 
@@ -105,14 +108,16 @@ import Layout from '../../layouts/Layout.astro';
 </script>
 
 <style>
-  .portal-page { max-width: 480px; margin: 0 auto; padding: 2rem; }
-  .back-link { margin-bottom: 1.5rem; }
+  .portal-page { padding: 0; margin: 0; }
+  .sign-in-hero-title { color: var(--text-primary); margin: 0 0 0.5rem; font-size: 1.75rem; }
+  .page-hero-signin .lead { margin: 0; color: var(--text-secondary); }
+  .sign-in-content { padding-bottom: 3rem; }
+  .back-link { margin-bottom: 0; }
   .back-link a { color: var(--accent-teal); text-decoration: none; transition: color 0.2s ease; }
   .back-link a:hover { color: var(--accent-cyan); }
   .back-link a:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
   .sign-in-hero { margin-bottom: 2rem; }
   .sign-in-hero h1 { color: var(--text-primary); margin-bottom: 0.5rem; }
-  .lead { color: var(--text-secondary); margin-bottom: 0.5rem; }
   .lead a { color: var(--accent-teal); }
   .lead a:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
   .auth-form label { display: block; margin-top: 1rem; color: var(--text-secondary); font-size: 0.9rem; }

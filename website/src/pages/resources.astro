@@ -1,0 +1,230 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Icon from '../components/Icon.astro';
+---
+
+<Layout
+  title="Resources"
+  description="Docs, faucet, testnet, and developer resources for Boing Network."
+  canonical="/resources"
+>
+  <article class="resources-page">
+    <header class="resources-hero full-width">
+      <div class="resources-hero-inner">
+        <span class="stage-badge">Testnet</span>
+        <h1 class="resources-title">Resources</h1>
+        <p class="resources-lead">Everything you need to join the testnet, build, and explore Boing Network.</p>
+      </div>
+    </header>
+
+    <section class="resources-grid full-width">
+      <div class="resources-grid-inner">
+        <a href="/testnet" class="resource-tile resource-tile--featured">
+          <span class="resource-tile-icon"><Icon name="portal" size={40} /></span>
+          <h2>Dashboard</h2>
+          <p>Sign in or register as developer, user, or operator. Access your hub and dashboard.</p>
+          <span class="resource-tile-cta">Open Dashboard →</span>
+        </a>
+        <a href="/network/testnet" class="resource-tile">
+          <span class="resource-tile-icon"><Icon name="network" size={40} /></span>
+          <h2>Join Testnet</h2>
+          <p>Run a node, get bootnodes, and connect to the public testnet.</p>
+          <span class="resource-tile-cta">Join →</span>
+        </a>
+        <a href="/network/faucet" class="resource-tile">
+          <span class="resource-tile-icon"><Icon name="faucet" size={40} /></span>
+          <h2>Faucet</h2>
+          <p>Get testnet BOING for gas and staking. One request per account per 60 seconds.</p>
+          <span class="resource-tile-cta">Get testnet BOING →</span>
+        </a>
+        <a href="/docs" class="resource-tile">
+          <span class="resource-tile-icon"><Icon name="book" size={40} /></span>
+          <h2>Documentation</h2>
+          <p>Full docs: getting started, RPC API, tokenomics, operations, and PDFs.</p>
+          <span class="resource-tile-cta">Read docs →</span>
+        </a>
+        <a href="/developers/quickstart" class="resource-tile">
+          <span class="resource-tile-icon"><Icon name="rocket" size={40} /></span>
+          <h2>Developer Quickstart</h2>
+          <p>CLI, SDK, and local dev. Build and deploy on Boing.</p>
+          <span class="resource-tile-cta">Quickstart →</span>
+        </a>
+        <a href="/network/bootnodes" class="resource-tile">
+          <span class="resource-tile-icon"><Icon name="node" size={40} /></span>
+          <h2>Bootnodes</h2>
+          <p>What bootnodes are and how to use them to join the testnet.</p>
+          <span class="resource-tile-cta">Learn more →</span>
+        </a>
+        <a href="/network/status" class="resource-tile">
+          <span class="resource-tile-icon"><Icon name="link" size={40} /></span>
+          <h2>Network Status</h2>
+          <p>Block height and validator info when available.</p>
+          <span class="resource-tile-cta">Status →</span>
+        </a>
+        <a href="/about" class="resource-tile">
+          <span class="resource-tile-icon"><Icon name="shield" size={40} /></span>
+          <h2>About</h2>
+          <p>Design philosophy, pillars, and what makes Boing different.</p>
+          <span class="resource-tile-cta">About →</span>
+        </a>
+        <a href="/community" class="resource-tile">
+          <span class="resource-tile-icon"><Icon name="quest" size={40} /></span>
+          <h2>Community</h2>
+          <p>GitHub, Discord, governance, and grants.</p>
+          <span class="resource-tile-cta">Community →</span>
+        </a>
+      </div>
+    </section>
+  </article>
+</Layout>
+
+<style>
+  .full-width {
+    width: 100%;
+    max-width: 100vw;
+    box-sizing: border-box;
+  }
+  .resources-hero-inner,
+  .resources-grid-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+  .resources-hero {
+    padding: 4rem 0;
+    text-align: center;
+    background: linear-gradient(180deg, rgba(6, 182, 212, 0.08) 0%, transparent 70%);
+    border-bottom: 1px solid var(--border-color);
+  }
+  .resources-hero .stage-badge,
+  .resources-hero .resources-title,
+  .resources-hero .resources-lead {
+    opacity: 0;
+    transform: translateY(16px);
+    animation: resources-hero-reveal 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  .resources-hero .stage-badge { animation-delay: 0s; }
+  .resources-hero .resources-title { animation-delay: 0.08s; }
+  .resources-hero .resources-lead { animation-delay: 0.16s; }
+  @keyframes resources-hero-reveal { to { opacity: 1; transform: translateY(0); } }
+  @media (prefers-reduced-motion: reduce) {
+    .resources-hero .stage-badge, .resources-hero .resources-title, .resources-hero .resources-lead { animation: none; opacity: 1; transform: none; }
+  }
+  .stage-badge {
+    display: inline-block;
+    padding: 0.35rem 0.85rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    border-radius: 999px;
+    margin-bottom: 1rem;
+  }
+  .resources-title {
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    margin: 0 0 0.5rem;
+    color: var(--text-primary);
+    background: linear-gradient(135deg, var(--accent-teal), var(--accent-cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .resources-lead {
+    font-size: 1.15rem;
+    color: var(--text-secondary);
+    margin: 0;
+    max-width: 560px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .resources-grid {
+    padding: 3rem 0 4rem;
+  }
+  .resources-grid-inner {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+  .resource-tile {
+    display: flex;
+    flex-direction: column;
+    padding: 1.75rem;
+    background: rgba(30, 41, 59, 0.4);
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    border-radius: 1rem;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+    opacity: 0;
+    transform: translateY(24px);
+    animation: resource-tile-reveal 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  .resource-tile:nth-child(1) { animation-delay: 0.05s; }
+  .resource-tile:nth-child(2) { animation-delay: 0.1s; }
+  .resource-tile:nth-child(3) { animation-delay: 0.15s; }
+  .resource-tile:nth-child(4) { animation-delay: 0.2s; }
+  .resource-tile:nth-child(5) { animation-delay: 0.25s; }
+  .resource-tile:nth-child(6) { animation-delay: 0.3s; }
+  .resource-tile:nth-child(7) { animation-delay: 0.35s; }
+  .resource-tile:nth-child(8) { animation-delay: 0.4s; }
+  .resource-tile:nth-child(9) { animation-delay: 0.45s; }
+  @keyframes resource-tile-reveal { to { opacity: 1; transform: translateY(0); } }
+  .resource-tile:hover .resource-tile-icon {
+    transform: scale(1.12);
+  }
+  .resource-tile-icon {
+    display: block;
+    margin-bottom: 1rem;
+    color: var(--accent-teal);
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .resource-tile--featured .resource-tile-icon {
+    color: #f59e0b;
+  }
+  .resource-tile h2 {
+    font-size: 1.2rem;
+    margin: 0 0 0.5rem;
+    color: var(--text-primary);
+  }
+  .resource-tile p {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    margin: 0 0 1rem;
+    line-height: 1.5;
+    flex: 1;
+  }
+  .resource-tile-cta {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--accent-teal);
+  }
+  .resource-tile--featured .resource-tile-cta {
+    color: #f59e0b;
+  }
+  .resource-tile:hover {
+    border-color: rgba(34, 211, 238, 0.5);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(6, 182, 212, 0.2);
+  }
+  .resource-tile--featured {
+    border-color: rgba(245, 158, 11, 0.4);
+    background: rgba(245, 158, 11, 0.06);
+  }
+  .resource-tile--featured:hover {
+    border-color: rgba(245, 158, 11, 0.6);
+    box-shadow: 0 12px 40px rgba(245, 158, 11, 0.15);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .resource-tile { animation: none; opacity: 1; transform: none; }
+    .resource-tile:hover .resource-tile-icon { transform: none; }
+  }
+  @media (max-width: 640px) {
+    .resources-hero-inner,
+    .resources-grid-inner { padding: 0 1.25rem; }
+    .resources-hero { padding: 3rem 0; }
+    .resources-grid { padding: 2rem 0 3rem; }
+  }
+</style>
