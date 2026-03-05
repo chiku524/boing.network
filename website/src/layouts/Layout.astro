@@ -89,13 +89,23 @@ const ogImage = `${siteUrl}/og.png`;
         ) : isTestnetApp ? (
           <>
             <a href="/testnet" class="nav-testnet" data-testnet-nav="dashboard" id="nav-testnet-dashboard">Dashboard</a>
+            <span id="nav-testnet-hub-links" class="nav-hub-links" style="display: none;" aria-label="Hub pages">
+              <a href="/testnet/developers/resources" data-testnet-hub-link data-hub="developer">Resources</a>
+              <a href="/testnet/developers/community" data-testnet-hub-link data-hub="developer">Community</a>
+              <a href="/testnet/developers/dashboard" data-testnet-hub-link data-hub="developer">My Dashboard</a>
+              <a href="/testnet/users/community" data-testnet-hub-link data-hub="user">Community</a>
+              <a href="/testnet/users/quests" data-testnet-hub-link data-hub="user">Quests</a>
+              <a href="/testnet/users/dashboard" data-testnet-hub-link data-hub="user">My Dashboard</a>
+              <a href="/testnet/operators/dashboard" data-testnet-hub-link data-hub="operator">My Dashboard</a>
+              <a href="/testnet/operators/leaderboard" data-testnet-hub-link data-hub="operator">Leaderboard</a>
+              <a href="/testnet/operators/resources" data-testnet-hub-link data-hub="operator">Resources</a>
+            </span>
             <a href="/testnet/developers" data-testnet-nav="developers">Developers</a>
             <a href="/testnet/users" data-testnet-nav="users">Users</a>
             <a href="/testnet/operators" data-testnet-nav="operators">Operators</a>
             <a href="/testnet/register" data-testnet-nav="register">Register</a>
-            <a href="/resources">Resources</a>
-            <a href="/about">About</a>
-            <a href="/community">Community</a>
+            <span class="nav-site-sep" aria-hidden="true">·</span>
+            <a href="/resources" class="nav-site-link">Resources</a>
             <span id="portal-auth" class="portal-auth-nav"></span>
             <a href="/" class="testnet-logout">Back to website</a>
           </>
@@ -151,19 +161,30 @@ const ogImage = `${siteUrl}/og.png`;
         if (p !== '/testnet' && p.indexOf('/testnet/') !== 0) return;
         var session = window.BoingPortalSession && window.BoingPortalSession.getSession();
         var dashboardLink = document.getElementById('nav-testnet-dashboard');
+        var hubLinksContainer = document.getElementById('nav-testnet-hub-links');
         var navItems = document.querySelectorAll('.site-nav [data-testnet-nav]');
-        if (!session) return;
-        var path = window.BoingPortalSession ? window.BoingPortalSession.roleAppPath(session.role) : '/testnet';
-        if (dashboardLink) dashboardLink.href = path;
-        navItems.forEach(function(el) {
-          var role = el.getAttribute('data-testnet-nav');
-          if (role === 'register' || role === 'dashboard') return;
-          if (role === 'developers' && session.role !== 'developer') el.style.display = 'none';
-          else if (role === 'users' && session.role !== 'user') el.style.display = 'none';
-          else if (role === 'operators' && session.role !== 'node_operator') el.style.display = 'none';
-        });
-        var registerLink = document.querySelector('.site-nav [data-testnet-nav="register"]');
-        if (registerLink) registerLink.style.display = 'none';
+        if (dashboardLink) dashboardLink.href = (window.BoingPortalSession && session) ? (window.BoingPortalSession.roleAppPath(session.role) || '/testnet') : '/testnet';
+        if (session) {
+          navItems.forEach(function(el) {
+            var role = el.getAttribute('data-testnet-nav');
+            if (role === 'dashboard') return;
+            el.style.display = 'none';
+          });
+          if (hubLinksContainer) {
+            hubLinksContainer.style.display = 'inline';
+            var hub = session.role === 'node_operator' ? 'operator' : session.role;
+            hubLinksContainer.querySelectorAll('[data-testnet-hub-link]').forEach(function(a) {
+              a.style.display = a.getAttribute('data-hub') === hub ? '' : 'none';
+            });
+          }
+        } else {
+          if (hubLinksContainer) hubLinksContainer.style.display = 'none';
+          navItems.forEach(function(el) {
+            var role = el.getAttribute('data-testnet-nav');
+            if (role === 'developers' || role === 'users' || role === 'operators') { el.style.display = ''; return; }
+            if (role === 'register') { el.style.display = ''; return; }
+          });
+        }
       })();
     </script>
   </body>
@@ -188,6 +209,8 @@ const ogImage = `${siteUrl}/og.png`;
   }
 
   main { flex: 1; position: relative; z-index: 1; padding-top: 4.5rem; }
+  body.testnet-app main { padding-top: 6rem; }
+  body.testnet-app .breadcrumbs { margin-top: 0.5rem; }
 
   /* Skip link: visible on focus for keyboard users */
   .skip-link {
@@ -257,13 +280,23 @@ const ogImage = `${siteUrl}/og.png`;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 1rem;
-    padding: 1rem 2rem;
+    gap: 0.75rem 1rem;
+    padding: 0.875rem 1.5rem;
     border-bottom: 1px solid var(--border-color);
     background: rgba(10, 14, 26, 0.85);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     box-shadow: 0 4px 20px var(--shadow);
+  }
+  @media (min-width: 768px) {
+    .site-header { padding: 0.875rem 2rem; }
+  }
+  body.testnet-app .site-header {
+    padding: 0.75rem 1.5rem;
+    gap: 0.5rem 1rem;
+  }
+  @media (min-width: 768px) {
+    body.testnet-app .site-header { padding: 0.75rem 2rem; }
   }
 
   .logo {
@@ -290,16 +323,22 @@ const ogImage = `${siteUrl}/og.png`;
   .site-header nav {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.75rem 1rem;
     flex-wrap: wrap;
   }
-
+  body.testnet-app .site-header nav {
+    gap: 0.5rem 0.75rem;
+  }
   .site-header nav a {
     color: var(--text-secondary);
     font-weight: 500;
-    padding: 0.35rem 0;
+    padding: 0.35rem 0.25rem;
     line-height: 1.5;
     display: inline-block;
+    white-space: nowrap;
+  }
+  body.testnet-app .site-header nav a {
+    padding: 0.4rem 0.35rem;
   }
 
   .site-header nav a:hover,
@@ -332,7 +371,17 @@ const ogImage = `${siteUrl}/og.png`;
   body:not(.testnet-app) [data-testnet-show] { display: none !important; }
   body:not(.testnet-app) .site-footer-main { display: block !important; }
   body.page-home .site-footer-main { display: none !important; }
-  .site-nav { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .site-nav { display: flex; align-items: center; gap: 0.75rem 1rem; flex-wrap: wrap; }
+  .nav-hub-links {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    flex-wrap: wrap;
+  }
+  .nav-hub-links a { white-space: nowrap; }
+  .nav-site-sep { color: var(--text-tertiary); font-weight: 300; pointer-events: none; margin: 0 0.1rem; }
+  .site-header nav a.nav-site-link { color: var(--text-tertiary); font-size: 0.9rem; }
+  .site-header nav a.nav-site-link:hover { color: var(--accent-teal); }
 
   /* Testnet app: logout link + portal-auth in header */
   .site-header nav a.testnet-logout {
