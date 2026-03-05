@@ -3,6 +3,8 @@ name: Deploy to Cloudflare Pages
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    # Run manually from Actions tab to deploy latest main (e.g. if push didn't trigger)
 
 jobs:
   deploy:
