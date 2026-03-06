@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import Icon from '../../components/Icon.astro';
+import '../../styles/hub-common.css';
 ---
 
 <Layout
@@ -13,7 +14,7 @@ import Icon from '../../components/Icon.astro';
     <div class="portal-hero fade-in-up">
       <h1 class="portal-hero-title"><Icon name="portal" size={36} class="title-icon" /> Dashboard</h1>
       <p class="lead portal-hero-lead fade-in-up delay-1">
-        Sign in to open your hub, or register as a <strong>developer</strong>, <strong>community user</strong>, or <strong>node operator</strong>. Each hub is separate — you'll be directed there after sign-in or registration.
+        Sign in to open your hub, or register as a <strong>developer</strong>, <strong>community user</strong>, or <strong>node operator</strong>. Each hub has a <strong>My Dashboard</strong> (your data) and <strong>Community</strong> (leaderboards and hub-wide progress).
       </p>
       <div class="hero-ctas fade-in-up delay-2">
         <a href="/testnet/sign-in" class="btn btn-primary">Sign in</a>
@@ -21,28 +22,71 @@ import Icon from '../../components/Icon.astro';
       </div>
     </div>
 
+    <section class="section section-how-it-works fade-in-up delay-1" id="how-it-works">
+      <h2>How it works</h2>
+      <p class="muted">Get started in three steps. Choose your role, register once, then use your hub to track progress and earn.</p>
+      <div class="testnet-how-it-works">
+        <div class="testnet-how-it-works__connector" aria-hidden="true"></div>
+        <div class="testnet-how-it-works__steps">
+          <div class="testnet-step testnet-step--1">
+            <span class="testnet-step__num" aria-hidden="true">1</span>
+            <h3 class="testnet-step__title">Choose your role</h3>
+            <p class="testnet-step__desc">Developer, Community user, or Node operator. Each has a dedicated hub.</p>
+          </div>
+          <div class="testnet-step testnet-step--2">
+            <span class="testnet-step__num" aria-hidden="true">2</span>
+            <h3 class="testnet-step__title">Register</h3>
+            <p class="testnet-step__desc">Sign in with your wallet or account ID. One registration per role.</p>
+          </div>
+          <div class="testnet-step testnet-step--3">
+            <span class="testnet-step__num" aria-hidden="true">3</span>
+            <h3 class="testnet-step__title">Use your hub</h3>
+            <p class="testnet-step__desc">My Dashboard for your stats, Community for leaderboards and quests.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-glance fade-in-up delay-1" id="network-glance">
+      <h2>Network at a glance</h2>
+      <p class="muted">Live testnet activity. Numbers update when the API is connected.</p>
+      <div class="testnet-glance" id="testnet-glance">
+        <div class="testnet-glance__card">
+          <span class="testnet-glance__value" id="glance-quests">—</span>
+          <span class="testnet-glance__label">Quest completions</span>
+        </div>
+        <div class="testnet-glance__card">
+          <span class="testnet-glance__value" id="glance-dapps">—</span>
+          <span class="testnet-glance__label">dApps registered</span>
+        </div>
+      </div>
+    </section>
+
     <section class="section section-role-cards fade-in-up delay-1" id="register-options">
       <h2>Register for a hub</h2>
-      <p class="muted">Choose one role. After registration you're taken to that hub's dashboard.</p>
+      <p class="muted">Choose one role. After registration you're taken to that hub. In each hub: <strong>My Dashboard</strong> = your stats and registration; <strong>Community</strong> = leaderboards and hub-wide progress.</p>
       <div class="role-cards">
-        <a href="/testnet/register/developer" class="role-card role-card--developer">
+        <div class="role-card role-card--developer">
           <span class="role-card-icon" aria-hidden="true"><Icon name="code" size={28} /></span>
           <h3>Developer Hub</h3>
           <p>Build dApps, register contracts, qualify for grants and the dApp incentive pool.</p>
-          <span class="card-arrow">Register as developer →</span>
-        </a>
-        <a href="/testnet/register/user" class="role-card role-card--user">
+          <a href="/testnet/register/developer" class="card-arrow">Register as developer →</a>
+          <p class="role-card-hub-links"><a href="/testnet/developers/dashboard">My Dashboard</a> · <a href="/testnet/developers/community">Community</a></p>
+        </div>
+        <div class="role-card role-card--user">
           <span class="role-card-icon" aria-hidden="true"><Icon name="quest" size={28} /></span>
           <h3>Community Hub</h3>
           <p>Use the faucet, complete quests, share feedback. Earn user rewards.</p>
-          <span class="card-arrow">Register as user →</span>
-        </a>
-        <a href="/testnet/register/operator" class="role-card role-card--operator">
+          <a href="/testnet/register/user" class="card-arrow">Register as user →</a>
+          <p class="role-card-hub-links"><a href="/testnet/users/dashboard">My Dashboard</a> · <a href="/testnet/users/community">Community</a></p>
+        </div>
+        <div class="role-card role-card--operator">
           <span class="role-card-icon" aria-hidden="true"><Icon name="node" size={28} /></span>
           <h3>Operator Hub</h3>
           <p>Run a node or miner, join the leaderboard, earn testnet BOING.</p>
-          <span class="card-arrow">Register as operator →</span>
-        </a>
+          <a href="/testnet/register/operator" class="card-arrow">Register as operator →</a>
+          <p class="role-card-hub-links"><a href="/testnet/operators/dashboard">My Dashboard</a> · <a href="/testnet/operators/leaderboard">Leaderboard</a></p>
+        </div>
       </div>
     </section>
 
@@ -62,6 +106,28 @@ import Icon from '../../components/Icon.astro';
       window.location.href = path;
       return;
     }
+  })();
+</script>
+<script>
+  (function () {
+    var questsEl = document.getElementById('glance-quests');
+    var dappsEl = document.getElementById('glance-dapps');
+    if (!questsEl && !dappsEl) return;
+    function setQuests(n) {
+      if (questsEl) questsEl.textContent = typeof n === 'number' ? n : '—';
+    }
+    function setDapps(n) {
+      if (dappsEl) dappsEl.textContent = typeof n === 'number' ? n : '—';
+    }
+    Promise.all([
+      fetch('/api/portal/quests-stats').then(function (r) { return r.json().catch(function () { return {}; }); }),
+      fetch('/api/portal/dapps').then(function (r) { return r.json().catch(function () { return {}; }); })
+    ]).then(function (results) {
+      var quests = results[0];
+      var dapps = results[1];
+      if (quests.ok && quests.total_completions != null) setQuests(quests.total_completions);
+      if (dapps.ok && Array.isArray(dapps.dapps)) setDapps(dapps.dapps.length);
+    }).catch(function () {});
   })();
 </script>
 
@@ -116,6 +182,21 @@ import Icon from '../../components/Icon.astro';
     position: relative;
     overflow: hidden;
   }
+  .role-card .card-arrow {
+    margin-top: auto;
+    padding-top: 0.75rem;
+    font-size: 0.85rem;
+    color: var(--accent-teal);
+    font-weight: 500;
+    display: inline-block;
+  }
+  .role-card .card-arrow:hover { text-decoration: underline; }
+  .role-card-hub-links {
+    margin: 0.5rem 0 0;
+    font-size: 0.85rem;
+  }
+  .role-card-hub-links a { color: var(--text-tertiary); }
+  .role-card-hub-links a:hover { color: var(--accent-teal); }
   .role-card::before {
     content: '';
     position: absolute;

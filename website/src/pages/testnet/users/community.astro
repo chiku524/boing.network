@@ -2,6 +2,7 @@
 import Layout from '../../../layouts/Layout.astro';
 import Breadcrumbs from '../../../components/Breadcrumbs.astro';
 import HubNav from '../../../components/HubNav.astro';
+import { QUESTS } from '../../../config/quests';
 import '../../../styles/hub-common.css';
 ---
 
@@ -29,6 +30,7 @@ import '../../../styles/hub-common.css';
             <span class="label">Total completions</span>
           </div>
         </div>
+        <div id="quest-chart" class="testnet-chart-bars" style="display: none;"></div>
         <div id="quest-stats-wrap" class="dashboard-placeholder">
           <p>Loading…</p>
         </div>
@@ -54,8 +56,9 @@ import '../../../styles/hub-common.css';
 </Layout>
 
 <script is:inline src="/portal-session.js"></script>
-<script>
+<script define:vars={{ questNames: Object.fromEntries(QUESTS.map(q => [q.id, q.name])) }}>
   (function () {
+    var questNamesMap = typeof questNames === 'object' && questNames !== null ? questNames : {};
     var expectedRole = 'user';
     var session = window.BoingPortalSession && window.BoingPortalSession.getSession();
     var authEl = document.getElementById('portal-auth');
@@ -82,6 +85,7 @@ import '../../../styles/hub-common.css';
 
     var totalEl = document.getElementById('total-completions');
     var statsWrap = document.getElementById('quest-stats-wrap');
+    var chartEl = document.getElementById('quest-chart');
     fetch('/api/portal/quests-stats')
       .then(function (res) { return res.json().catch(function () { return {}; }); })
       .then(function (data) {
@@ -97,15 +101,36 @@ import '../../../styles/hub-common.css';
           statsWrap.innerHTML = '<p class="muted">No completions yet. <a href="/testnet/users/quests">Complete a quest</a> to be first.</p>';
           return;
         }
-        var html = '<ul class="resources-list">';
-        keys.forEach(function (qid) {
-          html += '<li><strong>' + qid + '</strong>: ' + byQuest[qid] + ' completion(s)</li>';
+        var maxCount = 0;
+        keys.forEach(function (k) { if (byQuest[k] > maxCount) maxCount = byQuest[k]; });
+        if (maxCount === 0) maxCount = 1;
+        var chartHtml = '';
+        keys.forEach(function (qid, i) {
+          var count = byQuest[qid];
+          var pct = Math.round((count / maxCount) * 100);
+          var label = questNamesMap[qid] || qid;
+          var delay = i * 80;
+          chartHtml += '<div class="testnet-chart-bar-row" style="--delay: ' + delay + 'ms">' +
+            '<span class="testnet-chart-bar-label">' + escapeHtml(label) + '</span>' +
+            '<div class="testnet-chart-bar-track">' +
+              '<div class="testnet-chart-bar-fill" style="--pct: ' + pct + '; --delay: ' + delay + 'ms;"></div>' +
+            '</div>' +
+            '<span class="testnet-chart-bar-value">' + count + '</span></div>';
         });
-        html += '</ul>';
-        statsWrap.innerHTML = html;
+        if (chartEl) {
+          chartEl.innerHTML = chartHtml;
+          chartEl.style.display = 'block';
+        }
+        statsWrap.innerHTML = '';
+        statsWrap.style.display = 'none';
       })
       .catch(function () {
         if (statsWrap) statsWrap.innerHTML = '<p class="muted">Network error. API may not be deployed yet.</p>';
       });
+    function escapeHtml(s) {
+      var div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
   })();
 </script>

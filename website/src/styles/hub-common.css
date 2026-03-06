@@ -1,9 +1,14 @@
 /* Shared styles for testnet hub pages (developers, users, operators)
    Uses motion vars from motion-config.css (via boing-theme). */
 
-/* Breadcrumbs: extra spacing when followed by hub-nav */
+/* Breadcrumbs: extra spacing when followed by hub-nav; path bar clarity on testnet */
 .hub-page .breadcrumbs {
   margin-bottom: 1.25rem;
+  padding: 0.625rem 1.5rem 0.625rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+@media (min-width: 768px) {
+  .hub-page .breadcrumbs { padding-left: 2rem; padding-right: 2rem; }
 }
 
 /* Entrance: hub hero and sections use stagger + fade-in-up */
@@ -430,5 +435,184 @@
 .resources-list .desc {
   font-size: 0.9rem;
   color: var(--text-secondary);
+  margin-top: 0.25rem;
+}
+
+/* ----- Testnet visuals: progress bars, charts, onboarding ----- */
+
+/* Animated progress bar (e.g. quest completion X of Y) */
+.testnet-progress-bar {
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(34, 211, 238, 0.25);
+  overflow: hidden;
+  margin: 0.75rem 0 1rem;
+}
+.testnet-progress-bar__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-teal), var(--accent-cyan));
+  width: calc(var(--progress, 0) * 1%);
+  max-width: 100%;
+  transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .testnet-progress-bar__fill { transition: none; }
+}
+
+/* Bar chart (e.g. completions by quest) */
+.testnet-chart-bars {
+  margin: 1rem 0;
+}
+.testnet-chart-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.testnet-chart-bar-row:last-child { margin-bottom: 0; }
+.testnet-chart-bar-label {
+  flex: 0 0 140px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+.testnet-chart-bar-track {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  border-radius: 6px;
+  background: rgba(30, 41, 59, 0.6);
+  overflow: hidden;
+}
+.testnet-chart-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.9), rgba(245, 158, 11, 0.9));
+  width: calc(var(--pct, 0) * 1%);
+  max-width: 100%;
+  transition: width 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition-delay: var(--delay, 0ms);
+}
+.testnet-chart-bar-value {
+  flex: 0 0 2.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent-teal);
+  font-family: var(--font-mono);
+  text-align: right;
+}
+@media (prefers-reduced-motion: reduce) {
+  .testnet-chart-bar-fill { transition: none; }
+}
+
+/* How it works / onboarding steps */
+.testnet-how-it-works {
+  margin: 2rem 0;
+}
+.testnet-how-it-works__steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  position: relative;
+  max-width: 720px;
+  margin: 0 auto;
+}
+@media (max-width: 640px) {
+  .testnet-how-it-works__steps {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+.testnet-how-it-works__connector {
+  position: absolute;
+  top: 28px;
+  left: 16.666%;
+  right: 16.666%;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.4), rgba(34, 211, 238, 0.6));
+  border-radius: 1px;
+  opacity: 0;
+  animation: testnet-connector-draw 0.6s ease-out 0.4s forwards;
+}
+@media (max-width: 640px) {
+  .testnet-how-it-works__connector { display: none; }
+}
+@keyframes testnet-connector-draw {
+  from { opacity: 0; transform: scaleX(0); transform-origin: left; }
+  to { opacity: 1; transform: scaleX(1); transform-origin: left; }
+}
+.testnet-step {
+  text-align: center;
+  padding: 1rem 0.75rem;
+  animation: testnet-step-in 0.5s ease-out both;
+}
+.testnet-step--1 { animation-delay: 0.1s; }
+.testnet-step--2 { animation-delay: 0.25s; }
+.testnet-step--3 { animation-delay: 0.4s; }
+@keyframes testnet-step-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .testnet-how-it-works__connector { animation: none; opacity: 1; }
+  .testnet-step, .testnet-step--1, .testnet-step--2, .testnet-step--3 { animation: none; opacity: 1; transform: none; }
+}
+.testnet-step__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-teal), var(--accent-cyan));
+  color: var(--bg-primary);
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+  box-shadow: 0 4px 14px rgba(34, 211, 238, 0.35);
+}
+.testnet-step__title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem;
+}
+.testnet-step__desc {
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Network at a glance: stat cards */
+.testnet-glance {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+.testnet-glance__card {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  border-radius: 12px;
+  padding: 1.25rem;
+  text-align: center;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.testnet-glance__card:hover {
+  border-color: rgba(34, 211, 238, 0.4);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+.testnet-glance__value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--accent-teal);
+  font-family: var(--font-mono);
+  display: block;
+}
+.testnet-glance__label {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
   margin-top: 0.25rem;
 }
