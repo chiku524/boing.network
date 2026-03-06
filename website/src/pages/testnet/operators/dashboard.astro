@@ -38,7 +38,7 @@ import '../../../styles/hub-common.css';
             <span class="label">Uptime</span>
           </div>
           <div class="hub-metric-card">
-            <span class="value" id="metric-rank">—</span>
+            <span class="value" id="metric-rank-wrap">—</span>
             <span class="label">Rank</span>
           </div>
         </div>
@@ -150,16 +150,20 @@ import '../../../styles/hub-common.css';
           registrationSection.style.display = 'block';
           var blocksEl = document.getElementById('metric-blocks');
           var uptimeEl = document.getElementById('metric-uptime');
-          var rankEl = document.getElementById('metric-rank');
+          var rankWrap = document.getElementById('metric-rank-wrap');
           if (blocksEl) blocksEl.textContent = '—';
           if (uptimeEl) uptimeEl.textContent = '—';
-          if (rankEl) rankEl.textContent = '—';
+          if (rankWrap) rankWrap.textContent = '—';
+          if (rankWrap) rankWrap.className = 'value';
           fetch('/api/portal/operator-stats?account_id_hex=' + encodeURIComponent(hex))
             .then(function (res) { return res.json().catch(function () { return {}; }); })
             .then(function (stats) {
               if (!stats.ok || !blocksEl) return;
               if (stats.blocks_proposed != null) blocksEl.textContent = stats.blocks_proposed;
-              if (stats.rank != null && rankEl) rankEl.textContent = '#' + stats.rank;
+              if (stats.rank != null && rankWrap) {
+                rankWrap.textContent = '#' + stats.rank;
+                rankWrap.className = 'value hub-rank-badge';
+              }
               if (stats.uptime_estimate && uptimeEl) {
                 var first = stats.uptime_estimate.first_block_at ? stats.uptime_estimate.first_block_at.slice(0, 10) : '';
                 var last = stats.uptime_estimate.last_block_at ? stats.uptime_estimate.last_block_at.slice(0, 10) : '';

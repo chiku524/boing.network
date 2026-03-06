@@ -100,7 +100,7 @@ import '../../../styles/hub-common.css';
           listWrap.innerHTML = '<p class="muted">No dApps registered yet. Be the first — <a href="/testnet/developers/dashboard">register on My Dashboard</a>.</p>';
           return;
         }
-        var html = '<ul class="resources-list">';
+        var html = '<ul class="resources-list hub-list-animate">';
         dapps.forEach(function (d) {
           var short = (d.contract_hex || '').slice(0, 18) + '…';
           var name = d.name ? (' — ' + d.name) : '';

@@ -105,7 +105,7 @@ const ogImage = `${siteUrl}/og.png`;
             <a href="/testnet/operators" data-testnet-nav="operators">Operators</a>
             <a href="/testnet/register" data-testnet-nav="register">Register</a>
             <span class="nav-site-sep" aria-hidden="true">·</span>
-            <a href="/resources" class="nav-site-link">Resources</a>
+            <a href="/resources" class="nav-site-link" id="nav-testnet-site-resources">Resources</a>
             <span id="portal-auth" class="portal-auth-nav"></span>
             <a href="/" class="testnet-logout">Back to website</a>
           </>
@@ -165,24 +165,21 @@ const ogImage = `${siteUrl}/og.png`;
         var navItems = document.querySelectorAll('.site-nav [data-testnet-nav]');
         if (dashboardLink) dashboardLink.href = (window.BoingPortalSession && session) ? (window.BoingPortalSession.roleAppPath(session.role) || '/testnet') : '/testnet';
         if (session) {
+          if (dashboardLink) dashboardLink.style.display = 'none';
+          if (hubLinksContainer) hubLinksContainer.style.display = 'none';
+          var siteRes = document.getElementById('nav-testnet-site-resources');
+          if (siteRes) siteRes.style.display = 'none';
           navItems.forEach(function(el) {
-            var role = el.getAttribute('data-testnet-nav');
-            if (role === 'dashboard') return;
-            el.style.display = 'none';
+            el.style.display = '';
           });
-          if (hubLinksContainer) {
-            hubLinksContainer.style.display = 'inline';
-            var hub = session.role === 'node_operator' ? 'operator' : session.role;
-            hubLinksContainer.querySelectorAll('[data-testnet-hub-link]').forEach(function(a) {
-              a.style.display = a.getAttribute('data-hub') === hub ? '' : 'none';
-            });
-          }
         } else {
+          if (dashboardLink) dashboardLink.style.display = '';
           if (hubLinksContainer) hubLinksContainer.style.display = 'none';
           navItems.forEach(function(el) {
             var role = el.getAttribute('data-testnet-nav');
             if (role === 'developers' || role === 'users' || role === 'operators') { el.style.display = ''; return; }
             if (role === 'register') { el.style.display = ''; return; }
+            if (role === 'dashboard') { el.style.display = ''; return; }
           });
         }
       })();

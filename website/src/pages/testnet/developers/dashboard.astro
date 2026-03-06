@@ -83,6 +83,23 @@ import '../../../styles/hub-common.css';
       metricsRow.innerHTML =
         '<div class="hub-metric-card"><span class="value">' + dappCount + '</span><span class="label">dApps registered</span></div>' +
         '<div class="hub-metric-card"><span class="value">' + (dappCount > 0 ? 'Active' : '—') + '</span><span class="label">Status</span></div>';
+      if (dappCount > 0 && metricsRow.parentNode) {
+        var strip = document.createElement('div');
+        strip.className = 'hub-dapp-strip';
+        strip.setAttribute('aria-hidden', 'true');
+        for (var i = 0; i < Math.min(dappCount, 12); i++) {
+          var pill = document.createElement('span');
+          pill.className = 'hub-dapp-strip__pill';
+          strip.appendChild(pill);
+        }
+        if (dappCount > 12) {
+          var more = document.createElement('span');
+          more.className = 'hub-dapp-strip__pill';
+          more.style.opacity = '0.5';
+          strip.appendChild(more);
+        }
+        metricsRow.parentNode.insertBefore(strip, metricsRow.nextSibling);
+      }
     }
 
     function loadDashboard(hex) {

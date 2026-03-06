@@ -455,6 +455,24 @@
   margin-top: 0.25rem;
 }
 
+/* Staggered list entrance for hub community lists */
+.resources-list.hub-list-animate li {
+  animation: hub-list-in 0.4s ease-out both;
+}
+.resources-list.hub-list-animate li:nth-child(1) { animation-delay: 0.05s; }
+.resources-list.hub-list-animate li:nth-child(2) { animation-delay: 0.1s; }
+.resources-list.hub-list-animate li:nth-child(3) { animation-delay: 0.15s; }
+.resources-list.hub-list-animate li:nth-child(4) { animation-delay: 0.2s; }
+.resources-list.hub-list-animate li:nth-child(5) { animation-delay: 0.25s; }
+.resources-list.hub-list-animate li:nth-child(n+6) { animation-delay: 0.3s; }
+@keyframes hub-list-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .resources-list.hub-list-animate li { animation: none; }
+}
+
 /* ----- Testnet visuals: progress bars, charts, onboarding ----- */
 
 /* Animated progress bar (e.g. quest completion X of Y) */
@@ -632,4 +650,57 @@
   font-size: 0.8rem;
   color: var(--text-tertiary);
   margin-top: 0.25rem;
+}
+
+/* Hub page: dApp strip (developer) — row of pills */
+.hub-dapp-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 1rem 0;
+}
+.hub-dapp-strip__pill {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-teal), var(--accent-cyan));
+  opacity: 0.85;
+  animation: hub-pill-in 0.4s ease-out both;
+}
+.hub-dapp-strip__pill:nth-child(1) { animation-delay: 0.05s; }
+.hub-dapp-strip__pill:nth-child(2) { animation-delay: 0.1s; }
+.hub-dapp-strip__pill:nth-child(3) { animation-delay: 0.15s; }
+.hub-dapp-strip__pill:nth-child(4) { animation-delay: 0.2s; }
+.hub-dapp-strip__pill:nth-child(5) { animation-delay: 0.25s; }
+.hub-dapp-strip__pill:nth-child(n+6) { animation-delay: 0.3s; }
+@keyframes hub-pill-in {
+  from { opacity: 0; transform: scale(0); }
+  to { opacity: 0.85; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hub-dapp-strip__pill { animation: none; opacity: 0.85; }
+}
+
+/* Hub page: operator rank badge */
+.hub-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3rem;
+  padding: 0.35rem 0.6rem;
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--bg-primary);
+  background: linear-gradient(135deg, #7c3aed, #a78bfa);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35);
+  animation: hub-rank-pulse 2s ease-in-out infinite;
+}
+@keyframes hub-rank-pulse {
+  0%, 100% { box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35); }
+  50% { box-shadow: 0 4px 20px rgba(124, 58, 237, 0.5); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hub-rank-badge { animation: none; }
 }
