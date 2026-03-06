@@ -193,25 +193,22 @@ import '../../styles/hub-common.css';
     border-radius: 1rem;
     text-decoration: none;
     color: inherit;
-    transform-style: preserve-3d;
-    transition: transform var(--motion-cards-transition_duration, 0.35s) var(--motion-cards-easing, ease-out),
-      box-shadow var(--motion-cards-transition_duration, 0.35s) ease-out,
-      border-color 0.2s ease;
     position: relative;
     overflow: hidden;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
   }
   .role-card .card-arrow {
     margin-top: auto;
-    padding-top: 0.75rem;
-    font-size: 0.85rem;
+    padding-top: 0.5rem;
+    font-size: 0.8rem;
     color: var(--accent-teal);
     font-weight: 500;
     display: inline-block;
   }
   .role-card .card-arrow:hover { text-decoration: underline; }
   .role-card-hub-links {
-    margin: 0.5rem 0 0;
-    font-size: 0.85rem;
+    margin: 0.35rem 0 0;
+    font-size: 0.78rem;
   }
   .role-card-hub-links a { color: var(--text-tertiary); }
   .role-card-hub-links a:hover { color: var(--accent-teal); }
@@ -229,8 +226,7 @@ import '../../styles/hub-common.css';
   .role-card--operator::before { background: linear-gradient(180deg, #7c3aed, #a78bfa); }
   .role-card:hover {
     border-color: rgba(124, 58, 237, 0.5);
-    transform: perspective(var(--motion-cards-perspective, 1200px)) rotateX(2deg) rotateY(-3deg) translateY(-4px);
-    box-shadow: 0 12px 32px rgba(124, 58, 237, 0.2);
+    box-shadow: 0 8px 24px rgba(124, 58, 237, 0.15);
   }
   .role-card:focus-visible {
     outline: 2px solid var(--accent-teal);
@@ -254,7 +250,7 @@ import '../../styles/hub-common.css';
   .role-card--operator .role-card-icon { color: #a78bfa; }
   .role-card h3 { font-size: 1.15rem; margin: 0 0 0.5rem; color: var(--text-primary); }
   .role-card p { font-size: 0.9rem; color: var(--text-secondary); margin: 0 0 0.75rem; line-height: 1.45; flex: 1; }
-  .card-arrow { margin-top: auto; padding-top: 0.75rem; font-size: 0.85rem; color: var(--accent-teal); font-weight: 500; }
+  .card-arrow { margin-top: auto; padding-top: 0.5rem; font-size: 0.8rem; color: var(--accent-teal); font-weight: 500; }
 
   .portal-hero.fade-in-up,
   .portal-hero .fade-in-up,
@@ -277,7 +273,6 @@ import '../../styles/hub-common.css';
   .role-card.role-card--developer,
   .role-card.role-card--user,
   .role-card.role-card--operator { animation: portal-fade-in-up 0.6s ease-out both; }
-  .role-card:hover { animation: none; }
   @media (prefers-reduced-motion: reduce) {
     .portal-hero.fade-in-up,
     .portal-hero .fade-in-up,
@@ -285,7 +280,6 @@ import '../../styles/hub-common.css';
     .role-card.role-card--developer,
     .role-card.role-card--user,
     .role-card.role-card--operator { animation: none; opacity: 1; transform: none; }
-    .role-card:hover { transform: translateY(-2px); }
   }
 
   .back-to-site {
