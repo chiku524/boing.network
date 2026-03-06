@@ -39,6 +39,23 @@
   margin: 0 auto;
   padding: 2rem 1.5rem 3rem;
 }
+/* Full-width portal: dashboard, sign-in, register — use full viewport and center content */
+.portal-page.portal-entry,
+.portal-page.sign-in-page,
+.portal-page.choose-role-page {
+  max-width: 100%;
+  width: 100%;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
+  box-sizing: border-box;
+}
+@media (min-width: 768px) {
+  .portal-page.portal-entry,
+  .portal-page.sign-in-page,
+  .portal-page.choose-role-page {
+    padding: 2.5rem 2rem 4rem;
+  }
+}
 @media (min-width: 768px) {
   .portal-page {
     padding-left: 2rem;
