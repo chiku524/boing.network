@@ -311,6 +311,25 @@
   color: var(--text-secondary);
 }
 
+/* Leaderboard: row stagger + top 3 highlight */
+.hub-leaderboard-animate tbody tr.hub-leaderboard-row {
+  animation: hub-row-in 0.4s ease-out both;
+}
+.hub-leaderboard-animate tbody tr.hub-leaderboard-row:nth-child(1) { animation-delay: 0.05s; }
+.hub-leaderboard-animate tbody tr.hub-leaderboard-row:nth-child(2) { animation-delay: 0.1s; }
+.hub-leaderboard-animate tbody tr.hub-leaderboard-row:nth-child(3) { animation-delay: 0.15s; }
+.hub-leaderboard-animate tbody tr.hub-leaderboard-row:nth-child(n+4) { animation-delay: 0.2s; }
+@keyframes hub-row-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.hub-leaderboard-row--gold { background: linear-gradient(90deg, rgba(251, 191, 36, 0.12), transparent); }
+.hub-leaderboard-row--silver { background: linear-gradient(90deg, rgba(203, 213, 225, 0.12), transparent); }
+.hub-leaderboard-row--bronze { background: linear-gradient(90deg, rgba(205, 127, 50, 0.12), transparent); }
+@media (prefers-reduced-motion: reduce) {
+  .hub-leaderboard-animate tbody tr.hub-leaderboard-row { animation: none; }
+}
+
 .dashboard-load {
   margin: 1rem 0 1.25rem;
 }
@@ -703,4 +722,21 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .hub-rank-badge { animation: none; }
+}
+
+/* Hub empty state (e.g. no dApps yet) */
+.hub-empty-state { position: relative; }
+.hub-empty-state__visual { text-align: center; margin-top: 1rem; }
+.hub-empty-state__icon {
+  display: inline-block;
+  font-size: 2.5rem;
+  color: rgba(34, 211, 238, 0.4);
+  animation: hub-empty-spin 4s linear infinite;
+}
+@keyframes hub-empty-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hub-empty-state__icon { animation: none; }
 }

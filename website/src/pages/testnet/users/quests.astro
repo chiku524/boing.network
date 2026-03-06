@@ -18,6 +18,10 @@ import '../../../styles/hub-common.css';
     <section class="section fade-in-up">
       <h1>Community quests</h1>
       <p class="muted">Complete these to qualify for rewards. Rewards and caps are in the <a href="/pdfs/TESTNET.pdf" target="_blank" rel="noopener">Testnet doc (PDF)</a> rules.</p>
+      <div class="hub-metrics" style="margin-bottom: 1rem;">
+        <div class="hub-metric-card"><span class="value">{QUESTS.length}</span><span class="label">Quests available</span></div>
+      </div>
+      <div class="testnet-progress-bar" role="presentation" aria-hidden="true" style="max-width: 280px;"><div class="testnet-progress-bar__fill" id="quests-progress" style="--progress: 0;"></div></div>
       <ul class="quest-list">
         {QUESTS.map((q, i) => (
           <li class="quest-card fade-in-up" style={`animation-delay: ${i * 0.08}s`}>
@@ -94,6 +98,17 @@ import '../../../styles/hub-common.css';
       });
     }
     renderAuth();
+
+    var progressEl = document.getElementById('quests-progress');
+    if (session && session.role === expectedRole && session.account_id_hex && progressEl) {
+      fetch('/api/portal/me?account_id_hex=' + encodeURIComponent(session.account_id_hex))
+        .then(function (r) { return r.json().catch(function () { return {}; }); })
+        .then(function (data) {
+          var completed = (data.ok && data.quest_completions) ? data.quest_completions.length : 0;
+          var pct = QUESTS.length ? Math.round((completed / QUESTS.length) * 100) : 0;
+          progressEl.style.setProperty('--progress', pct);
+        });
+    } else if (progressEl) progressEl.style.setProperty('--progress', 0);
 
     var accountInput = document.getElementById('account-id');
     if (session && session.role === expectedRole && accountInput) accountInput.value = session.account_id_hex;

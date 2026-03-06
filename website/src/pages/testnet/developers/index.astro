@@ -26,6 +26,17 @@ import '../../../styles/hub-common.css';
       </div>
     </div>
 
+    <section class="section hub-glance-section fade-in-up delay-1" aria-label="Hub at a glance">
+      <h2>Hub at a glance</h2>
+      <div class="testnet-glance" id="developer-hub-glance">
+        <div class="testnet-glance__card">
+          <span class="testnet-glance__value" id="dev-glance-dapps">—</span>
+          <span class="testnet-glance__label">dApps registered</span>
+        </div>
+      </div>
+      <div class="hub-dapp-strip hub-dapp-strip--deco" id="developer-hub-strip" aria-hidden="true"></div>
+    </section>
+
     <section class="section steps-section fade-in-up delay-1">
       <h2>Your journey</h2>
       <ol class="steps-list steps-list--numbered">
@@ -51,12 +62,12 @@ import '../../../styles/hub-common.css';
 </Layout>
 
 <script is:inline src="/portal-session.js"></script>
-<script define:vars={{ expectedRole: 'developer' }}>
+<script>
   (function () {
     var session = window.BoingPortalSession && window.BoingPortalSession.getSession();
     var authEl = document.getElementById('portal-auth');
     var hubCtas = document.getElementById('hub-ctas');
-    if (session && session.role !== expectedRole) {
+    if (session && session.role !== 'developer') {
       var path = window.BoingPortalSession ? window.BoingPortalSession.roleAppPath(session.role) : '/testnet';
       window.location.href = path;
       return;
@@ -77,5 +88,19 @@ import '../../../styles/hub-common.css';
       });
     }
     renderAuth();
+
+    var glanceEl = document.getElementById('dev-glance-dapps');
+    var stripEl = document.getElementById('developer-hub-strip');
+    fetch('/api/portal/dapps').then(function (r) { return r.json().catch(function () { return {}; }); }).then(function (data) {
+      var n = (data.ok && data.dapps) ? data.dapps.length : 0;
+      if (glanceEl) glanceEl.textContent = typeof n === 'number' ? n : '—';
+      if (stripEl && n > 0) {
+        for (var i = 0; i < Math.min(n, 10); i++) {
+          var pill = document.createElement('span');
+          pill.className = 'hub-dapp-strip__pill';
+          stripEl.appendChild(pill);
+        }
+      }
+    }).catch(function () {});
   })();
 </script>

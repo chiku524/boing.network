@@ -28,6 +28,17 @@ import '../../../styles/hub-common.css';
       </div>
     </div>
 
+    <section class="section hub-glance-section fade-in-up delay-1" aria-label="Hub at a glance">
+      <h2>Hub at a glance</h2>
+      <div class="testnet-glance" id="operators-hub-glance">
+        <div class="testnet-glance__card">
+          <span class="testnet-glance__value" id="operator-glance-count">—</span>
+          <span class="testnet-glance__label">Operators registered</span>
+        </div>
+      </div>
+      <div class="hub-dapp-strip hub-dapp-strip--deco" id="operator-hub-strip" aria-hidden="true"></div>
+    </section>
+
     <section class="section steps-section fade-in-up delay-1">
       <h2>Your journey</h2>
       <ol class="steps-list steps-list--numbered">
@@ -74,5 +85,20 @@ import '../../../styles/hub-common.css';
       });
     }
     renderAuth();
+
+    var countEl = document.getElementById('operator-glance-count');
+    var stripEl = document.getElementById('operator-hub-strip');
+    fetch('/api/portal/operator-leaderboard').then(function (r) { return r.json().catch(function () { return {}; }); }).then(function (data) {
+      var n = (data.ok && data.total_operators != null) ? data.total_operators : 0;
+      if (countEl) countEl.textContent = n;
+      if (stripEl) {
+        var k = n > 0 ? Math.min(n, 6) : 4;
+        for (var i = 0; i < k; i++) {
+          var pill = document.createElement('span');
+          pill.className = 'hub-dapp-strip__pill';
+          stripEl.appendChild(pill);
+        }
+      }
+    }).catch(function () {});
   })();
 </script>

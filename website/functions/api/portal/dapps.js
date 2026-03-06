@@ -1,7 +1,23 @@
 /**
  * POST /api/portal/dapps
  * Register a dApp for testnet (developer). Body: { contract_hex, owner_account_hex?, name? }
+ * GET /api/portal/dapps — List all registered dApps (for hub community page).
  */
+export async function onRequestGet(context) {
+  const { env } = context;
+  if (!env.DB) {
+    return Response.json({ ok: false, message: 'Database not configured' }, { status: 503 });
+  }
+  try {
+    const result = await env.DB.prepare(
+      'SELECT contract_hex, owner_account_hex, name, registered_at FROM portal_dapps ORDER BY registered_at DESC'
+    ).all();
+    return Response.json({ ok: true, dapps: result.results || [] });
+  } catch (e) {
+    return Response.json({ ok: false, message: e.message || 'Server error' }, { status: 500 });
+  }
+}
+
 export async function onRequestPost(context) {
   const { env, request } = context;
   if (!env.DB) {

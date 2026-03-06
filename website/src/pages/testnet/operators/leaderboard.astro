@@ -34,7 +34,7 @@ import '../../../styles/hub-common.css';
         </div>
       </div>
 
-      <table class="leaderboard-table" aria-label="Operator leaderboard">
+      <table class="leaderboard-table hub-leaderboard-animate" aria-label="Operator leaderboard">
         <thead>
           <tr>
             <th>Rank</th>
@@ -141,6 +141,10 @@ import '../../../styles/hub-common.css';
         if (placeholderRow) placeholderRow.remove();
         operators.forEach(function (op) {
           var tr = document.createElement('tr');
+          tr.className = 'hub-leaderboard-row';
+          if (op.rank === 1) tr.classList.add('hub-leaderboard-row--gold');
+          else if (op.rank === 2) tr.classList.add('hub-leaderboard-row--silver');
+          else if (op.rank === 3) tr.classList.add('hub-leaderboard-row--bronze');
           tr.innerHTML =
             '<td>' + op.rank + '</td>' +
             '<td><code class="account-short" title="' + (op.proposer || '') + '">' + shortAccount(op.proposer) + '</code></td>' +

@@ -23,9 +23,10 @@ import '../../../styles/hub-common.css';
         <button type="button" id="me-load-btn">Load dashboard</button>
       </div>
       <div id="metrics-row" class="hub-metrics" style="display: none;"></div>
-      <div id="dashboard-placeholder" class="dashboard-placeholder">
+      <div id="dashboard-placeholder" class="dashboard-placeholder hub-empty-state">
         <p>Registered dApps and metrics will appear here once you register and add contracts.</p>
         <p><a href="/testnet/register/developer">Register as developer</a> · <a href="/developers/quickstart">Quickstart</a></p>
+        <div class="hub-empty-state__visual" aria-hidden="true"><span class="hub-empty-state__icon">◐</span></div>
       </div>
       <div id="dashboard-loaded" class="dashboard-loaded" style="display: none;"></div>
       <div id="dapp-register" class="subsection">
@@ -117,7 +118,7 @@ import '../../../styles/hub-common.css';
           var dapps = data.dapps || [];
           setMetrics(dapps.length);
           var html = '<p><strong>Registered as developer.</strong>' + (data.github_username ? ' GitHub: ' + data.github_username : '') + '</p>';
-          if (dapps.length === 0) html += '<p>No dApps registered yet. Add one below.</p>';
+          if (dapps.length === 0) html += '<p>No dApps registered yet. Add one below.</p><div class="hub-empty-state__visual" aria-hidden="true"><span class="hub-empty-state__icon">◐</span></div>';
           else {
             html += '<p><strong>Your dApps (' + dapps.length + '):</strong></p><ul class="dapp-list">';
             dapps.forEach(function (d) { html += '<li><code>' + (d.contract_hex || '').slice(0, 18) + '…</code>' + (d.name ? ' — ' + d.name : '') + '</li>'; });

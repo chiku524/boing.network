@@ -29,6 +29,7 @@ import '../../../styles/hub-common.css';
             <span class="label">dApps registered</span>
           </div>
         </div>
+        <div class="hub-dapp-strip hub-dapp-strip--deco" id="dev-community-strip" aria-hidden="true"></div>
         <div id="dapp-list-wrap" class="dashboard-placeholder">
           <p>Loading…</p>
         </div>
@@ -86,6 +87,7 @@ import '../../../styles/hub-common.css';
 
     var countEl = document.getElementById('dapp-count');
     var listWrap = document.getElementById('dapp-list-wrap');
+    var stripEl = document.getElementById('dev-community-strip');
     fetch('/api/portal/dapps')
       .then(function (res) { return res.json().catch(function () { return {}; }); })
       .then(function (data) {
@@ -96,6 +98,14 @@ import '../../../styles/hub-common.css';
         }
         var dapps = data.dapps || [];
         if (countEl) countEl.textContent = dapps.length;
+        if (stripEl) {
+          var k = dapps.length > 0 ? Math.min(dapps.length, 8) : 4;
+          for (var i = 0; i < k; i++) {
+            var pill = document.createElement('span');
+            pill.className = 'hub-dapp-strip__pill';
+            stripEl.appendChild(pill);
+          }
+        }
         if (dapps.length === 0) {
           listWrap.innerHTML = '<p class="muted">No dApps registered yet. Be the first — <a href="/testnet/developers/dashboard">register on My Dashboard</a>.</p>';
           return;

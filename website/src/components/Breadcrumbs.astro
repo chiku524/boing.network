@@ -27,16 +27,18 @@ const { items, class: className = '' } = Astro.props;
 <style>
   .breadcrumbs {
     margin-bottom: 1rem;
+    padding: 0.5rem 0;
   }
   .breadcrumbs-list {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.25rem 0.5rem;
+    gap: 0.5rem 0.75rem;
     list-style: none;
     padding: 0;
     margin: 0;
     font-size: 0.875rem;
+    line-height: 1.4;
   }
   .breadcrumbs-item {
     display: inline-flex;
@@ -46,10 +48,13 @@ const { items, class: className = '' } = Astro.props;
   .breadcrumbs-sep {
     color: var(--text-tertiary);
     pointer-events: none;
+    margin-right: 0.125rem;
+    user-select: none;
   }
   .breadcrumbs-link {
     color: var(--accent-teal);
     text-decoration: none;
+    padding: 0.125rem 0;
   }
   .breadcrumbs-link:hover {
     text-decoration: underline;
