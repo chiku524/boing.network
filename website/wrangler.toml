@@ -1,7 +1,9 @@
 # Used by: wrangler pages deploy dist (and Pages Git deploy with Functions + D1)
 # Add D1 so /api/* Functions can access the database.
 name = "boing-network"
-compatibility_date = "2024-01-01"
+# Use a recent date so compatibility_flags (e.g. nodejs_compat) apply to the Functions worker.
+compatibility_date = "2026-03-06"
+compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "dist"
 
 [[d1_databases]]
