@@ -43,11 +43,12 @@ import Layout from '../../../layouts/Layout.astro';
       <label for="account-id">Account ID (32-byte hex, with or without 0x) *</label>
       <input id="account-id" name="account_id_hex" type="text" placeholder="0x..." maxlength="66" required />
 
-      <label for="portal-password">Portal password (for wallet sign-in later) *</label>
-      <input id="portal-password" name="portal_password" type="password" placeholder="Min 8 characters" minlength="8" required autocomplete="new-password" />
-
-      <label for="confirm-password">Confirm password *</label>
-      <input id="confirm-password" name="confirm_password" type="password" placeholder="Repeat password" minlength="8" required autocomplete="new-password" />
+      <div id="register-password-fields" class="register-password-fields hidden">
+        <label for="portal-password">Portal password (for sign-in with account ID later) *</label>
+        <input id="portal-password" name="portal_password" type="password" placeholder="Min 8 characters" minlength="8" autocomplete="new-password" />
+        <label for="confirm-password">Confirm password *</label>
+        <input id="confirm-password" name="confirm_password" type="password" placeholder="Repeat password" minlength="8" autocomplete="new-password" />
+      </div>
 
       <label for="email">Email (optional)</label>
       <input id="email" name="email" type="email" placeholder="you@example.com" />
@@ -82,16 +83,23 @@ import Layout from '../../../layouts/Layout.astro';
       var tabAccount = document.getElementById('tab-account');
       var panelWallet = document.getElementById('panel-wallet');
       var panelAccount = document.getElementById('panel-account');
+      var passwordFields = document.getElementById('register-password-fields');
       if (activeTabId === 'wallet') {
         if (tabWallet) { tabWallet.setAttribute('aria-selected', 'true'); tabWallet.setAttribute('tabindex', '0'); }
         if (tabAccount) { tabAccount.setAttribute('aria-selected', 'false'); tabAccount.setAttribute('tabindex', '-1'); }
         if (panelWallet) panelWallet.classList.remove('hidden');
         if (panelAccount) panelAccount.classList.add('hidden');
+        if (passwordFields) passwordFields.classList.add('hidden');
+        if (form.querySelector('#portal-password')) form.querySelector('#portal-password').removeAttribute('required');
+        if (form.querySelector('#confirm-password')) form.querySelector('#confirm-password').removeAttribute('required');
       } else {
         if (tabAccount) { tabAccount.setAttribute('aria-selected', 'true'); tabAccount.setAttribute('tabindex', '0'); }
         if (tabWallet) { tabWallet.setAttribute('aria-selected', 'false'); tabWallet.setAttribute('tabindex', '-1'); }
         if (panelAccount) panelAccount.classList.remove('hidden');
         if (panelWallet) panelWallet.classList.add('hidden');
+        if (passwordFields) passwordFields.classList.remove('hidden');
+        if (form.querySelector('#portal-password')) form.querySelector('#portal-password').setAttribute('required', '');
+        if (form.querySelector('#confirm-password')) form.querySelector('#confirm-password').setAttribute('required', '');
       }
     }
     var tabWalletBtn = document.getElementById('tab-wallet');
@@ -172,7 +180,7 @@ import Layout from '../../../layouts/Layout.astro';
           }
           if (accountInput) {
             accountInput.value = address;
-            setMessage('Account filled. Set your portal password below.', false);
+            setMessage('Account filled. Complete the form below (no password needed for wallet sign-in).', false);
             var actions = document.getElementById('wallet-actions');
             if (actions) { actions.innerHTML = ' · <button type="button" class="link-btn" id="clear-account-btn">Clear account</button>'; }
             var clearBtn = document.getElementById('clear-account-btn');
@@ -194,6 +202,7 @@ import Layout from '../../../layouts/Layout.astro';
       const nodeMultiaddr = (form.querySelector('#node-multiaddr')?.value || '').trim() || undefined;
       const password = (form.querySelector('#portal-password')?.value || '').trim();
       const confirmPassword = (form.querySelector('#confirm-password')?.value || '').trim();
+      var isWalletTab = document.getElementById('panel-account').classList.contains('hidden');
 
       if (!accountHex) { setMessage('Please enter your account ID.', true); return; }
       if (!accountHex.startsWith('0x')) accountHex = '0x' + accountHex;
@@ -201,8 +210,10 @@ import Layout from '../../../layouts/Layout.astro';
         setMessage('Account ID must be 32 bytes (64 hex chars + 0x).', true);
         return;
       }
-      if (password.length < 8) { setMessage('Portal password must be at least 8 characters.', true); return; }
-      if (password !== confirmPassword) { setMessage('Passwords do not match.', true); return; }
+      if (!isWalletTab) {
+        if (password.length < 8) { setMessage('Portal password must be at least 8 characters.', true); return; }
+        if (password !== confirmPassword) { setMessage('Passwords do not match.', true); return; }
+      }
 
       if (submitBtn) submitBtn.disabled = true;
       setMessage('Submitting…');
@@ -214,7 +225,7 @@ import Layout from '../../../layouts/Layout.astro';
           body: JSON.stringify({
             account_id_hex: accountHex,
             role: 'node_operator',
-            password: password,
+            password: isWalletTab ? undefined : password,
             email: email || undefined,
             discord_handle: discordHandle || undefined,
             node_multiaddr: nodeMultiaddr || undefined,
@@ -270,6 +281,7 @@ import Layout from '../../../layouts/Layout.astro';
   .register-form .auth-panel { margin-bottom: 1rem; }
   .register-form .auth-panel.hidden { display: none !important; }
   .register-form .auth-panel-desc { margin: 0 0 0.5rem; font-size: 0.9rem; color: var(--text-secondary); }
+  .register-form .register-password-fields.hidden { display: none !important; }
   .register-form input[type="text"], .register-form input[type="email"], .register-form input[type="password"] {
     width: 100%; max-width: 400px; padding: 12px 16px; margin-top: 0.25rem;
     font-family: var(--font-mono); font-size: 0.9rem; border: 1px solid var(--border-color);
