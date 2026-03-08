@@ -49,7 +49,6 @@ import Layout from '../../layouts/Layout.astro';
 
     <section class="section">
       <p class="muted">Not registered? <a href="/testnet/register">Choose your role and register</a> — you'll be directed to your hub after registration.</p>
-      <p><a href="/" class="back-to-site">← Back to Boing Network</a></p>
     </section>
     </div>
   </article>
@@ -351,8 +350,11 @@ import Layout from '../../layouts/Layout.astro';
     margin-right: auto;
     padding-left: 2rem;
     padding-right: 2rem;
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
     box-sizing: border-box;
   }
+  .sign-in-page .sign-in-content { padding-top: 0.5rem; padding-bottom: 3rem; }
   @media (max-width: 640px) {
     .sign-in-page .sign-in-hero-inner,
     .sign-in-page .sign-in-content { padding-left: 1.25rem; padding-right: 1.25rem; }
@@ -392,13 +394,9 @@ import Layout from '../../layouts/Layout.astro';
   .form-message--success { color: var(--success-color, #22c55e) !important; font-weight: 500; }
   .form-message--success::before { content: '✓ '; }
   .form-message--error { color: var(--error-color, #f87171) !important; }
-  .section { margin-top: 2rem; text-align: center; }
+  .section { margin-top: 2.25rem; text-align: center; padding-top: 0.25rem; }
   .muted { color: var(--text-tertiary); font-size: 0.9rem; }
   .muted a { color: var(--accent-teal); }
-  .back-to-site { color: var(--text-secondary); text-decoration: none; transition: color 0.2s ease; }
-  .back-to-site:hover { color: var(--accent-teal); }
-  .back-to-site:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
-
   .auth-card { padding: 1.25rem; border: 1px solid var(--border-color); border-radius: 12px; background: var(--bg-secondary); }
   .auth-tabs { display: flex; gap: 0; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); }
   .auth-tab {

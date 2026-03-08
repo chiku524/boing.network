@@ -62,43 +62,6 @@ import '../../styles/hub-common.css';
       </div>
     </section>
 
-    <section class="section section-role-cards fade-in-up delay-1" id="register-options">
-      <h2>Register for a hub</h2>
-      <p class="muted">Choose one role. After registration you're taken to that hub. In each hub: <strong>My Dashboard</strong> = your stats and registration; <strong>Community</strong> = leaderboards and hub-wide progress.</p>
-      <div class="role-cards">
-        <div class="role-card role-card--developer">
-          <span class="role-card-icon" aria-hidden="true"><Icon name="code" size={28} /></span>
-          <h3>Developer Hub</h3>
-          <p>Build dApps, register contracts, qualify for grants and the dApp incentive pool.</p>
-          <div class="role-card-actions">
-            <a href="/testnet/register/developer" class="card-arrow">Register as developer →</a>
-            <p class="role-card-hub-links"><a href="/testnet/developers/dashboard">My Dashboard</a><span class="hub-links-sep">·</span><a href="/testnet/developers/community">Community</a></p>
-          </div>
-        </div>
-        <div class="role-card role-card--user">
-          <span class="role-card-icon" aria-hidden="true"><Icon name="quest" size={28} /></span>
-          <h3>Community Hub</h3>
-          <p>Use the faucet, complete quests, share feedback. Earn user rewards.</p>
-          <div class="role-card-actions">
-            <a href="/testnet/register/user" class="card-arrow">Register as user →</a>
-            <p class="role-card-hub-links"><a href="/testnet/users/dashboard">My Dashboard</a><span class="hub-links-sep">·</span><a href="/testnet/users/community">Community</a></p>
-          </div>
-        </div>
-        <div class="role-card role-card--operator">
-          <span class="role-card-icon" aria-hidden="true"><Icon name="node" size={28} /></span>
-          <h3>Operator Hub</h3>
-          <p>Run a node or miner, join the leaderboard, earn testnet BOING.</p>
-          <div class="role-card-actions">
-            <a href="/testnet/register/operator" class="card-arrow">Register as operator →</a>
-            <p class="role-card-hub-links"><a href="/testnet/operators/dashboard">My Dashboard</a><span class="hub-links-sep">·</span><a href="/testnet/operators/leaderboard">Leaderboard</a></p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section section-back">
-      <p><a href="/" class="back-to-site">← Back to Boing Network</a></p>
-    </section>
     </div>
   </article>
 </Layout>
@@ -177,153 +140,20 @@ import '../../styles/hub-common.css';
   .section .muted { max-width: 560px; margin-left: auto; margin-right: auto; }
   .muted { color: var(--text-tertiary); font-size: 0.95rem; margin-bottom: 1rem; }
 
-  .role-cards {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1.5rem;
-    margin-top: 1.5rem;
-    max-width: 1200px;
-    margin-left: auto;
-    margin-right: auto;
-    padding: 0 0.5rem;
-  }
-  @media (max-width: 900px) {
-    .role-cards { grid-template-columns: 1fr; max-width: 420px; margin-left: auto; margin-right: auto; }
-  }
-  .role-card {
-    display: flex;
-    flex-direction: column;
-    padding: 1.5rem;
-    background: rgba(8, 13, 26, 0.6);
-    border: 1px solid rgba(124, 58, 237, 0.25);
-    border-radius: 1rem;
-    text-decoration: none;
-    color: inherit;
-    position: relative;
-    overflow: hidden;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-  }
-  .role-card-actions {
-    margin-top: auto;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-  .role-card .card-arrow {
-    display: inline-block;
-    padding: 0.4rem 0.75rem;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: var(--accent-teal);
-    background: rgba(34, 211, 238, 0.1);
-    border: 1px solid rgba(34, 211, 238, 0.35);
-    border-radius: 6px;
-    text-decoration: none;
-    transition: background 0.2s ease, border-color 0.2s ease;
-  }
-  .role-card .card-arrow:hover {
-    background: rgba(34, 211, 238, 0.18);
-    border-color: rgba(34, 211, 238, 0.5);
-    text-decoration: none;
-  }
-  .role-card-hub-links {
-    margin: 0;
-    font-size: 0.8rem;
-    line-height: 1.35;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.35rem 0.6rem;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 6px;
-  }
-  .role-card-hub-links a { color: var(--text-tertiary); text-decoration: none; }
-  .role-card-hub-links a:hover { color: var(--accent-teal); }
-  .role-card-hub-links .hub-links-sep {
-    color: var(--text-tertiary);
-    opacity: 0.6;
-    font-weight: 300;
-    pointer-events: none;
-  }
-  .role-card::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 4px;
-    border-radius: 4px 0 0 4px;
-  }
-  .role-card--developer::before { background: linear-gradient(180deg, #06b6d4, #22d3ee); }
-  .role-card--user::before { background: linear-gradient(180deg, #fbbf24, #f59e0b); }
-  .role-card--operator::before { background: linear-gradient(180deg, #7c3aed, #a78bfa); }
-  .role-card:hover {
-    border-color: rgba(124, 58, 237, 0.5);
-    box-shadow: 0 8px 24px rgba(124, 58, 237, 0.15);
-  }
-  .role-card:focus-visible {
-    outline: 2px solid var(--accent-teal);
-    outline-offset: 2px;
-  }
-  .role-card-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    margin-bottom: 0.75rem;
-    opacity: 0.9;
-  }
-  .role-card-icon :global(.icon) {
-    width: 28px;
-    height: 28px;
-  }
-  .role-card--developer .role-card-icon { color: #22d3ee; }
-  .role-card--user .role-card-icon { color: #fbbf24; }
-  .role-card--operator .role-card-icon { color: #a78bfa; }
-  .role-card h3 { font-size: 1.15rem; margin: 0 0 0.5rem; color: var(--text-primary); }
-  .role-card p { font-size: 0.9rem; color: var(--text-secondary); margin: 0 0 0.75rem; line-height: 1.45; flex: 1; }
-
   .portal-hero.fade-in-up,
   .portal-hero .fade-in-up,
   .section.fade-in-up {
     animation: portal-fade-in-up var(--motion-sections-fade_in_duration, 0.6s) ease-out both;
   }
-  .role-card {
-    animation: portal-fade-in-up 0.6s ease-out both;
-  }
   .portal-hero .delay-1 { animation-delay: 0.08s; }
   .portal-hero .delay-2 { animation-delay: 0.16s; }
-  .section-role-cards.delay-1 { animation-delay: 0.08s; }
-  .role-card--developer { animation-delay: 0.12s; }
-  .role-card--user { animation-delay: 0.2s; }
-  .role-card--operator { animation-delay: 0.28s; }
   @keyframes portal-fade-in-up {
     from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
   }
-  .role-card.role-card--developer,
-  .role-card.role-card--user,
-  .role-card.role-card--operator { animation: portal-fade-in-up 0.6s ease-out both; }
   @media (prefers-reduced-motion: reduce) {
     .portal-hero.fade-in-up,
     .portal-hero .fade-in-up,
-    .section.fade-in-up,
-    .role-card.role-card--developer,
-    .role-card.role-card--user,
-    .role-card.role-card--operator { animation: none; opacity: 1; transform: none; }
+    .section.fade-in-up { animation: none; opacity: 1; transform: none; }
   }
-
-  .back-to-site {
-    color: var(--text-secondary);
-    text-decoration: none;
-    font-weight: 500;
-    transition: color 0.2s ease;
-  }
-  .back-to-site:hover { color: var(--accent-teal); }
-  .back-to-site:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
-  .section-back { margin-top: 2.5rem; }
-  .section-back p { margin: 0; }
 </style>

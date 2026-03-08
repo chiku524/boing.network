@@ -264,13 +264,12 @@ import Layout from '../../../layouts/Layout.astro';
   .breadcrumb a { color: var(--accent-teal); }
   .register-header { margin-bottom: 1.5rem; }
   .lead { color: var(--text-secondary); margin-bottom: 1.5rem; }
-  .register-form label { display: block; margin-top: 1rem; color: var(--text-secondary); font-size: 0.9rem; }
-  .register-form label { display: block; margin-top: 1rem; color: var(--text-secondary); font-size: 0.9rem; }
+  .register-form label { display: block; margin-top: 1.25rem; color: var(--text-secondary); font-size: 0.9rem; }
   .register-form .form-hint { font-size: 0.85rem; color: var(--text-tertiary); margin: 0.25rem 0 0; }
   .register-form .link-btn { background: none; border: none; padding: 0; color: var(--accent-teal); cursor: pointer; font-size: inherit; }
   .register-form .link-btn.auth-cta { font-weight: 600; }
   .register-form .link-btn:hover { text-decoration: underline; }
-  .register-form .auth-tabs { display: flex; gap: 0; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); }
+  .register-form .auth-tabs { display: flex; gap: 0; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); }
   .register-form .auth-tab {
     padding: 0.5rem 1rem; font-size: 0.9rem; font-weight: 500; border: none; border-bottom: 2px solid transparent;
     margin-bottom: -1px; background: none; color: var(--text-secondary); cursor: pointer; border-radius: 6px 6px 0 0;
@@ -278,12 +277,13 @@ import Layout from '../../../layouts/Layout.astro';
   .register-form .auth-tab:hover { color: var(--text-primary); }
   .register-form .auth-tab[aria-selected="true"] { color: var(--accent-teal); border-bottom-color: var(--accent-teal); }
   .register-form .auth-tab:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
-  .register-form .auth-panel { margin-bottom: 1rem; }
+  .register-form .auth-panel { margin-bottom: 1.25rem; }
   .register-form .auth-panel.hidden { display: none !important; }
   .register-form .auth-panel-desc { margin: 0 0 0.5rem; font-size: 0.9rem; color: var(--text-secondary); }
+  .register-form .register-password-fields { margin-top: 1rem; }
   .register-form .register-password-fields.hidden { display: none !important; }
   .register-form input[type="text"], .register-form input[type="email"], .register-form input[type="password"] {
-    width: 100%; max-width: 400px; padding: 12px 16px; margin-top: 0.25rem;
+    width: 100%; max-width: 400px; padding: 12px 16px; margin-top: 0.35rem;
     font-family: var(--font-mono); font-size: 0.9rem; border: 1px solid var(--border-color);
     border-radius: 8px; background: var(--bg-tertiary); color: var(--text-primary);
     transition: border-color 0.2s ease;
@@ -294,18 +294,18 @@ import Layout from '../../../layouts/Layout.astro';
     border-color: rgba(124, 58, 237, 0.6);
   }
   .register-form button {
-    margin-top: 1.25rem; padding: 0.6rem 1.2rem; font-size: 1rem; font-weight: 600; border: none; border-radius: 6px;
+    margin-top: 1.5rem; padding: 0.6rem 1.2rem; font-size: 1rem; font-weight: 600; border: none; border-radius: 6px;
     background: linear-gradient(135deg, var(--accent-teal), var(--accent-cyan)); color: var(--bg-primary); cursor: pointer;
     transition: opacity 0.2s ease;
   }
   .register-form button:hover:not(:disabled) { opacity: 0.9; }
   .register-form button:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
   .register-form button:disabled { opacity: 0.6; cursor: not-allowed; }
-  .form-message { margin-top: 1rem; min-height: 1.5em; font-size: 0.95rem; }
+  .form-message { margin-top: 1.25rem; min-height: 1.5em; font-size: 0.95rem; }
   .form-message--success { color: var(--success-color, #22c55e) !important; font-weight: 500; }
   .form-message--success::before { content: '✓ '; }
   .form-message--error { color: var(--error-color, #f87171) !important; }
-  .section { margin-top: 2rem; }
+  .section { margin-top: 2.25rem; }
   .section a { color: var(--accent-teal); }
   .section a:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
   .register-page .fade-in-up { animation: auth-fade-in-up 0.5s ease-out both; }

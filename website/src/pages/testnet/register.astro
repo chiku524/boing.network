@@ -48,25 +48,28 @@ import Layout from '../../layouts/Layout.astro';
         </a>
       </div>
     </div>
-
-    <section class="section">
-      <p><a href="/testnet">← Dashboard</a> · <a href="/">Back to Boing Network</a></p>
-    </section>
   </article>
 </Layout>
 
 <style>
   .portal-page { padding: 0; margin: 0; width: 100%; }
-  .choose-role-page .register-hero-inner { max-width: 720px; margin-left: auto; margin-right: auto; }
+  .choose-role-page .register-hero-inner {
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 2rem 2rem 1.5rem;
+    box-sizing: border-box;
+  }
   .choose-role-page .register-content {
     width: 100%;
     max-width: 100%;
-    padding: 0 2rem 3rem;
+    padding: 1rem 2rem 3rem;
     margin: 0 auto;
     box-sizing: border-box;
   }
   @media (max-width: 768px) {
-    .choose-role-page .register-content { padding: 0 1.25rem 3rem; }
+    .choose-role-page .register-hero-inner { padding: 1.5rem 1.25rem 1rem; }
+    .choose-role-page .register-content { padding: 1rem 1.25rem 3rem; }
   }
   .register-role-cards {
     display: grid;
@@ -78,10 +81,11 @@ import Layout from '../../layouts/Layout.astro';
   @media (max-width: 900px) {
     .register-role-cards { grid-template-columns: 1fr; max-width: 420px; margin-left: auto; margin-right: auto; }
   }
-  .back-link { margin-bottom: 1rem; }
-  .back-link a { color: var(--accent-teal); }
-  .page-hero-full .lead { color: var(--text-secondary); margin-bottom: 0; }
-  .register-content .lead { margin-bottom: 2rem; }
+  .back-link { margin-bottom: 0.75rem; }
+  .back-link a { color: var(--accent-teal); text-decoration: none; }
+  .back-link a:hover { text-decoration: underline; }
+  .page-hero-full .lead { color: var(--text-secondary); margin-bottom: 0; line-height: 1.5; }
+  .choose-role-page .register-hero-inner h1 { margin: 0 0 0.5rem; }
   .role-option {
     display: flex;
     flex-direction: column;
@@ -100,6 +104,4 @@ import Layout from '../../layouts/Layout.astro';
   .role-title { font-size: 1.15rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.35rem; }
   .role-desc { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.75rem; line-height: 1.4; }
   .role-cta { font-size: 0.9rem; color: var(--accent-teal); font-weight: 500; margin-top: auto; padding: 0.35rem 0 0; }
-  .section { margin-top: 2rem; text-align: center; }
-  .section p { margin: 0; }
 </style>
