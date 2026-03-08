@@ -21,7 +21,7 @@ import Layout from '../../layouts/Layout.astro';
     <div class="auth-options">
       <section class="auth-option connect-wallet-section">
         <h2 class="auth-option-title">Connect wallet</h2>
-        <p class="auth-option-desc">Use your Boing-compatible wallet (e.g. boing.express) to sign in. You will sign a message and then enter your portal password.</p>
+        <p class="auth-option-desc">Use your Boing-compatible wallet (e.g. Boing Express). You'll be asked to approve the connection and sign a message in your wallet, then enter your portal password.</p>
         <div id="connect-wallet-step1">
           <button type="button" id="connect-wallet-btn" class="auth-btn auth-btn-primary">Connect wallet</button>
         </div>
@@ -180,7 +180,7 @@ import Layout from '../../layouts/Layout.astro';
             return;
           }
           var message = await buildSignInMessage();
-          setMessage('Please sign the message in your wallet…');
+          setMessage('Approve and sign the message in your wallet…');
           var signature = await signMessage(provider, [message, address]);
           if (!signature || typeof signature !== 'string') {
             setMessage('Signing was cancelled or failed.', true);
