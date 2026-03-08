@@ -1,11 +1,10 @@
 /**
  * POST /api/portal/auth/sign-in
- * Wallet-based sign-in: verify Ed25519(message, signature) with public key = account_id_hex,
- * then verify portal password if account has one. Returns registration payload or need_password.
- * Body: { account_id_hex, message, signature, password? } — password required when account has a portal password.
+ * Wallet-based sign-in: verify Ed25519(message, signature) with public key = account_id_hex.
+ * No password required — the signature is proof of control. Returns registration payload.
+ * Body: { account_id_hex, message, signature }
  */
 import { createPublicKey, verify } from 'node:crypto';
-import { verifyPassword } from './password.js';
 
 export async function onRequestPost(context) {
   const { env, request } = context;
@@ -18,7 +17,6 @@ export async function onRequestPost(context) {
     const account_id_hex = normalizeHex(body.account_id_hex);
     const message = typeof body.message === 'string' ? body.message : '';
     const signatureHex = normalizeHex(body.signature || '');
-    const password = typeof body.password === 'string' ? body.password : '';
 
     if (!account_id_hex || account_id_hex.length !== 66) {
       return Response.json({ ok: false, message: 'Invalid account_id_hex (must be 32-byte hex with 0x)' }, { status: 400 });
@@ -57,31 +55,13 @@ export async function onRequestPost(context) {
     }
 
     const row = await env.DB.prepare(
-      'SELECT account_id_hex, role, email, discord_handle, github_username, node_multiaddr, password_salt, password_hash, created_at FROM portal_registrations WHERE account_id_hex = ?'
+      'SELECT account_id_hex, role, email, discord_handle, github_username, node_multiaddr, created_at FROM portal_registrations WHERE account_id_hex = ?'
     )
       .bind(account_id_hex)
       .first();
 
     if (!row) {
       return Response.json({ ok: false, message: 'Account not registered' }, { status: 403 });
-    }
-
-    if (row.password_hash != null && row.password_hash !== '') {
-      if (!password) {
-        return Response.json({ ok: false, message: 'Portal password required for wallet sign-in', need_password: false }, { status: 403 });
-      }
-      if (!verifyPassword(password, row.password_salt || '', row.password_hash)) {
-        return Response.json({ ok: false, message: 'Incorrect portal password' }, { status: 403 });
-      }
-    } else {
-      if (!password) {
-        return Response.json({
-          ok: false,
-          message: 'Set a portal password first so you can sign in with your wallet.',
-          need_password: true,
-          account_id_hex: row.account_id_hex,
-        }, { status: 403 });
-      }
     }
 
     const result = {
