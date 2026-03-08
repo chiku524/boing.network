@@ -10,6 +10,7 @@ Use this document to **bootstrap**, **integrate**, and **publish** **Boing Expre
 2. [Part 2: Full integration & Chrome Web Store](#part-2-full-integration--chrome-web-store)
 3. [Reference: Boing Network repo](#reference-boing-network-repo)
 4. [Quick reference: RPC methods for the wallet](#quick-reference-rpc-methods-for-the-wallet)
+5. [Session-based lock and unlock](#session-based-lock-and-unlock)
 
 ---
 
@@ -87,6 +88,7 @@ Use this when **preparing for production**: full Boing integration and Chrome We
 - [ ] **Permissions:** Minimal; host permissions only for RPC URLs used.
 - [ ] **CSP:** No unsafe-inline or remote script unless documented.
 - [ ] **Connection approval (required for every site):** When **any** website or dApp with Boing integration calls `boing_requestAccounts` (or `eth_requestAccounts`), the wallet **must** show a connection-approval UI (e.g. "Allow [origin] to view your address?" or "Connect to [site name]?") and **only return accounts after the user explicitly approves**. Do not return accounts without user approval, regardless of origin—this applies to boing.network, boing.express, and any other site that integrates Boing. Similarly, for `boing_signMessage` / `personal_sign`, show what is being signed (e.g. "Connect to Boing Portal" or the dApp’s message) and require the user to approve before returning a signature. Storing "connected sites" per origin is optional; the important part is that the **first** time a site requests accounts (or after the user disconnects), the wallet always prompts for approval.
+- [ ] **Session-based lock/unlock:** See [Session-based lock and unlock](#session-based-lock-and-unlock) below so users do not need to enter their password on every use.
 
 ### Part 2.3 — Chrome Web Store listing
 
@@ -101,6 +103,37 @@ Use this when **preparing for production**: full Boing integration and Chrome We
 - [ ] Production bundle; no dev-only code or test keys.
 - [ ] Test on clean Chrome profile: install, create/import wallet, balance, send testnet tx, faucet. No console errors; txs accepted by node.
 - [ ] ZIP: extension directory only (manifest, scripts, assets); manifest_version 3; all Dashboard tabs filled.
+
+---
+
+## Session-based lock and unlock
+
+Users should **not** have to enter their password every time they open the wallet (e.g. each time they open the extension popup or the web app). Implement **session-based** lock and unlock:
+
+### Unlock once per session
+
+- **Unlock:** When the user enters their password (or PIN) to unlock the wallet, treat it as the start of a **session**. For the duration of that session, the wallet can use the decrypted key material in memory for signing and for serving `boing_requestAccounts` / `boing_signMessage` to dApps **without** asking for the password again.
+- **Session scope:** Define the session so it lasts until one of:
+  - **User locks:** The user explicitly clicks "Lock" (or "Lock wallet") in the UI.
+  - **Inactivity timeout (recommended):** After a period of no user interaction (e.g. 5, 15, or 30 minutes), automatically lock. Reset the timer on any user action (viewing balance, signing, opening popup, etc.). Make the timeout configurable in settings if possible (e.g. "Lock after: 5 min / 15 min / 30 min / Never").
+  - **Context teardown (extension):** When the extension’s service worker or popup context is unloaded (browser restart, extension reload), the in-memory key is gone—next open is a new session and the user must unlock again. Optionally use `chrome.storage.session` (or similar) to persist "session unlocked" state only for the current browser session so that reopening the popup in the same browser session does not require password again, until one of the conditions above.
+
+### Lock state
+
+- **When locked:** Do not keep the decrypted private key (or decryption key) in memory. Show a lock screen (e.g. "Boing Express is locked" with an "Unlock" button). Requests from dApps (`boing_requestAccounts`, `boing_signMessage`) should either queue and trigger the unlock UI, or return a clear error so the dApp can ask the user to unlock the wallet first.
+- **When unlocked:** Full functionality; user can view balance, send, sign messages, and approve dApp connections without re-entering the password until the session ends.
+
+### Web app (boing.express)
+
+- Same idea: one unlock per session. Session can be "until tab/window close" or "until inactivity timeout" or "until user locks." Avoid asking for the password on every page navigation or every time the user switches back to the tab.
+
+### Checklist
+
+- [ ] Unlock once; then no password required for subsequent actions within the same session.
+- [ ] "Lock" button (or equivalent) so the user can lock immediately.
+- [ ] Optional: inactivity timeout that auto-locks after N minutes (configurable).
+- [ ] When locked, no decrypted key material in memory; dApp requests trigger unlock prompt or clear error.
+- [ ] Extension: session survives popup close/reopen within the same browser session (e.g. via chrome.storage.session or in-memory in service worker until it goes idle).
 
 ---
 
