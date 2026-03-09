@@ -8,9 +8,10 @@ Use this document to **bootstrap**, **integrate**, and **publish** **Boing Expre
 
 1. [Part 1: Bootstrap / Creation](#part-1-bootstrap--creation)
 2. [Part 2: Full integration & Chrome Web Store](#part-2-full-integration--chrome-web-store)
-3. [Reference: Boing Network repo](#reference-boing-network-repo)
-4. [Quick reference: RPC methods for the wallet](#quick-reference-rpc-methods-for-the-wallet)
-5. [Session-based lock and unlock](#session-based-lock-and-unlock)
+3. [Network independence](#network-independence)
+4. [Reference: Boing Network repo](#reference-boing-network-repo)
+5. [Quick reference: RPC methods for the wallet](#quick-reference-rpc-methods-for-the-wallet)
+6. [Session-based lock and unlock](#session-based-lock-and-unlock)
 
 ---
 
@@ -103,6 +104,19 @@ Use this when **preparing for production**: full Boing integration and Chrome We
 - [ ] Production bundle; no dev-only code or test keys.
 - [ ] Test on clean Chrome profile: install, create/import wallet, balance, send testnet tx, faucet. No console errors; txs accepted by node.
 - [ ] ZIP: extension directory only (manifest, scripts, assets); manifest_version 3; all Dashboard tabs filled.
+
+---
+
+## Network independence
+
+**Boing Network is chain-independent.** It does not depend on EVM (Ethereum, Base, etc.), Solana, or any other external network for its core protocol, addresses, or signing.
+
+- **Addresses:** 32-byte Ed25519 public keys (64 hex chars). Not EVM 20-byte addresses or Solana base58.
+- **Signing:** Ed25519 only. Not secp256k1 (Ethereum) or Solana-specific formats.
+- **RPC & transactions:** Boing-specific JSON-RPC and bincode serialization. No EVM ABI, no Solana SPL.
+- **Wallet integration:** Boing Express (and any Boing-native wallet) implements `boing_requestAccounts`, `boing_signMessage`, and transaction signing with **Boing’s own formats**. Portal sign-in and dApp auth use Ed25519 message signing only — no reliance on other chains’ signing (e.g. no EVM `personal_sign`).
+
+When integrating with Boing (wallet, portal, or node), use Boing’s specs only. Do not assume Ethereum or Solana compatibility.
 
 ---
 

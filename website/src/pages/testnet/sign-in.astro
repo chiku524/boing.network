@@ -251,10 +251,11 @@ import Layout from '../../layouts/Layout.astro';
             var data = await res.json().catch(function () { return {}; });
             if (!res.ok) {
               var msg = data.message || 'Sign-in failed.';
-              if (data.error_code === 'invalid_signature') msg = 'Signature verification failed. Try disconnecting, then connect and sign again.';
+              if (data.error_code === 'invalid_signature') msg = 'Signature verification failed. Use a Boing-native wallet (e.g. Boing Express), disconnect and connect again, then sign the message.';
               else if (data.error_code === 'message_expired' || data.error_code === 'nonce_expired') msg = 'Sign-in expired. Disconnect and connect your wallet again, then sign.';
               else if (data.error_code === 'nonce_used') msg = 'This sign-in was already used. Disconnect and connect again to get a new message.';
               else if (data.error_code === 'invalid_message' || data.error_code === 'nonce_invalid') msg = msg || 'Invalid sign-in data. Refresh the page and try again.';
+              if (res.status === 401 && data.error_code) console.warn('Portal sign-in 401:', data.error_code, data.message);
               setMessage(msg, true);
               walletSigninBtn.disabled = false;
               return;

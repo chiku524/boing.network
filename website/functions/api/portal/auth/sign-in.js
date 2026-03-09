@@ -1,11 +1,9 @@
 /**
  * POST /api/portal/auth/sign-in
- * Wallet-based sign-in: verify signature (Ed25519 or EIP-191 secp256k1).
+ * Wallet-based sign-in: Ed25519 only (Boing-native). No EVM/Solana/other-chain dependencies.
  * Body: { account_id_hex, message, signature }
  */
 import { createPublicKey, verify } from 'node:crypto';
-import { Signature } from '@noble/secp256k1';
-import { keccak_256 } from '@noble/hashes/sha3';
 
 export async function onRequestPost(context) {
   const { env, request } = context;
@@ -26,11 +24,35 @@ export async function onRequestPost(context) {
     if (!message) {
       return Response.json({ ok: false, message: 'Missing message', error_code: 'missing_message' }, { status: 400 });
     }
-    if (!account_id_hex || (account_id_hex.length !== 66 && account_id_hex.length !== 42)) {
-      return Response.json({ ok: false, message: 'Invalid account_id_hex (use 0x+64hex or 0x+40hex)', error_code: 'bad_account' }, { status: 400 });
+    // Boing-native: 32-byte account (0x + 64 hex), 64-byte Ed25519 signature (128 hex) only
+    if (!account_id_hex || account_id_hex.length !== 66) {
+      return Response.json({ ok: false, message: 'Invalid account_id_hex (must be 0x + 64 hex chars, Boing Ed25519)', error_code: 'bad_account' }, { status: 400 });
+    }
+    const sigHex = signatureHex.replace(/^0x/, '');
+    if (sigHex.length !== 128 || !/^[0-9a-f]+$/.test(sigHex)) {
+      return Response.json({ ok: false, message: 'Invalid signature (must be 64-byte hex, Ed25519)', error_code: 'bad_signature' }, { status: 400 });
     }
 
-    // Parse and validate message first (don't consume nonce yet)
+    const publicKeyBytes = hexToBytes(account_id_hex);
+    const signatureBytes = hexToBytes(signatureHex);
+    if (!publicKeyBytes || !signatureBytes) {
+      return Response.json({ ok: false, message: 'Invalid hex', error_code: 'bad_hex' }, { status: 400 });
+    }
+
+    // Try all message variants the wallet might have signed (raw, trimmed, with/without trailing newline, EIP-191 style)
+    const variants = messageVariants(messageRaw);
+    let valid = false;
+    for (const msgBuf of variants) {
+      if (verifyEd25519(publicKeyBytes, msgBuf, signatureBytes)) {
+        valid = true;
+        break;
+      }
+    }
+    if (!valid) {
+      return json401('Invalid signature. Use a Boing-native wallet (e.g. Boing Express) and sign the exact message.', 'invalid_signature');
+    }
+
+    // Parse and validate message structure and nonce (after signature is valid)
     const messageInfo = parseSignInMessage(message);
     const messageError = validateMessageWindow(messageInfo);
     if (messageError) {
@@ -43,42 +65,6 @@ export async function onRequestPost(context) {
         const code = nonceCheck.message.includes('expired') ? 'nonce_expired' : nonceCheck.message.includes('already used') ? 'nonce_used' : 'nonce_invalid';
         return json401(nonceCheck.message, code);
       }
-    }
-
-    const sigHex = signatureHex.replace(/^0x/, '');
-    const isEVM = account_id_hex.length === 42 && sigHex.length === 130 && /^[0-9a-f]+$/.test(sigHex);
-    const isEd25519 = account_id_hex.length === 66 && sigHex.length === 128 && /^[0-9a-f]+$/.test(sigHex);
-
-    if (isEVM) {
-      const recovered = verifyEVMPersonalSign(messageRaw, sigHex);
-      if (!recovered || recovered.toLowerCase() !== account_id_hex.toLowerCase()) {
-        return json401('Invalid signature', 'invalid_signature');
-      }
-    } else if (isEd25519) {
-      const publicKeyBytes = hexToBytes(account_id_hex);
-      const signatureBytes = hexToBytes(signatureHex);
-      if (!publicKeyBytes || !signatureBytes) {
-        return Response.json({ ok: false, message: 'Invalid hex', error_code: 'bad_hex' }, { status: 400 });
-      }
-      const variants = messageVariants(messageRaw);
-      let valid = false;
-      for (const msgBuf of variants) {
-        if (verifyEd25519(publicKeyBytes, msgBuf, signatureBytes)) {
-          valid = true;
-          break;
-        }
-      }
-      if (!valid) {
-        return json401('Invalid signature', 'invalid_signature');
-      }
-    } else {
-      if (account_id_hex.length !== 66 && account_id_hex.length !== 42) {
-        return Response.json({ ok: false, message: 'Invalid account_id_hex (use 32-byte 0x+64hex or 20-byte 0x+40hex)', error_code: 'bad_account' }, { status: 400 });
-      }
-      if (sigHex.length !== 128 && sigHex.length !== 130) {
-        return Response.json({ ok: false, message: 'Invalid signature length (expected 64 or 65 bytes hex)', error_code: 'bad_signature' }, { status: 400 });
-      }
-      return json401('Invalid signature', 'invalid_signature');
     }
 
     if (messageInfo.nonce) {
@@ -140,58 +126,36 @@ function normalizeHex(s) {
   return t.startsWith('0x') ? t : '0x' + t;
 }
 
-/** Normalize sign-in message: unified line endings, trim (so parsing and verification match wallet output). */
 function normalizeMessage(s) {
   if (!s || typeof s !== 'string') return '';
   return s.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
 }
 
-/** EIP-191 personal_sign prefix: "\x19Ethereum Signed Message:\n" + len(message) + message (UTF-8) */
 function buildEIP191Message(message) {
   const msgBuf = Buffer.from(message, 'utf8');
   const prefix = Buffer.from(`\x19Ethereum Signed Message:\n${msgBuf.length}`, 'utf8');
   return Buffer.concat([prefix, msgBuf]);
 }
 
-/** Return multiple message byte variants to try for Ed25519 (wallet may sign raw, trimmed, or EIP-191). */
+/** All message byte variants to try for Ed25519 (wallet may sign raw, trimmed, with trailing newline, or EIP-191 style). */
 function messageVariants(messageRaw) {
   const normalized = normalizeMessage(messageRaw);
   const trimRaw = messageRaw.trim();
-  const out = [];
   const add = (msg) => {
-    if (typeof msg === 'string') out.push(Buffer.from(msg, 'utf8'));
-    else out.push(msg);
+    if (typeof msg === 'string') return Buffer.from(msg, 'utf8');
+    return msg;
   };
-  add(messageRaw);
-  add(trimRaw);
-  add(normalized);
-  add(buildEIP191Message(messageRaw));
-  add(buildEIP191Message(trimRaw));
-  add(buildEIP191Message(normalized));
-  return out;
-}
-
-/** Recover Ethereum address from EIP-191 personal_sign. sigHex is 130 hex (65 bytes: r,s,v). Returns 0x+40hex or null. */
-function verifyEVMPersonalSign(messageRaw, sigHex) {
-  try {
-    const msgBytes = typeof messageRaw === 'string' ? Buffer.from(messageRaw, 'utf8') : messageRaw;
-    const eip191 = buildEIP191Message(msgBytes);
-    const hash = new Uint8Array(keccak_256(new Uint8Array(eip191)));
-    const sigBytes = hexToBytes('0x' + sigHex);
-    if (!sigBytes || sigBytes.length !== 65) return null;
-    const v = sigBytes[64];
-    const recovery = v === 27 || v === 28 ? v - 27 : v;
-    if (recovery !== 0 && recovery !== 1) return null;
-    const compact64 = sigBytes.slice(0, 64);
-    const sigObj = Signature.fromBytes(compact64).addRecoveryBit(recovery);
-    const pubPoint = sigObj.recoverPublicKey(hash);
-    const uncompressed = pubPoint.toRawBytes(false);
-    const addrHash = keccak_256(uncompressed.slice(1));
-    const addr = Buffer.from(addrHash).slice(-20);
-    return '0x' + addr.toString('hex');
-  } catch {
-    return null;
-  }
+  return [
+    add(messageRaw),
+    add(trimRaw),
+    add(normalized),
+    add(messageRaw + '\n'),
+    add(trimRaw + '\n'),
+    add(normalized + '\n'),
+    buildEIP191Message(messageRaw),
+    buildEIP191Message(trimRaw),
+    buildEIP191Message(normalized),
+  ];
 }
 
 function hexToBytes(hexStr) {
@@ -204,13 +168,6 @@ function hexToBytes(hexStr) {
   return buf;
 }
 
-/**
- * Verify Ed25519 signature using Node built-in crypto (no external libs).
- * @param {Buffer} publicKeyBytes - 32-byte Ed25519 public key (Boing account_id)
- * @param {Buffer} messageBytes - Raw bytes of the message that was signed (e.g. UTF-8)
- * @param {Buffer} signatureBytes - 64-byte Ed25519 signature
- * @returns {boolean}
- */
 function verifyEd25519(publicKeyBytes, messageBytes, signatureBytes) {
   if (publicKeyBytes.length !== 32 || signatureBytes.length !== 64) return false;
   try {
@@ -238,7 +195,6 @@ function parseSignInMessage(message) {
       version: 'nonce',
     };
   }
-
   const legacy = normalized.match(/^Sign in to Boing Portal at (.+?) at (\d{4}-\d{2}-\d{2}T[\d.:]+Z)\s*$/);
   if (legacy) {
     return {
@@ -248,18 +204,12 @@ function parseSignInMessage(message) {
       version: 'legacy',
     };
   }
-
-  return {
-    origin: '',
-    timestamp: '',
-    nonce: '',
-    version: 'unknown',
-  };
+  return { origin: '', timestamp: '', nonce: '', version: 'unknown' };
 }
 
 function validateMessageWindow(messageInfo) {
   if (!messageInfo.timestamp) {
-    return 'Invalid sign-in message';
+    return 'Invalid sign-in message format';
   }
   if (!messageInfo.origin) {
     return 'Invalid or missing sign-in origin';
