@@ -72,7 +72,17 @@ export async function onRequestPost(context) {
       }
     }
     if (!valid) {
-      return json401('Invalid signature. Use a Boing-native wallet (e.g. Boing Express) and sign the exact message.', 'invalid_signature');
+      const debugHeader = request.headers.get('X-Portal-Debug');
+      const payload = { message: 'Invalid signature. Use a Boing-native wallet (e.g. Boing Express) and sign the exact message.', error_code: 'invalid_signature' };
+      if (debugHeader === '1' && messageRaw) {
+        const msgBuf = Buffer.from(messageRaw, 'utf8');
+        const u8 = msgBuf instanceof Uint8Array ? msgBuf : new Uint8Array(msgBuf);
+        const serverBlake3 = blake3(u8);
+        payload.debug = {
+          server_blake3_hex: Array.from(serverBlake3).map((b) => b.toString(16).padStart(2, '0')).join(''),
+        };
+      }
+      return addVersionHeader(Response.json(payload, { status: 401 }));
     }
 
     // Parse and validate message structure and nonce (after signature is valid)
