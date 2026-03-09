@@ -36,7 +36,12 @@ export async function onRequestPost(context) {
       return Response.json({ ok: false, message: 'Invalid hex in account_id_hex or signature' }, { status: 400 });
     }
 
-    const valid = verifyEd25519(publicKeyBytes, Buffer.from(message, 'utf8'), signatureBytes);
+    const messageBytes = Buffer.from(message, 'utf8');
+    let valid = verifyEd25519(publicKeyBytes, messageBytes, signatureBytes);
+    if (!valid) {
+      const eip191Prefixed = buildEIP191Message(message);
+      valid = verifyEd25519(publicKeyBytes, eip191Prefixed, signatureBytes);
+    }
     if (!valid) {
       return Response.json({ ok: false, message: 'Invalid signature' }, { status: 401 });
     }
@@ -104,6 +109,13 @@ function normalizeHex(s) {
   if (!s || typeof s !== 'string') return '';
   const t = s.trim().toLowerCase();
   return t.startsWith('0x') ? t : '0x' + t;
+}
+
+/** EIP-191 personal_sign prefix: "\x19Ethereum Signed Message:\n" + len(message) + message (UTF-8) */
+function buildEIP191Message(message) {
+  const msgBuf = Buffer.from(message, 'utf8');
+  const prefix = Buffer.from(`\x19Ethereum Signed Message:\n${msgBuf.length}`, 'utf8');
+  return Buffer.concat([prefix, msgBuf]);
 }
 
 function hexToBytes(hexStr) {
