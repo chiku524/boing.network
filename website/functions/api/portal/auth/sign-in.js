@@ -60,13 +60,19 @@ export async function onRequestPost(context) {
       return addVersionHeader(Response.json({ ok: false, message: 'Invalid hex', error_code: 'bad_hex' }, { status: 400 }));
     }
 
-    // Try BLAKE3(message) first — if client sent message_hex, use those exact bytes so we match the wallet
-    const blake3Variants = messageVariantsBLAKE3(messageRaw, clientMessageBytes);
     let valid = false;
-    for (const hashBuf of blake3Variants) {
-      if (verifyEd25519(publicKeyBytes, hashBuf, signatureBytes)) {
-        valid = true;
-        break;
+    // Try raw client bytes first (in case wallet signs raw message instead of BLAKE3)
+    if (clientMessageBytes && clientMessageBytes.length > 0) {
+      valid = verifyEd25519(publicKeyBytes, clientMessageBytes, signatureBytes);
+    }
+    // Then BLAKE3(message) — if client sent message_hex, use those exact bytes so we match the wallet
+    if (!valid) {
+      const blake3Variants = messageVariantsBLAKE3(messageRaw, clientMessageBytes);
+      for (const hashBuf of blake3Variants) {
+        if (verifyEd25519(publicKeyBytes, hashBuf, signatureBytes)) {
+          valid = true;
+          break;
+        }
       }
     }
     if (!valid) {
