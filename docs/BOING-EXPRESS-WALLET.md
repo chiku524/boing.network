@@ -114,7 +114,7 @@ Use this when **preparing for production**: full Boing integration and Chrome We
 - **Addresses:** 32-byte Ed25519 public keys (64 hex chars). Not EVM 20-byte addresses or Solana base58.
 - **Signing:** Ed25519 only. Not secp256k1 (Ethereum) or Solana-specific formats.
 - **RPC & transactions:** Boing-specific JSON-RPC and bincode serialization. No EVM ABI, no Solana SPL.
-- **Wallet integration:** Boing Express (and any Boing-native wallet) implements `boing_requestAccounts`, `boing_signMessage`, and transaction signing with **Boing’s own formats**. Portal sign-in and dApp auth use Ed25519 message signing only — no reliance on other chains’ signing (e.g. no EVM `personal_sign`).
+- **Wallet integration:** Boing Express (and any Boing-native wallet) implements `boing_requestAccounts`, `boing_signMessage`, and transaction signing with **Boing’s own formats**. Portal sign-in and dApp auth use Ed25519 message signing only — no reliance on other chains’ signing (e.g. no EVM `personal_sign`). For **portal/dApp message signing** (`boing_signMessage`), the wallet may sign either the **raw UTF-8 message** or **BLAKE3(message)** (32-byte hash) with Ed25519; the portal accepts both.
 
 When integrating with Boing (wallet, portal, or node), use Boing’s specs only. Do not assume Ethereum or Solana compatibility.
 

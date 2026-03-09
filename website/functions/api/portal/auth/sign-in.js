@@ -1,9 +1,11 @@
 /**
  * POST /api/portal/auth/sign-in
  * Wallet-based sign-in: Ed25519 only (Boing-native). No EVM/Solana/other-chain dependencies.
+ * Supports both raw-message and BLAKE3(message) signing (Boing tx style).
  * Body: { account_id_hex, message, signature }
  */
 import { createPublicKey, verify } from 'node:crypto';
+import { blake3 } from '@noble/hashes/blake3.js';
 
 export async function onRequestPost(context) {
   const { env, request } = context;
@@ -39,13 +41,22 @@ export async function onRequestPost(context) {
       return Response.json({ ok: false, message: 'Invalid hex', error_code: 'bad_hex' }, { status: 400 });
     }
 
-    // Try all message variants the wallet might have signed (raw, trimmed, with/without trailing newline, EIP-191 style)
+    // Try all message variants: raw bytes and BLAKE3(message) — Boing may sign hash like tx signing
     const variants = messageVariants(messageRaw);
     let valid = false;
     for (const msgBuf of variants) {
       if (verifyEd25519(publicKeyBytes, msgBuf, signatureBytes)) {
         valid = true;
         break;
+      }
+    }
+    if (!valid) {
+      const blake3Variants = messageVariantsBLAKE3(messageRaw);
+      for (const hashBuf of blake3Variants) {
+        if (verifyEd25519(publicKeyBytes, hashBuf, signatureBytes)) {
+          valid = true;
+          break;
+        }
       }
     }
     if (!valid) {
@@ -156,6 +167,25 @@ function messageVariants(messageRaw) {
     buildEIP191Message(trimRaw),
     buildEIP191Message(normalized),
   ];
+}
+
+/** BLAKE3(message) variants — Boing tx signing uses Ed25519(BLAKE3(...)); wallet may do same for message sign. */
+function messageVariantsBLAKE3(messageRaw) {
+  const rawVariants = [
+    messageRaw,
+    messageRaw.trim(),
+    normalizeMessage(messageRaw),
+    messageRaw + '\n',
+    messageRaw.trim() + '\n',
+    normalizeMessage(messageRaw) + '\n',
+  ];
+  const out = [];
+  for (const msg of rawVariants) {
+    const buf = typeof msg === 'string' ? Buffer.from(msg, 'utf8') : msg;
+    const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+    out.push(blake3(u8));
+  }
+  return out;
 }
 
 function hexToBytes(hexStr) {
