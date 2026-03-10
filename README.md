@@ -51,6 +51,15 @@ All project documentation lives in **[docs/](docs/)**:
 
 The [boing.network](https://boing.network) website lives in `website/`. It's built with Astro and deploys to Cloudflare Pages. See `website/README.md` and [docs/WEBSITE-AND-DEPLOYMENT.md](docs/WEBSITE-AND-DEPLOYMENT.md) for setup and deployment.
 
+## Ecosystem
+
+| App | URL | Description |
+|-----|-----|-------------|
+| **Explorer** | [boing.observer](https://boing.observer) | Block explorer: blocks, accounts, search, QA check |
+| **Wallet** | [boing.express](https://boing.express) | Non-custodial Boing wallet (web + extension) |
+
+For cross-repo alignment (RPC URLs, chain IDs, canonical links), see [docs/THREE-CODEBASE-ALIGNMENT.md](docs/THREE-CODEBASE-ALIGNMENT.md).
+
 ## Priorities
 
 Security → Scalability → Decentralization → Authenticity → Transparency → **True quality assurance** (protocol-enforced QA: only quality assets on-chain; automation + community pool for edge cases; leniency for meme culture; no malice). See [BOING-NETWORK-ESSENTIALS.md](docs/BOING-NETWORK-ESSENTIALS.md) and [QUALITY-ASSURANCE-NETWORK.md](docs/QUALITY-ASSURANCE-NETWORK.md).

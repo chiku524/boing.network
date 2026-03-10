@@ -68,6 +68,13 @@ import { TESTNET_RPC_URL } from '../../config/testnet';
     const btn = document.getElementById('request-btn') as HTMLButtonElement;
     const messageEl = document.getElementById('message') as HTMLParagraphElement;
 
+    // Prefill account ID from ?address= (e.g. from boing.observer or wallet deep link)
+    const params = new URLSearchParams(window.location.search);
+    const addressParam = params.get('address');
+    if (accountInput && addressParam && /^(0x)?[0-9a-fA-F]{64}$/.test(addressParam.trim())) {
+      accountInput.value = addressParam.trim().toLowerCase().startsWith('0x') ? addressParam.trim() : '0x' + addressParam.trim();
+    }
+
     function setMessage(text: string, isError = false) {
       messageEl.textContent = text;
       messageEl.setAttribute('data-state', isError ? 'error' : 'success');

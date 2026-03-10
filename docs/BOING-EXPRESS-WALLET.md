@@ -2,6 +2,8 @@
 
 Use this document to **bootstrap**, **integrate**, and **publish** **Boing Express** — the wallet for the Boing Network. Product name is always **Boing Express** (not "Boing Wallet"). Domain: **boing.express**. This doc merges the creation prompt, full Boing integration checklist, and Chrome Web Store readiness.
 
+**Cross-repo alignment:** For canonical URLs, RPC endpoints, chain IDs, and cross-linking between boing.network, boing.express, and boing.observer, see [THREE-CODEBASE-ALIGNMENT.md](THREE-CODEBASE-ALIGNMENT.md).
+
 ---
 
 ## Table of Contents
