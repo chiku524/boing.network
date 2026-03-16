@@ -23,10 +23,10 @@ class BoingBackground {
     this.t = 0; // global time counter (seconds)
     this.last = null;
 
-    // Scroll-aware: pause animation while user scrolls to reduce main-thread contention
+    // Scroll/interaction-aware: pause animation while user scrolls or interacts to reduce main-thread contention
     this._scrollPaused = false;
     this._scrollResumeId = null;
-    this._scrollResumeDelayMs = 180;
+    this._scrollResumeDelayMs = 400;
 
     // Element pools
     this.stars = [];
@@ -46,6 +46,8 @@ class BoingBackground {
       document.addEventListener('visibilitychange', () => this._onVisibilityChange());
     }
     this._boundOnScroll = () => this._onScrollStart();
+    this._boundOnWheel = () => this._onScrollStart();
+    this._boundOnTouchStart = () => this._onScrollStart();
   }
 
   _onVisibilityChange() {
@@ -285,11 +287,15 @@ class BoingBackground {
     };
     this.raf = requestAnimationFrame(loop);
     window.addEventListener('scroll', this._boundOnScroll, { passive: true });
+    window.addEventListener('wheel', this._boundOnWheel, { passive: true });
+    window.addEventListener('touchstart', this._boundOnTouchStart, { passive: true });
   }
 
   stop() {
     if (this.raf) { cancelAnimationFrame(this.raf); this.raf = null; }
     window.removeEventListener('scroll', this._boundOnScroll);
+    window.removeEventListener('wheel', this._boundOnWheel);
+    window.removeEventListener('touchstart', this._boundOnTouchStart);
     if (this._scrollResumeId) {
       clearTimeout(this._scrollResumeId);
       this._scrollResumeId = null;
