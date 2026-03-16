@@ -23,6 +23,11 @@ class BoingBackground {
     this.t = 0; // global time counter (seconds)
     this.last = null;
 
+    // Scroll-aware: pause animation while user scrolls to reduce main-thread contention
+    this._scrollPaused = false;
+    this._scrollResumeId = null;
+    this._scrollResumeDelayMs = 180;
+
     // Element pools
     this.stars = [];
     this.shootingStars = [];
@@ -35,6 +40,33 @@ class BoingBackground {
     this._resize();
     this._init();
     window.addEventListener('resize', () => { this._resize(); this._init(); });
+
+    // Pause when tab is hidden to save CPU; resume when visible
+    if (typeof document !== 'undefined' && document.addEventListener) {
+      document.addEventListener('visibilitychange', () => this._onVisibilityChange());
+    }
+    this._boundOnScroll = () => this._onScrollStart();
+  }
+
+  _onVisibilityChange() {
+    if (document.visibilityState === 'hidden') {
+      this._scrollPaused = true;
+      if (this._scrollResumeId) {
+        clearTimeout(this._scrollResumeId);
+        this._scrollResumeId = null;
+      }
+    } else if (document.visibilityState === 'visible' && this.raf !== null) {
+      this._scrollPaused = false;
+    }
+  }
+
+  _onScrollStart() {
+    this._scrollPaused = true;
+    if (this._scrollResumeId) clearTimeout(this._scrollResumeId);
+    this._scrollResumeId = setTimeout(() => {
+      this._scrollPaused = false;
+      this._scrollResumeId = null;
+    }, this._scrollResumeDelayMs);
   }
 
   // ─── DEFAULT CONFIG ────────────────────────────────────────────────────────
@@ -242,19 +274,26 @@ class BoingBackground {
   start() {
     if (this.raf) return;
     const loop = (ts) => {
+      this.raf = requestAnimationFrame(loop);
+      if (this._scrollPaused) return; // skip frame while scrolling or tab hidden
       if (!this.last) this.last = ts;
       const dt = Math.min((ts - this.last) / 1000, 0.05);
       this.last = ts;
       this.t += dt;
       this._update(dt);
       this._draw();
-      this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
+    window.addEventListener('scroll', this._boundOnScroll, { passive: true });
   }
 
   stop() {
     if (this.raf) { cancelAnimationFrame(this.raf); this.raf = null; }
+    window.removeEventListener('scroll', this._boundOnScroll);
+    if (this._scrollResumeId) {
+      clearTimeout(this._scrollResumeId);
+      this._scrollResumeId = null;
+    }
   }
 
   // ─── UPDATE ───────────────────────────────────────────────────────────────

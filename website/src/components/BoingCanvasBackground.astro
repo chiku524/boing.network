@@ -86,6 +86,9 @@ const normalizedPath = (path || '/').replace(/\/$/, '') || '';
     z-index: 0;
     pointer-events: none;
     overflow: hidden;
+    /* Promote to compositor layer so scroll doesn't trigger canvas repaint */
+    transform: translateZ(0);
+    will-change: transform;
   }
 
   /* Fallback: boing-aquatic-space-bg.webp with dark overlay for readability */

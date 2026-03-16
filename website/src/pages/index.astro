@@ -236,6 +236,8 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
   :global(html.page-home) { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
   :global(html.page-home) .hero,
   :global(html.page-home) .section { scroll-snap-align: start; scroll-snap-stop: always; min-height: 100vh; scroll-margin-top: 4.5rem; }
+  /* Allow browser to skip layout/paint for off-screen sections (scroll perf) */
+  :global(html.page-home) .section { content-visibility: auto; contain-intrinsic-size: auto 80vh; }
 
   /* Hero + animation */
   .hero { position: relative; text-align: center; padding: 5rem 2rem; overflow: hidden; display: grid; grid-template-columns: 1fr; grid-template-rows: auto auto; align-items: center; justify-items: center; min-height: 85vh; gap: 1rem; }
@@ -267,6 +269,7 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
     transform-style: preserve-3d;
     animation: hero-robot-float 7s ease-in-out infinite;
     filter: drop-shadow(0 0 40px rgba(0, 229, 204, 0.2)) drop-shadow(0 20px 40px rgba(0, 0, 0, 0.3));
+    will-change: transform;
   }
   .hero-robot-wrap .hero-robot-3d {
     position: relative;
@@ -297,6 +300,7 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
   .hero-bg {
     position: absolute; inset: 0; pointer-events: none; z-index: 0;
     transition: opacity 1s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
   }
   :global(html.intro-active) .hero-bg { opacity: 0; }
   :global(html.intro-complete) .hero-bg { opacity: 1; }
@@ -668,6 +672,9 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
     const THRESHOLD = 40;
     const STEP = 0.75; // fraction of viewport to scroll within section
 
+    let wheelScheduled = false;
+    let lastDelta = 0;
+
     function findCurrentIndex() {
       const mid = window.innerHeight * 0.4;
       for (let i = sections.length - 1; i >= 0; i--) {
@@ -691,17 +698,15 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
       return rect.bottom <= window.innerHeight + THRESHOLD;
     }
 
-    window.addEventListener('wheel', (e) => {
-      if (cooldown) { e.preventDefault(); return; }
-      const delta = e.deltaY;
-      if (Math.abs(delta) < 20) return;
+    function runWheelAction() {
+      wheelScheduled = false;
+      const delta = lastDelta;
+      if (cooldown || Math.abs(delta) < 20) return;
 
       const i = findCurrentIndex();
       const section = sections[i];
       const rect = section.getBoundingClientRect();
       const sectionTallerThanView = rect.height > window.innerHeight;
-
-      e.preventDefault();
 
       if (delta > 0) {
         if (sectionTallerThanView && !atBottomOfSection(section)) {
@@ -729,6 +734,20 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
 
       cooldown = true;
       setTimeout(() => { cooldown = false; }, COOLDOWN_MS);
+    }
+
+    window.addEventListener('wheel', (e) => {
+      lastDelta = e.deltaY;
+      if (cooldown) {
+        e.preventDefault();
+        return;
+      }
+      if (Math.abs(lastDelta) < 20) return;
+      e.preventDefault();
+      if (!wheelScheduled) {
+        wheelScheduled = true;
+        requestAnimationFrame(runWheelAction);
+      }
     }, { passive: false });
 
     window.addEventListener('keydown', (e) => {
