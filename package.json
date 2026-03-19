@@ -1,0 +1,5 @@
+{
+  "name": "boing-network-root",
+  "private": true,
+  "description": "Root placeholder for CI; real apps are in website/ and desktop-hub/."
+}
