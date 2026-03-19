@@ -1,13 +1,26 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { HUB_APP_URLS, type HubView } from "./config";
-import { APP_VERSION } from "./config";
+import {
+  STORAGE_KEY_VIEW,
+  STORAGE_KEY_LAST_APP,
+  getWelcomeDismissed,
+  setWelcomeDismissed,
+  clearWelcomeDismissed,
+  getSignedIn,
+  setSignedIn,
+  clearSignedIn,
+  getShowIntro,
+  setShowIntro,
+} from "./lib/storage";
 import { AppIcon } from "./components/AppIcons";
+import { IntroView } from "./components/IntroView";
+import { UpdateOverlay } from "./components/UpdateOverlay";
+import { HubFooter } from "./components/HubFooter";
+import { useUpdateCheck } from "./hooks/useUpdateCheck";
 import { HomeView } from "./views/HomeView";
 import { EmbedView } from "./views/EmbedView";
+import { WelcomeView } from "./views/WelcomeView";
 import "./styles.css";
-
-const STORAGE_KEY_VIEW = "boing-hub-last-view";
-const STORAGE_KEY_LAST_APP = "boing-hub-last-embed-view";
 
 const NAV_ITEMS: { id: HubView; label: string; description: string }[] = [
   { id: "home", label: "Home", description: "Boing Network overview" },
@@ -23,12 +36,80 @@ function isValidView(v: string): v is HubView {
 
 const WINDOW_TITLE_BASE = "Boing Network Hub";
 
+type AppPhase = "intro" | "updating" | "welcome" | "app";
+
+type EntryMode = "guest" | "signin" | "register";
+
+function getInitialPhase(): AppPhase {
+  return getShowIntro() ? "intro" : "updating";
+}
+
 function App() {
+  const [phase, setPhase] = useState<AppPhase>(getInitialPhase);
   const [view, setViewState] = useState<HubView>("home");
   const [lastEmbedView, setLastEmbedView] = useState<HubView | null>(null);
+  const [signedIn, setSignedInState] = useState(getSignedIn);
+  const [showIntroNextLaunch, setShowIntroNextLaunchState] = useState(getShowIntro);
   const mainRef = useRef<HTMLElement>(null);
+  const { status: updateStatus, runCheck, clearStatus } = useUpdateCheck();
+
+  const enterApp = useCallback((mode: EntryMode) => {
+    setWelcomeDismissed();
+    if (mode === "signin" || mode === "register") {
+      setSignedIn();
+      setSignedInState(true);
+    }
+    setPhase("app");
+  }, []);
+
+  const handleSignOut = useCallback(() => {
+    clearWelcomeDismissed();
+    clearSignedIn();
+    setSignedInState(false);
+    setPhase("welcome");
+  }, []);
+
+  const handleShowWelcome = useCallback(() => {
+    clearWelcomeDismissed();
+    clearSignedIn();
+    setSignedInState(false);
+    setPhase("welcome");
+  }, []);
+
+  const handleShowIntroNextLaunchChange = useCallback((show: boolean) => {
+    setShowIntro(show);
+    setShowIntroNextLaunchState(show);
+  }, []);
+
+  const handleCheckForUpdates = useCallback(() => {
+    runCheck().then((result) => {
+      if (result === "proceed") clearStatus();
+    });
+  }, [runCheck, clearStatus]);
+
+  const handleIntroComplete = useCallback(
+    (skipIntroNextTime: boolean) => {
+      if (skipIntroNextTime) {
+        setShowIntro(false);
+        setShowIntroNextLaunchState(false);
+      }
+      setPhase("updating");
+      runCheck().then((result) => {
+        clearStatus();
+        if (result === "restarting") return;
+        setPhase(getWelcomeDismissed() ? "app" : "welcome");
+      });
+    },
+    [runCheck, clearStatus]
+  );
 
   useEffect(() => {
+    if (phase !== "app") return;
+    setSignedInState(getSignedIn());
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase !== "app") return;
     try {
       const stored = localStorage.getItem(STORAGE_KEY_VIEW);
       if (stored && isValidView(stored)) {
@@ -40,7 +121,7 @@ function App() {
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [phase]);
 
   const setView = useCallback((next: HubView) => {
     setViewState(next);
@@ -55,6 +136,7 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (phase !== "app") return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setView("home");
@@ -72,30 +154,60 @@ function App() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [setView]);
+  }, [phase, setView]);
 
   useEffect(() => {
+    if (phase !== "app") return;
     mainRef.current?.focus({ preventScroll: true });
-  }, []);
+  }, [phase]);
 
   useEffect(() => {
+    if (phase !== "app") return;
     const label = view === "home" ? "Home" : NAV_ITEMS.find((n) => n.id === view)?.label ?? view;
     const title = view === "home" ? WINDOW_TITLE_BASE : `${label} — ${WINDOW_TITLE_BASE}`;
     document.title = title;
-    if (typeof window.__TAURI_INTERNALS__ !== "undefined") {
+    if (typeof (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !== "undefined") {
       import("@tauri-apps/api/window")
         .then((w) => w.getCurrentWindow().setTitle(title))
         .catch(() => {});
     }
-  }, [view]);
+  }, [phase, view]);
 
   const isEmbedView =
     view === "observer" || view === "express" || view === "finance" || view === "network";
-
   const lastUsedAppId: HubView | null = lastEmbedView;
+
+  if (phase === "intro") {
+    return <IntroView onComplete={handleIntroComplete} />;
+  }
+
+  if (phase === "updating") {
+    return (
+      <div className="update-overlay-screen" role="status" aria-live="polite">
+        <UpdateOverlay status={updateStatus} />
+        {updateStatus.phase === "idle" && (
+          <p className="update-overlay__message">Checking for updates…</p>
+        )}
+      </div>
+    );
+  }
+
+  if (phase === "welcome") {
+    return (
+      <>
+        <UpdateOverlay status={updateStatus} />
+        <WelcomeView
+          onSignIn={() => enterApp("signin")}
+          onRegister={() => enterApp("register")}
+          onContinueAsGuest={() => enterApp("guest")}
+        />
+      </>
+    );
+  }
 
   return (
     <div className="hub">
+      <UpdateOverlay status={updateStatus} />
       <a href="#main-content" className="skip-link">
         Skip to main content
       </a>
@@ -133,18 +245,14 @@ function App() {
             </button>
           ))}
         </nav>
-        <div className="hub-footer">
-          <span className="hub-footer-text">Alt+1–5 · Esc Home</span>
-          <a
-            className="hub-footer-version"
-            href="https://boing.network"
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Boing Network"
-          >
-            v{APP_VERSION}
-          </a>
-        </div>
+        <HubFooter
+          signedIn={signedIn}
+          onSignOut={handleSignOut}
+          onShowWelcome={handleShowWelcome}
+          showIntroNextLaunch={showIntroNextLaunch}
+          onShowIntroNextLaunchChange={handleShowIntroNextLaunchChange}
+          onCheckForUpdates={handleCheckForUpdates}
+        />
       </aside>
       <main
         id="main-content"

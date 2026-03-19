@@ -9,6 +9,8 @@ All-in-one **desktop application** for the Boing Network ecosystem, built with *
 
 Users get a single window with a sidebar to switch between these apps, each loaded in an embedded view (iframe) pointing to the live sites. No need to open multiple browser tabs.
 
+**Desktop app experience:** On launch, the app shows a short intro animation (optional “Don’t show intro on next launch”), then checks for updates (with progress if an update is downloading). If the user has not yet dismissed the welcome screen, they see **Sign in**, **Register**, or **Continue without account**; otherwise they go straight to the home dashboard. In the sidebar footer: **Sign in** (when not signed in) opens the welcome screen again; **Sign out** clears session and returns to welcome; **Settings** offers “Show welcome on next launch”, “Show intro on next launch”, and “Check for updates”. The process plugin is used to relaunch the app after an update is installed.
+
 ## Prerequisites
 
 - **Node.js** 18+ and **npm** (or pnpm/yarn)
@@ -67,8 +69,11 @@ VITE_OBSERVER_URL=http://localhost:3000 VITE_EXPRESS_URL=http://localhost:5173 n
 desktop-hub/
   src/                 # Vite + React frontend (hub shell)
     config.ts          # App URLs
-    App.tsx            # Sidebar + view routing
-    views/             # Home view + embed (iframe) view
+    App.tsx            # Phase flow (intro → update → welcome/app) + sidebar
+    lib/               # Storage helpers (welcome, signed-in, show intro)
+    components/        # Intro, UpdateOverlay, HubFooter, AppIcons
+    hooks/             # useUpdateCheck
+    views/             # Home, Embed, Welcome
   src-tauri/           # Tauri 2 Rust backend
     tauri.conf.json    # Window, build, bundle config
     capabilities/     # Permissions (e.g. shell open)
@@ -78,10 +83,18 @@ desktop-hub/
     favicon.svg        # Used for icon generation and shell branding
 ```
 
+## Auto-updates
+
+On first launch the app checks for updates; users can also use **Settings → Check for updates**. If the Tauri updater plugin is installed and an update server is configured, the app shows download progress and restarts after install (using `tauri-plugin-process` for relaunch). To enable updates:
+
+1. Add `tauri-plugin-updater` to `src-tauri/Cargo.toml` (see [Tauri Updater](https://v2.tauri.app/plugin/updater/)) and register it in `lib.rs`.
+2. Configure an update server (e.g. GitHub Releases or CrabNebula) and set `bundle.createUpdaterArtifacts` and endpoints in `tauri.conf.json`.
+3. Without the plugin, the check completes immediately and the user proceeds; “Check for updates” does nothing in that case.
+
 ## Tech stack
 
 - **Shell**: React 18 + TypeScript + Vite
-- **Desktop**: Tauri 2 (Rust), with `tauri-plugin-shell` for opening external links
+- **Desktop**: Tauri 2 (Rust), with `tauri-plugin-shell` (open links) and `tauri-plugin-process` (relaunch after update)
 - **Embedded apps**: Loaded via iframe from production (or configured) URLs; no code from observer/express/finance is bundled into the hub
 
 ## GitHub Release (CI)
