@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "desktop-hub/src-tauri",
     "crates/boing-cli",
     "crates/boing-primitives",
     "crates/boing-tokenomics",
