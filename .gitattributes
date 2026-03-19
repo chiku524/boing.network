@@ -1,0 +1,3 @@
+# Ensure JSON and Tauri config use LF so CI (including Windows) parses them correctly
+*.json text eol=lf
+desktop-hub/src-tauri/** text eol=lf

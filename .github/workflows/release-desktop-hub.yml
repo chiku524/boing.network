@@ -70,9 +70,7 @@ jobs:
           projectPath: desktop-hub
           tagName: desktop-hub/v__VERSION__
           releaseName: 'Boing Network Hub v__VERSION__'
-          releaseBody: |
-            All-in-one desktop app for the Boing Network ecosystem: Observer, Wallet (boing.express), Finance, and Testnet.
-            **Direct downloads** — use the assets below; no need to visit the release page from the [Downloads page](https://boing.network/downloads).
+          releaseBody: 'All-in-one desktop app: Observer, Wallet, Finance, Testnet. Direct downloads at https://boing.network/downloads'
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
