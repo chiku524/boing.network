@@ -44,8 +44,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
-          cache: 'npm'
-          cache-dependency-path: desktop-hub/package-lock.json
+          # No cache: lock file lives in desktop-hub/, not repo root
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
