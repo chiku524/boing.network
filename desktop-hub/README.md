@@ -19,6 +19,8 @@ Users get a single window with a sidebar to switch between these apps, each load
 
 If on Windows you see **"An Application Control policy has blocked this file" (os error 4551)** when running `tauri dev` or `tauri build`, allow Rust/cargo build scripts in your security policy (e.g. Windows Defender Application Control or corporate policy), or run from a path/folder that is not restricted.
 
+**Installed app won’t open (shortcut does nothing):** The app needs the **WebView2** runtime on Windows. Install it from [Microsoft’s WebView2 page](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) (Evergreen Standalone Installer). Then try opening the app again. If it still fails, run the `.exe` from the install folder in a Command Prompt to see any error message, or check **Event Viewer** → Windows Logs → Application for a crash entry for the app.
+
 ## Quick start
 
 ```bash
@@ -113,9 +115,41 @@ Releases are built and published automatically via GitHub Actions.
 3. **Downloads page**  
    [boing.network/downloads](https://boing.network/downloads) uses direct-download URLs to these release assets. If Tauri outputs different filenames, update the `hubDownloads` list in `website/src/pages/downloads.astro`.
 
-### No env vars or secrets needed
+### Windows code signing (recommended)
 
-The workflow uses the default `GITHUB_TOKEN` only. You do not need to add any repository secrets or environment variables for building or publishing the desktop hub.
+Signing the Windows installer avoids SmartScreen warnings and “administrator has set policies to prevent the installation” on locked-down machines. The release workflow signs the Windows build when these GitHub secrets are set:
+
+| Secret | Description |
+|--------|-------------|
+| `WINDOWS_CERTIFICATE` | Base64-encoded `.pfx` (PKCS#12) code signing certificate |
+| `WINDOWS_CERTIFICATE_PASSWORD` | Password used when creating the `.pfx` export |
+| `WINDOWS_CERTIFICATE_THUMBPRINT` | Certificate thumbprint (from `certmgr.msc` → certificate → Details → Thumbprint) |
+
+**Getting a code signing certificate:** Use a **code signing** certificate (not an SSL cert) from a provider such as [DigiCert](https://www.digicert.com/signing/code-signing-certificates), [Sectigo](https://sectigo.com/ssl-certificates-tls/code-signing), or others listed in [Microsoft’s docs](https://learn.microsoft.com/en-us/windows-hardware/drivers/dashboard/code-signing-cert-manage). The **publisher name** shown in Windows (SmartScreen, installer) is taken from the certificate—request the cert in the name you want users to see (e.g. **nico.builds** as organization or DBA).
+
+**Preparing the certificate for CI:**
+
+1. **Create a `.pfx` file** (if you have `.cer` + private key):
+   ```bash
+   openssl pkcs12 -export -in cert.cer -inkey private-key.key -out certificate.pfx
+   ```
+   Set an export password when prompted and store it for `WINDOWS_CERTIFICATE_PASSWORD`.
+
+2. **Base64-encode the `.pfx`** (Windows):
+   ```cmd
+   certutil -encode certificate.pfx base64cert.txt
+   ```
+   Use the contents of `base64cert.txt` (single line or multi-line) as the value for the `WINDOWS_CERTIFICATE` secret.
+
+3. **Get the thumbprint:** Import the `.pfx` on a Windows machine (e.g. `Import-PfxCertificate -FilePath certificate.pfx -CertStoreLocation Cert:\CurrentUser\My`), then open **certmgr.msc** → Personal → Certificates → double-click the cert → Details → **Thumbprint**. Use that value (with or without spaces) for `WINDOWS_CERTIFICATE_THUMBPRINT`.
+
+Once these three secrets are set, the next Windows build in the release workflow will sign the installer and executable. If the secrets are not set, the Windows build still runs but the output is unsigned.
+
+**Local signed build:** To sign locally, set `certificateThumbprint` and (if needed) `timestampUrl` in `desktop-hub/src-tauri/tauri.conf.json`, import the same `.pfx` into `Cert:\CurrentUser\My`, and run `npm run tauri:build` in `desktop-hub`. See [Tauri — Windows code signing](https://v2.tauri.app/distribute/sign/windows).
+
+### Other builds
+
+The workflow uses the default `GITHUB_TOKEN` only. No other repository secrets are required for building or publishing **unsigned** builds.
 
 ## Why Tauri over Electron
 

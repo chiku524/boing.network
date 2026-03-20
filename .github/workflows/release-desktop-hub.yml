@@ -62,6 +62,33 @@ jobs:
         working-directory: desktop-hub
         run: npm ci
 
+      - name: Import Windows code signing certificate
+        if: matrix.platform == 'windows-latest' && secrets.WINDOWS_CERTIFICATE != ''
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          New-Item -ItemType Directory -Force -Path certificate | Out-Null
+          Set-Content -Path certificate/tempCert.txt -Value $env:WINDOWS_CERTIFICATE
+          certutil -decode certificate/tempCert.txt certificate/certificate.pfx
+          Remove-Item certificate/tempCert.txt -Force
+          Import-PfxCertificate -FilePath certificate/certificate.pfx -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText)
+          Remove-Item -Recurse -Force certificate
+
+      - name: Set Windows certificate thumbprint in config
+        if: matrix.platform == 'windows-latest' && secrets.WINDOWS_CERTIFICATE != '' && secrets.WINDOWS_CERTIFICATE_THUMBPRINT != ''
+        env:
+          WINDOWS_CERTIFICATE_THUMBPRINT: ${{ secrets.WINDOWS_CERTIFICATE_THUMBPRINT }}
+        run: |
+          node -e "
+          const fs = require('fs');
+          const path = 'desktop-hub/src-tauri/tauri.conf.json';
+          const c = JSON.parse(fs.readFileSync(path, 'utf8'));
+          c.bundle.windows.certificateThumbprint = process.env.WINDOWS_CERTIFICATE_THUMBPRINT;
+          fs.writeFileSync(path, JSON.stringify(c, null, 2));
+          "
+        working-directory: .
+
       - name: Build and publish
         uses: tauri-apps/tauri-action@v0
         env:
