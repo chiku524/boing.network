@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 
-const INTRO_DURATION_MS = 2800;
+/** Match VibeMiner splash minimum display time (SPLASH_MIN_MS) */
+const INTRO_DURATION_MS = 1800;
 const FADE_OUT_MS = 400;
 
 type Props = {
@@ -51,11 +52,11 @@ export function IntroView({ onComplete }: Props) {
         Skip
       </button>
       <div className="intro-view__content">
-        <div className="intro-view__logo-wrap">
+        <div className="intro-view__symbol" aria-hidden="true">
           <img src="/favicon.svg" alt="" className="intro-view__logo" />
         </div>
         <h1 className="intro-view__title">Boing Network</h1>
-        <p className="intro-view__subtitle">Hub</p>
+        <p className="intro-view__tag">Hub</p>
       </div>
       <label className="intro-view__checkbox">
         <input

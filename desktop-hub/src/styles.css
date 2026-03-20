@@ -614,7 +614,7 @@ body,
   text-align: left;
 }
 
-/* ========== Intro (splash) ========== */
+/* ========== Intro (splash) — VibeMiner-style ========== */
 .intro-view {
   position: fixed;
   inset: 0;
@@ -623,7 +623,7 @@ body,
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: var(--bg-primary);
+  background: #0c0e12;
   transition: opacity 0.4s ease;
 }
 .intro-view--fadeout {
@@ -658,40 +658,44 @@ body,
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  text-align: center;
+  padding: 2rem;
 }
 
-.intro-view__logo-wrap {
+.intro-view__symbol {
   width: 72px;
   height: 72px;
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: intro-logo-in 0.6s ease-out;
+  background: linear-gradient(135deg, rgba(0, 217, 255, 0.25), rgba(52, 211, 153, 0.2));
+  border-radius: 1.25rem;
+  animation: intro-symbol-fade 0.8s ease-out;
 }
 .intro-view__logo {
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
   object-fit: contain;
 }
 
 .intro-view__title {
   margin: 0;
+  margin-top: 1rem;
   font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  letter-spacing: 0.02em;
-  animation: intro-text-in 0.5s ease-out 0.2s both;
+  font-weight: 700;
+  background: linear-gradient(90deg, #00d9ff, #34d399);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: intro-text-fade 0.6s ease-out 0.15s both;
 }
 
-.intro-view__subtitle {
+.intro-view__tag {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 500;
-  color: var(--accent-teal);
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  animation: intro-text-in 0.5s ease-out 0.35s both;
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  color: #9ca3af;
+  animation: intro-text-fade 0.5s ease-out 0.3s both;
 }
 
 .intro-view__checkbox {
@@ -734,9 +738,9 @@ body,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .intro-view__logo-wrap,
+  .intro-view__symbol,
   .intro-view__title,
-  .intro-view__subtitle {
+  .intro-view__tag {
     animation: none;
   }
   .intro-view__progress-bar {
@@ -745,10 +749,10 @@ body,
   }
 }
 
-@keyframes intro-logo-in {
+@keyframes intro-symbol-fade {
   from {
     opacity: 0;
-    transform: scale(0.85);
+    transform: scale(0.96);
   }
   to {
     opacity: 1;
@@ -756,14 +760,14 @@ body,
   }
 }
 
-@keyframes intro-text-in {
+@keyframes intro-text-fade {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: scale(0.96);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: scale(1);
   }
 }
 
@@ -785,6 +789,12 @@ body,
   justify-content: center;
 }
 
+.update-overlay-screen--card {
+  background: rgba(12, 14, 18, 0.98);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
 .update-overlay {
   position: fixed;
   inset: 0;
@@ -798,14 +808,76 @@ body,
   color: var(--text-primary);
 }
 
+/* VibeMiner-style: full-screen blur + centered card */
+.update-overlay--card {
+  background: rgba(12, 14, 18, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.update-overlay__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 2.5rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(18, 22, 28, 0.9);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+}
+
+.update-overlay__icon {
+  flex-shrink: 0;
+  width: 3.5rem;
+  height: 3.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, rgba(0, 217, 255, 0.25), rgba(52, 211, 153, 0.2));
+}
+
+.update-overlay__icon-img {
+  width: 2rem;
+  height: 2rem;
+  object-fit: contain;
+}
+
+.update-overlay__title {
+  margin: 0;
+  margin-top: 1rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.update-overlay__spinner {
+  width: 2rem;
+  height: 2rem;
+  margin-top: 1rem;
+  border: 2px solid var(--accent-teal);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: update-spin 0.8s linear infinite;
+}
+
+@keyframes update-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .update-overlay__message {
-  font-size: 0.95rem;
+  margin-top: 1rem;
+  font-size: 0.875rem;
   color: var(--text-secondary);
 }
 
 .update-overlay__progress-wrap {
-  width: 240px;
+  width: 200px;
   height: 6px;
+  margin-top: 0.75rem;
   background: var(--bg-tertiary);
   border-radius: 3px;
   overflow: hidden;
@@ -820,6 +892,7 @@ body,
 }
 
 .update-overlay__detail {
+  margin-top: 0.25rem;
   font-size: 0.8rem;
   color: var(--text-tertiary);
 }

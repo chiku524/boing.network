@@ -183,11 +183,8 @@ function App() {
 
   if (phase === "updating") {
     return (
-      <div className="update-overlay-screen" role="status" aria-live="polite">
-        <UpdateOverlay status={updateStatus} />
-        {updateStatus.phase === "idle" && (
-          <p className="update-overlay__message">Checking for updates…</p>
-        )}
+      <div className="update-overlay-screen update-overlay-screen--card" role="status" aria-live="polite">
+        <UpdateOverlay status={updateStatus} showCheckingWhenIdle />
       </div>
     );
   }
