@@ -5,14 +5,14 @@ const GITHUB_RELEASES_BASE = 'https://github.com/chiku524/boing.network/releases
 const GITHUB_API_RELEASES = 'https://api.github.com/repos/chiku524/boing.network/releases';
 
 /** Fallback when API fails or no desktop-hub release exists yet */
-const FALLBACK_TAG = 'desktop-hub/v0.1.0';
-const FALLBACK_VERSION = '0.1.0';
+const FALLBACK_TAG = 'desktop-hub/v0.1.2';
+const FALLBACK_VERSION = '0.1.2';
 const FALLBACK_DOWNLOADS: { platform: string; label: string; filename: string; note?: string }[] = [
   { platform: 'Windows', label: 'Windows (x64)', filename: `Boing Network Hub_${FALLBACK_VERSION}_x64_en-US.msi`, note: 'MSI installer' },
-  { platform: 'macOS', label: 'macOS (Apple Silicon)', filename: `Boing Network Hub_${FALLBACK_VERSION}_aarch64.dmg` },
-  { platform: 'macOS', label: 'macOS (Intel)', filename: `Boing Network Hub_${FALLBACK_VERSION}_x86_64.dmg` },
-  { platform: 'Linux', label: 'Linux (x64)', filename: `boing-network-hub_${FALLBACK_VERSION}_amd64.deb`, note: 'Debian / Ubuntu' },
-  { platform: 'Linux', label: 'Linux (AppImage)', filename: `Boing Network Hub_${FALLBACK_VERSION}_amd64.AppImage`, note: 'Portable' },
+  { platform: 'macOS', label: 'macOS (Apple Silicon)', filename: `Boing Network Hub_${FALLBACK_VERSION}_aarch64.dmg`, note: 'M1/M2/M3' },
+  { platform: 'macOS', label: 'macOS (Intel)', filename: `Boing Network Hub_${FALLBACK_VERSION}_x86_64.dmg`, note: 'Intel Macs' },
+  { platform: 'Linux', label: 'Debian / Ubuntu', filename: `boing-network-hub_${FALLBACK_VERSION}_amd64.deb`, note: '.deb package' },
+  { platform: 'Linux', label: 'AppImage', filename: `Boing Network Hub_${FALLBACK_VERSION}_amd64.AppImage`, note: 'Portable, any distro' },
 ];
 
 function directDownload(tag: string, filename: string): string {
@@ -20,11 +20,29 @@ function directDownload(tag: string, filename: string): string {
   return `${GITHUB_RELEASES_BASE}/download/${segment}/${encodeURIComponent(filename)}`;
 }
 
+/** True if the asset is an OS installer we want to show (exclude .sig, .blockmap, etc.) */
+function isDesktopInstaller(name: string): boolean {
+  return /\.(msi|dmg|deb|AppImage|rpm)$/i.test(name);
+}
+
 function platformFromFilename(name: string): string {
   if (/\.msi$/i.test(name)) return 'Windows';
   if (/\.dmg$/i.test(name)) return 'macOS';
   if (/\.deb$/i.test(name) || /\.AppImage$/i.test(name) || /\.rpm$/i.test(name)) return 'Linux';
   return 'Asset';
+}
+
+/** Human-readable label and optional note from filename */
+function readableLabelFromFilename(name: string): { label: string; note?: string } {
+  if (/\.msi$/i.test(name)) return { label: 'Windows (x64)', note: 'MSI installer' };
+  if (/\.dmg$/i.test(name)) {
+    if (/aarch64|arm64|m1|m2|m3/i.test(name)) return { label: 'macOS (Apple Silicon)', note: 'M1/M2/M3' };
+    return { label: 'macOS (Intel)', note: 'Intel Macs' };
+  }
+  if (/\.deb$/i.test(name)) return { label: 'Debian / Ubuntu', note: '.deb package' };
+  if (/\.AppImage$/i.test(name)) return { label: 'AppImage', note: 'Portable, any Linux distro' };
+  if (/\.rpm$/i.test(name)) return { label: 'Fedora / RHEL', note: '.rpm package' };
+  return { label: name, note: undefined };
 }
 
 interface GitHubAsset {
@@ -42,7 +60,7 @@ interface GitHubRelease {
 let hubTag = FALLBACK_TAG;
 let hubVersion = FALLBACK_VERSION;
 let useApiAssets = false;
-let apiAssets: { platform: string; label: string; url: string; name: string }[] = [];
+let apiAssets: { platform: string; label: string; note?: string; url: string; name: string }[] = [];
 
 try {
   const res = await fetch(GITHUB_API_RELEASES, {
@@ -57,13 +75,28 @@ try {
     if (latest && latest.assets && latest.assets.length > 0) {
       hubTag = latest.tag_name;
       hubVersion = latest.tag_name.replace(/^desktop-hub\/v?/i, '') || latest.tag_name;
-      useApiAssets = true;
-      apiAssets = latest.assets.map((a) => ({
-        platform: platformFromFilename(a.name),
-        label: a.name,
-        url: a.browser_download_url,
-        name: a.name,
-      }));
+      const installerAssets = latest.assets.filter((a) => isDesktopInstaller(a.name));
+      if (installerAssets.length > 0) {
+        useApiAssets = true;
+        const mapped = installerAssets.map((a) => {
+          const { label, note } = readableLabelFromFilename(a.name);
+          return {
+            platform: platformFromFilename(a.name),
+            label,
+            note,
+            url: a.browser_download_url,
+            name: a.name,
+          };
+        });
+        // Order: Windows, macOS (Apple Silicon then Intel), Linux (deb, AppImage, rpm)
+        const order = (p: string, name: string) => {
+          if (p === 'Windows') return 0;
+          if (p === 'macOS') return /aarch64|arm64/i.test(name) ? 1 : 2;
+          if (p === 'Linux') return (/\.deb/i.test(name) ? 3 : /\.AppImage/i.test(name) ? 4 : 5);
+          return 6;
+        };
+        apiAssets = mapped.sort((a, b) => order(a.platform, a.name) - order(b.platform, b.name));
+      }
     }
   }
 } catch {
@@ -81,7 +114,7 @@ try {
       <div class="downloads-hero-inner">
         <span class="stage-badge">Desktop</span>
         <h1 class="downloads-title">Downloads</h1>
-        <p class="downloads-lead">Get the Boing Network Hub — one app for the whole ecosystem. Direct download links below; no need to visit the release page.</p>
+        <p class="downloads-lead">Get the Boing Network Hub desktop app for Windows, macOS, or Linux. Pick your platform and download.</p>
       </div>
     </header>
 
@@ -98,9 +131,10 @@ try {
           <ul class="downloads-list" role="list">
             {apiAssets.map((item) => (
               <li class="download-item">
-                <a href={item.url} class="download-link" download={item.name} rel="noopener noreferrer">
+                <a href={item.url} class="download-link" download={item.name} rel="noopener noreferrer" title={item.name}>
                   <span class="download-platform">{item.platform}</span>
                   <span class="download-label">{item.label}</span>
+                  {item.note && <span class="download-note">{item.note}</span>}
                   <span class="download-cta">Download</span>
                 </a>
               </li>
@@ -127,19 +161,6 @@ try {
         <p class="downloads-fallback">
           Other architectures or formats? See the <a href={`${GITHUB_RELEASES_BASE}/tag/${hubTag}`} target="_blank" rel="noopener noreferrer">release page</a> for all assets.
         </p>
-      </div>
-    </section>
-
-    <section class="downloads-other full-width">
-      <div class="downloads-section-inner">
-        <h2 class="downloads-other-title">Web &amp; extension</h2>
-        <p class="downloads-other-lead">No install required — use the ecosystem in your browser or install the wallet extension.</p>
-        <div class="downloads-other-links">
-          <a href="https://boing.observer" target="_blank" rel="noopener" class="downloads-other-link">boing.observer — Explorer</a>
-          <a href="https://boing.express" target="_blank" rel="noopener" class="downloads-other-link">boing.express — Wallet</a>
-          <a href="https://boing.finance" target="_blank" rel="noopener" class="downloads-other-link">boing.finance — DEX</a>
-          <a href="/testnet" class="downloads-other-link">Testnet dashboard</a>
-        </div>
       </div>
     </section>
   </article>
@@ -301,39 +322,10 @@ try {
   .downloads-fallback a:hover {
     text-decoration: none;
   }
-  .downloads-other {
-    padding: 2rem 0 4rem;
-    border-top: 1px solid var(--border-color);
-  }
-  .downloads-other-title {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0 0 0.5rem;
-  }
-  .downloads-other-lead {
-    color: var(--text-secondary);
-    margin: 0 0 1rem;
-    line-height: 1.5;
-  }
-  .downloads-other-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem 1.5rem;
-  }
-  .downloads-other-link {
-    font-weight: 500;
-    color: var(--accent-teal);
-    text-decoration: none;
-  }
-  .downloads-other-link:hover {
-    text-decoration: underline;
-  }
   @media (max-width: 640px) {
     .downloads-hero-inner,
     .downloads-section-inner { padding: 0 1.25rem; }
     .downloads-hero { padding: 3rem 0; }
-    .downloads-section { padding: 2rem 0 1.5rem; }
-    .downloads-other { padding: 1.5rem 0 3rem; }
+    .downloads-section { padding: 2rem 0 3rem; }
   }
 </style>
