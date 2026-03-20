@@ -14,12 +14,15 @@ type Props = {
 
 /** VibeMiner-style overlay: full-screen blur, centered card with icon, spinner, and phase label. */
 export function UpdateOverlay({ status, showCheckingWhenIdle }: Props) {
+  if (status.phase === "ready" || status.phase === "error") {
+    return null;
+  }
   const showCard =
     status.phase === "checking" ||
     status.phase === "downloading" ||
     status.phase === "installing" ||
     (showCheckingWhenIdle && status.phase === "idle");
-  if (!showCard || status.phase === "ready" || status.phase === "error") {
+  if (!showCard) {
     return null;
   }
 
