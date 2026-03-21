@@ -11,6 +11,10 @@ pub fn run() {
             if let Ok(data_dir) = app.path().app_data_dir() {
                 let _ = std::fs::create_dir_all(&data_dir);
             }
+            // Show the main window (Tauri 2 hides windows by default)
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+            }
             Ok(())
         })
         .run(tauri::generate_context!())

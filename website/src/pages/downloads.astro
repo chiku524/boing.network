@@ -5,14 +5,14 @@ const GITHUB_RELEASES_BASE = 'https://github.com/chiku524/boing.network/releases
 const GITHUB_API_RELEASES = 'https://api.github.com/repos/chiku524/boing.network/releases';
 
 /** Fallback when API fails or no desktop-hub release exists yet (keep in sync with latest release) */
-const FALLBACK_TAG = 'desktop-hub/v0.1.6';
-const FALLBACK_VERSION = '0.1.6';
-const FALLBACK_DOWNLOADS: { platform: string; label: string; filename: string; note?: string }[] = [
-  { platform: 'Windows', label: 'Windows (x64)', filename: `Boing Network Hub_${FALLBACK_VERSION}_x64_en-US.msi`, note: 'MSI installer' },
-  { platform: 'macOS', label: 'macOS (Apple Silicon)', filename: `Boing Network Hub_${FALLBACK_VERSION}_aarch64.dmg`, note: 'M1/M2/M3' },
-  { platform: 'macOS', label: 'macOS (Intel)', filename: `Boing Network Hub_${FALLBACK_VERSION}_x86_64.dmg`, note: 'Intel Macs' },
-  { platform: 'Linux', label: 'Debian / Ubuntu', filename: `boing-network-hub_${FALLBACK_VERSION}_amd64.deb`, note: '.deb package' },
-  { platform: 'Linux', label: 'AppImage', filename: `Boing Network Hub_${FALLBACK_VERSION}_amd64.AppImage`, note: 'Portable, any distro' },
+const FALLBACK_TAG = 'desktop-hub/v0.1.7';
+const FALLBACK_VERSION = '0.1.7';
+const FALLBACK_DOWNLOADS: { platform: string; label: string; description: string; filename: string; note?: string }[] = [
+  { platform: 'Windows', label: 'Windows (x64)', description: 'For Windows 10 and 11. Standard MSI installer with automatic updates.', filename: `Boing Network Hub_${FALLBACK_VERSION}_x64_en-US.msi`, note: 'MSI installer' },
+  { platform: 'macOS', label: 'macOS (Apple Silicon)', description: 'For Macs with M1, M2, M3, or newer Apple Silicon chips. Native performance.', filename: `Boing Network Hub_${FALLBACK_VERSION}_aarch64.dmg`, note: 'M1/M2/M3' },
+  { platform: 'macOS', label: 'macOS (Intel)', description: 'For Intel-based Macs. Compatible with macOS 10.15 and later.', filename: `Boing Network Hub_${FALLBACK_VERSION}_x86_64.dmg`, note: 'Intel Macs' },
+  { platform: 'Linux', label: 'Debian / Ubuntu', description: 'For Debian-based Linux distributions including Ubuntu, Linux Mint, and Pop!_OS.', filename: `boing-network-hub_${FALLBACK_VERSION}_amd64.deb`, note: '.deb package' },
+  { platform: 'Linux', label: 'AppImage', description: 'Universal Linux package. Works on any distribution without installation. Just download and run.', filename: `Boing Network Hub_${FALLBACK_VERSION}_amd64.AppImage`, note: 'Portable, any distro' },
 ];
 
 function directDownload(tag: string, filename: string): string {
@@ -32,17 +32,17 @@ function platformFromFilename(name: string): string {
   return 'Asset';
 }
 
-/** Human-readable label and optional note from filename */
-function readableLabelFromFilename(name: string): { label: string; note?: string } {
-  if (/\.msi$/i.test(name)) return { label: 'Windows (x64)', note: 'MSI installer' };
+/** Human-readable label, description, and optional note from filename */
+function readableLabelFromFilename(name: string): { label: string; description: string; note?: string } {
+  if (/\.msi$/i.test(name)) return { label: 'Windows (x64)', description: 'For Windows 10 and 11. Standard MSI installer with automatic updates.', note: 'MSI installer' };
   if (/\.dmg$/i.test(name)) {
-    if (/aarch64|arm64|m1|m2|m3/i.test(name)) return { label: 'macOS (Apple Silicon)', note: 'M1/M2/M3' };
-    return { label: 'macOS (Intel)', note: 'Intel Macs' };
+    if (/aarch64|arm64|m1|m2|m3/i.test(name)) return { label: 'macOS (Apple Silicon)', description: 'For Macs with M1, M2, M3, or newer Apple Silicon chips. Native performance.', note: 'M1/M2/M3' };
+    return { label: 'macOS (Intel)', description: 'For Intel-based Macs. Compatible with macOS 10.15 and later.', note: 'Intel Macs' };
   }
-  if (/\.deb$/i.test(name)) return { label: 'Debian / Ubuntu', note: '.deb package' };
-  if (/\.AppImage$/i.test(name)) return { label: 'AppImage', note: 'Portable, any Linux distro' };
-  if (/\.rpm$/i.test(name)) return { label: 'Fedora / RHEL', note: '.rpm package' };
-  return { label: name, note: undefined };
+  if (/\.deb$/i.test(name)) return { label: 'Debian / Ubuntu', description: 'For Debian-based Linux distributions including Ubuntu, Linux Mint, and Pop!_OS.', note: '.deb package' };
+  if (/\.AppImage$/i.test(name)) return { label: 'AppImage', description: 'Universal Linux package. Works on any distribution without installation. Just download and run.', note: 'Portable, any Linux distro' };
+  if (/\.rpm$/i.test(name)) return { label: 'Fedora / RHEL', description: 'For RPM-based Linux distributions including Fedora, Red Hat Enterprise Linux, and CentOS.', note: '.rpm package' };
+  return { label: name, description: 'Download for your platform', note: undefined };
 }
 
 interface GitHubAsset {
@@ -60,7 +60,7 @@ interface GitHubRelease {
 let hubTag = FALLBACK_TAG;
 let hubVersion = FALLBACK_VERSION;
 let useApiAssets = false;
-let apiAssets: { platform: string; label: string; note?: string; url: string; name: string }[] = [];
+let apiAssets: { platform: string; label: string; description: string; note?: string; url: string; name: string }[] = [];
 
 try {
   const res = await fetch(GITHUB_API_RELEASES, {
@@ -79,10 +79,11 @@ try {
       if (installerAssets.length > 0) {
         useApiAssets = true;
         const mapped = installerAssets.map((a) => {
-          const { label, note } = readableLabelFromFilename(a.name);
+          const { label, description, note } = readableLabelFromFilename(a.name);
           return {
             platform: platformFromFilename(a.name),
             label,
+            description,
             note,
             url: a.browser_download_url,
             name: a.name,
@@ -132,10 +133,15 @@ try {
             ? apiAssets.map((item) => (
                 <li class="download-item">
                   <a href={item.url} class="download-link" download={item.name} rel="noopener noreferrer" title={item.name}>
-                    <span class="download-platform">{item.platform}</span>
-                    <span class="download-label">{item.label}</span>
-                    {item.note && <span class="download-note">{item.note}</span>}
-                    <span class="download-cta">Download</span>
+                    <div class="download-link-content">
+                      <div class="download-link-header">
+                        <span class="download-platform">{item.platform}</span>
+                        <span class="download-label">{item.label}</span>
+                        {item.note && <span class="download-note">{item.note}</span>}
+                      </div>
+                      <p class="download-description">{item.description || 'Download for your platform'}</p>
+                    </div>
+                    <span class="download-cta">Download →</span>
                   </a>
                 </li>
               ))
@@ -144,10 +150,15 @@ try {
                 return (
                   <li class="download-item">
                     <a href={url} class="download-link" download={item.filename} rel="noopener noreferrer">
-                      <span class="download-platform">{item.platform}</span>
-                      <span class="download-label">{item.label}</span>
-                      {item.note && <span class="download-note">{item.note}</span>}
-                      <span class="download-cta">Download</span>
+                      <div class="download-link-content">
+                        <div class="download-link-header">
+                          <span class="download-platform">{item.platform}</span>
+                          <span class="download-label">{item.label}</span>
+                          {item.note && <span class="download-note">{item.note}</span>}
+                        </div>
+                        <p class="download-description">{item.description}</p>
+                      </div>
+                      <span class="download-cta">Download →</span>
                     </a>
                   </li>
                 );
@@ -200,12 +211,12 @@ try {
             return 'Asset';
           };
           const label = (name) => {
-            if (/\.msi$/i.test(name)) return { label: 'Windows (x64)', note: 'MSI installer' };
-            if (/\.dmg$/i.test(name)) return /aarch64|arm64|m1|m2|m3/i.test(name) ? { label: 'macOS (Apple Silicon)', note: 'M1/M2/M3' } : { label: 'macOS (Intel)', note: 'Intel Macs' };
-            if (/\.deb$/i.test(name)) return { label: 'Debian / Ubuntu', note: '.deb package' };
-            if (/\.AppImage$/i.test(name)) return { label: 'AppImage', note: 'Portable, any Linux distro' };
-            if (/\.rpm$/i.test(name)) return { label: 'Fedora / RHEL', note: '.rpm package' };
-            return { label: name, note: undefined };
+            if (/\.msi$/i.test(name)) return { label: 'Windows (x64)', description: 'For Windows 10 and 11. Standard MSI installer with automatic updates.', note: 'MSI installer' };
+            if (/\.dmg$/i.test(name)) return /aarch64|arm64|m1|m2|m3/i.test(name) ? { label: 'macOS (Apple Silicon)', description: 'For Macs with M1, M2, M3, or newer Apple Silicon chips. Native performance.', note: 'M1/M2/M3' } : { label: 'macOS (Intel)', description: 'For Intel-based Macs. Compatible with macOS 10.15 and later.', note: 'Intel Macs' };
+            if (/\.deb$/i.test(name)) return { label: 'Debian / Ubuntu', description: 'For Debian-based Linux distributions including Ubuntu, Linux Mint, and Pop!_OS.', note: '.deb package' };
+            if (/\.AppImage$/i.test(name)) return { label: 'AppImage', description: 'Universal Linux package. Works on any distribution without installation. Just download and run.', note: 'Portable, any Linux distro' };
+            if (/\.rpm$/i.test(name)) return { label: 'Fedora / RHEL', description: 'For RPM-based Linux distributions including Fedora, Red Hat Enterprise Linux, and CentOS.', note: '.rpm package' };
+            return { label: name, description: 'Download for your platform', note: undefined };
           };
 
           const sorted = installers
@@ -219,7 +230,7 @@ try {
           listEl.innerHTML = sorted
             .map(
               (a) =>
-                `<li class="download-item"><a href="${escUrl(a.browser_download_url)}" class="download-link" download="${esc(a.name)}" rel="noopener noreferrer" title="${esc(a.name)}"><span class="download-platform">${esc(a.platform)}</span><span class="download-label">${esc(a.label)}</span>${a.note ? `<span class="download-note">${esc(a.note)}</span>` : ''}<span class="download-cta">Download</span></a></li>`
+                `<li class="download-item"><a href="${escUrl(a.browser_download_url)}" class="download-link" download="${esc(a.name)}" rel="noopener noreferrer" title="${esc(a.name)}"><div class="download-link-content"><div class="download-link-header"><span class="download-platform">${esc(a.platform)}</span><span class="download-label">${esc(a.label)}</span>${a.note ? `<span class="download-note">${esc(a.note)}</span>` : ''}</div><p class="download-description">${esc(a.description || 'Download for your platform')}</p></div><span class="download-cta">Download →</span></a></li>`
             )
             .join('');
         })
@@ -335,42 +346,70 @@ try {
   }
   .download-link {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    background: linear-gradient(180deg, #0A1E2E 0%, #0D2E42 100%);
+    border: 1px solid var(--border-color);
+    border-radius: 0.875rem;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+  .download-link:hover {
+    border-color: rgba(0, 217, 255, 0.6);
+    box-shadow: 0 4px 20px rgba(0, 217, 255, 0.15), 0 0 0 1px rgba(0, 217, 255, 0.1);
+    transform: translateY(-1px);
+    background: linear-gradient(180deg, #0B2233 0%, #0E3449 100%);
+  }
+  .download-link:active {
+    transform: translateY(0);
+  }
+  .download-link-content {
+    flex: 1;
+    min-width: 0;
+  }
+  .download-link-header {
+    display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem 1rem;
-    padding: 1rem 1.25rem;
-    background: linear-gradient(180deg, #0A1E2E 0%, #0D2E42 100%);
-    border: 1px solid var(--border-color);
-    border-radius: 0.75rem;
-    text-decoration: none;
-    color: inherit;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-  }
-  .download-link:hover {
-    border-color: rgba(0, 217, 255, 0.5);
-    box-shadow: 0 0 16px rgba(0, 217, 255, 0.12);
+    margin-bottom: 0.5rem;
   }
   .download-platform {
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--text-tertiary);
+    color: var(--accent-teal);
     min-width: 4.5rem;
   }
   .download-label {
+    font-size: 1.05rem;
     font-weight: 600;
     color: var(--text-primary);
-    flex: 1;
   }
   .download-note {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--text-tertiary);
+    padding: 0.2rem 0.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 0.25rem;
+  }
+  .download-description {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.5;
   }
   .download-cta {
-    font-size: 0.9rem;
+    font-size: 1rem;
     font-weight: 600;
     color: var(--accent-teal);
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   .downloads-fallback {
     font-size: 0.9rem;
