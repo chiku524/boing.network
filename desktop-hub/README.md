@@ -137,7 +137,7 @@ Releases are built and published automatically via GitHub Actions.
    | `TAURI_SIGNING_PRIVATE_KEY` | **Entire** minisign **private** key file — **both lines**: (1) `untrusted comment: …` and (2) the long base64 line. If you paste only the second line, CI fails with *Missing comment in secret key*. |
    | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | **Only if** the key was created with a password (the helper script does). Paste the same password. If the key has **no** password (`-p ""`), **do not** create this secret — an empty value breaks the build. |
 
-   The release workflow writes the private key to a temp file and only sets `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` when that secret is non-empty.
+   The release workflow writes the private key to `desktop-hub/.tauri/ci-updater.key`, then sets `TAURI_SIGNING_PRIVATE_KEY` to that **absolute path** (Tauri does not use `TAURI_SIGNING_PRIVATE_KEY_PATH`). It only sets `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` when that secret is non-empty.
 
    **Back up the private key** (and password) outside the repo; losing them blocks signed updates until you rotate `pubkey` in `tauri.conf.json` and users reinstall once.
 

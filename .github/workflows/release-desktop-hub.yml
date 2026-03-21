@@ -112,7 +112,8 @@ jobs:
           fi
           mkdir -p desktop-hub/.tauri
           python -c "import os, pathlib; pathlib.Path('desktop-hub/.tauri/ci-updater.key').write_text(os.environ['KEY'], encoding='utf-8')"
-          echo "TAURI_SIGNING_PRIVATE_KEY_PATH=${{ github.workspace }}/desktop-hub/.tauri/ci-updater.key" >> "$GITHUB_ENV"
+          # Tauri reads TAURI_SIGNING_PRIVATE_KEY (path or inline key), not *_PATH.
+          echo "TAURI_SIGNING_PRIVATE_KEY=${{ github.workspace }}/desktop-hub/.tauri/ci-updater.key" >> "$GITHUB_ENV"
           if [ -n "${_PW}" ]; then
             {
               echo 'TAURI_SIGNING_PRIVATE_KEY_PASSWORD<<__TAURI_PW_EOF__'
