@@ -4,9 +4,9 @@ import Layout from '../layouts/Layout.astro';
 const GITHUB_RELEASES_BASE = 'https://github.com/chiku524/boing.network/releases';
 const GITHUB_API_RELEASES = 'https://api.github.com/repos/chiku524/boing.network/releases';
 
-/** Fallback when API fails or no desktop-hub release exists yet */
-const FALLBACK_TAG = 'desktop-hub/v0.1.4';
-const FALLBACK_VERSION = '0.1.4';
+/** Fallback when API fails or no desktop-hub release exists yet (keep in sync with latest release) */
+const FALLBACK_TAG = 'desktop-hub/v0.1.6';
+const FALLBACK_VERSION = '0.1.6';
 const FALLBACK_DOWNLOADS: { platform: string; label: string; filename: string; note?: string }[] = [
   { platform: 'Windows', label: 'Windows (x64)', filename: `Boing Network Hub_${FALLBACK_VERSION}_x64_en-US.msi`, note: 'MSI installer' },
   { platform: 'macOS', label: 'macOS (Apple Silicon)', filename: `Boing Network Hub_${FALLBACK_VERSION}_aarch64.dmg`, note: 'M1/M2/M3' },
@@ -125,45 +125,107 @@ try {
           Boing Network Hub
         </h2>
         <p class="downloads-app-desc">All-in-one desktop app (Tauri 2): Observer, Wallet, Finance, and Testnet in one window. Windows, macOS, and Linux.</p>
-        <p class="downloads-version">Version {hubVersion} · <a href={`${GITHUB_RELEASES_BASE}/tag/${hubTag}`} target="_blank" rel="noopener noreferrer" class="downloads-release-link">Release</a></p>
+        <p id="downloads-hub-version" class="downloads-version">Version {hubVersion} · <a href={`${GITHUB_RELEASES_BASE}/tag/${hubTag}`} target="_blank" rel="noopener noreferrer" class="downloads-release-link">Release</a></p>
 
-        {useApiAssets ? (
-          <ul class="downloads-list" role="list">
-            {apiAssets.map((item) => (
-              <li class="download-item">
-                <a href={item.url} class="download-link" download={item.name} rel="noopener noreferrer" title={item.name}>
-                  <span class="download-platform">{item.platform}</span>
-                  <span class="download-label">{item.label}</span>
-                  {item.note && <span class="download-note">{item.note}</span>}
-                  <span class="download-cta">Download</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <ul class="downloads-list" role="list">
-            {FALLBACK_DOWNLOADS.map((item) => {
-              const url = directDownload(FALLBACK_TAG, item.filename);
-              return (
+        <ul id="downloads-hub-list" class="downloads-list" role="list">
+          {useApiAssets
+            ? apiAssets.map((item) => (
                 <li class="download-item">
-                  <a href={url} class="download-link" download={item.filename} rel="noopener noreferrer">
+                  <a href={item.url} class="download-link" download={item.name} rel="noopener noreferrer" title={item.name}>
                     <span class="download-platform">{item.platform}</span>
                     <span class="download-label">{item.label}</span>
                     {item.note && <span class="download-note">{item.note}</span>}
                     <span class="download-cta">Download</span>
                   </a>
                 </li>
-              );
-            })}
-          </ul>
-        )}
+              ))
+            : FALLBACK_DOWNLOADS.map((item) => {
+                const url = directDownload(FALLBACK_TAG, item.filename);
+                return (
+                  <li class="download-item">
+                    <a href={url} class="download-link" download={item.filename} rel="noopener noreferrer">
+                      <span class="download-platform">{item.platform}</span>
+                      <span class="download-label">{item.label}</span>
+                      {item.note && <span class="download-note">{item.note}</span>}
+                      <span class="download-cta">Download</span>
+                    </a>
+                  </li>
+                );
+              })}
+        </ul>
 
         <p class="downloads-fallback">
-          Other architectures or formats? See the <a href={`${GITHUB_RELEASES_BASE}/tag/${hubTag}`} target="_blank" rel="noopener noreferrer">release page</a> for all assets.
+          Other architectures or formats? See the <a id="downloads-release-link" href={`${GITHUB_RELEASES_BASE}/tag/${hubTag}`} target="_blank" rel="noopener noreferrer">release page</a> for all assets.
         </p>
       </div>
     </section>
   </article>
+  <script define:vars={{ GITHUB_API_RELEASES: 'https://api.github.com/repos/chiku524/boing.network/releases', GITHUB_RELEASES_BASE: 'https://github.com/chiku524/boing.network/releases' }}>
+    (function () {
+      const versionEl = document.getElementById('downloads-hub-version');
+      const listEl = document.getElementById('downloads-hub-list');
+      const releaseLinkEl = document.getElementById('downloads-release-link');
+      if (!versionEl || !listEl) return;
+
+      fetch(GITHUB_API_RELEASES, {
+        headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+        signal: AbortSignal.timeout(8000),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((releases) => {
+          if (!Array.isArray(releases) || releases.length === 0) return;
+          const hubReleases = releases.filter((r) => r.tag_name && r.tag_name.startsWith('desktop-hub/'));
+          hubReleases.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
+          const latest = hubReleases[0];
+          if (!latest || !latest.assets || latest.assets.length === 0) return;
+
+          const tag = latest.tag_name;
+          const version = tag.replace(/^desktop-hub\/v?/i, '') || tag;
+          const installers = latest.assets.filter((a) => /\.(msi|dmg|deb|AppImage|rpm)$/i.test(a.name));
+          if (installers.length === 0) return;
+
+          const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+          const escUrl = (s) => encodeURI(String(s)).replace(/[<>"']/g, '');
+
+          const order = (p, name) => {
+            if (p === 'Windows') return 0;
+            if (p === 'macOS') return /aarch64|arm64/i.test(name) ? 1 : 2;
+            if (p === 'Linux') return (/\.deb/i.test(name) ? 3 : /\.AppImage/i.test(name) ? 4 : 5);
+            return 6;
+          };
+          const platform = (name) => {
+            if (/\.msi$/i.test(name)) return 'Windows';
+            if (/\.dmg$/i.test(name)) return 'macOS';
+            if (/\.(deb|AppImage|rpm)$/i.test(name)) return 'Linux';
+            return 'Asset';
+          };
+          const label = (name) => {
+            if (/\.msi$/i.test(name)) return { label: 'Windows (x64)', note: 'MSI installer' };
+            if (/\.dmg$/i.test(name)) return /aarch64|arm64|m1|m2|m3/i.test(name) ? { label: 'macOS (Apple Silicon)', note: 'M1/M2/M3' } : { label: 'macOS (Intel)', note: 'Intel Macs' };
+            if (/\.deb$/i.test(name)) return { label: 'Debian / Ubuntu', note: '.deb package' };
+            if (/\.AppImage$/i.test(name)) return { label: 'AppImage', note: 'Portable, any Linux distro' };
+            if (/\.rpm$/i.test(name)) return { label: 'Fedora / RHEL', note: '.rpm package' };
+            return { label: name, note: undefined };
+          };
+
+          const sorted = installers
+            .map((a) => ({ ...a, platform: platform(a.name), ...label(a.name) }))
+            .sort((a, b) => order(a.platform, a.name) - order(b.platform, b.name));
+
+          const releaseUrl = `${GITHUB_RELEASES_BASE}/tag/${encodeURIComponent(tag)}`;
+          versionEl.innerHTML = `Version ${esc(version)} · <a href="${releaseUrl}" target="_blank" rel="noopener noreferrer" class="downloads-release-link">Release</a>`;
+          if (releaseLinkEl) releaseLinkEl.href = releaseUrl;
+
+          listEl.innerHTML = sorted
+            .map(
+              (a) =>
+                `<li class="download-item"><a href="${escUrl(a.browser_download_url)}" class="download-link" download="${esc(a.name)}" rel="noopener noreferrer" title="${esc(a.name)}"><span class="download-platform">${esc(a.platform)}</span><span class="download-label">${esc(a.label)}</span>${a.note ? `<span class="download-note">${esc(a.note)}</span>` : ''}<span class="download-cta">Download</span></a></li>`
+            )
+            .join('');
+        })
+        .catch(() => {});
+    })();
+  </script>
 </Layout>
 
 <style>
