@@ -98,12 +98,22 @@ jobs:
           "
         working-directory: .
 
+      # Minisign private keys are two lines (untrusted comment + base64). Inline env can break newlines;
+      # an empty TAURI_SIGNING_PRIVATE_KEY_PASSWORD also triggers misleading decode errors. Write file + PATH.
+      - name: Write Tauri updater signing key
+        if: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        shell: bash
+        run: |
+          mkdir -p desktop-hub/.tauri
+          python -c "import os, pathlib; pathlib.Path('desktop-hub/.tauri/ci-updater.key').write_text(os.environ['KEY'], encoding='utf-8')"
+
       - name: Build and publish
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ github.workspace }}/desktop-hub/.tauri/ci-updater.key
         with:
           projectPath: desktop-hub
           tagName: desktop-hub/v__VERSION__
