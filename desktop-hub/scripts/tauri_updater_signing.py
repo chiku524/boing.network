@@ -10,8 +10,8 @@ Usage (from repo root):
   python desktop-hub/scripts/tauri_updater_signing.py generate --password "your-phrase"
   python desktop-hub/scripts/tauri_updater_signing.py instructions
 
-Requires: Node/npm (for npx @tauri-apps/cli@2). On Windows, use Git Bash or
-PowerShell; unset CI if `npx tauri signer` complains about --ci.
+Requires: Node/npm (for npx @tauri-apps/cli@2). On Windows the script resolves
+npx via shutil.which (npx.cmd). Unset CI if the CLI complains about --ci.
 """
 
 from __future__ import annotations
@@ -19,10 +19,22 @@ from __future__ import annotations
 import argparse
 import os
 import secrets
+import shutil
 import string
 import subprocess
 import sys
 from pathlib import Path
+
+
+def resolve_npx() -> str:
+    """Windows: subprocess needs the real npx.cmd path; bare 'npx' is not a valid Win32 executable."""
+    for name in ("npx", "npx.cmd"):
+        path = shutil.which(name)
+        if path:
+            return path
+    raise FileNotFoundError(
+        "npx not found on PATH. Install Node.js (https://nodejs.org/) and reopen your terminal."
+    )
 
 
 def hub_root() -> Path:
@@ -43,7 +55,7 @@ def run_signer_generate(key_path: Path, password: str) -> None:
     key_path.parent.mkdir(parents=True, exist_ok=True)
     hub = hub_root()
     cmd = [
-        "npx",
+        resolve_npx(),
         "@tauri-apps/cli@2",
         "signer",
         "generate",
