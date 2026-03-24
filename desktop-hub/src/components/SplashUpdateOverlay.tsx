@@ -1,19 +1,23 @@
 type Props = {
-  phase: "downloading" | "installing";
+  phase: "checking" | "opening" | "downloading" | "installing";
   version: string | null;
 };
 
 /**
- * Full-screen overlay during update download/install in the splash window.
- * Matches dice.express / vibeminer: centered card with spinner and message.
+ * Full-screen overlay during update check, download, and install in the splash window.
+ * Checking/opening phases are shown so cold-start updates are visibly triggered.
  */
 export default function SplashUpdateOverlay({ phase, version }: Props) {
   const label =
-    phase === "downloading"
-      ? version
-        ? `Downloading v${version}…`
-        : "Downloading update…"
-      : "Installing… The app will be restarting in a moment.";
+    phase === "checking"
+      ? "Checking for updates…"
+      : phase === "opening"
+        ? "Starting…"
+        : phase === "downloading"
+          ? version
+            ? `Downloading v${version}…`
+            : "Downloading update…"
+          : "Installing… The app will be restarting in a moment.";
 
   return (
     <div

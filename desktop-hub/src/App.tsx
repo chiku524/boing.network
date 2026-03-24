@@ -18,6 +18,7 @@ import { IntroView } from "./components/IntroView";
 import { UpdateOverlay } from "./components/UpdateOverlay";
 import { HubFooter } from "./components/HubFooter";
 import { useUpdateCheck } from "./hooks/useUpdateCheck";
+import { isTauri } from "./lib/tauri";
 import { HomeView } from "./views/HomeView";
 import { EmbedView } from "./views/EmbedView";
 import { WelcomeView } from "./views/WelcomeView";
@@ -167,7 +168,7 @@ function App() {
     const label = view === "home" ? "Home" : NAV_ITEMS.find((n) => n.id === view)?.label ?? view;
     const title = view === "home" ? WINDOW_TITLE_BASE : `${label} — ${WINDOW_TITLE_BASE}`;
     document.title = title;
-    if (typeof (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !== "undefined") {
+    if (isTauri()) {
       void getCurrentWindow().setTitle(title).catch(() => {});
     }
   }, [phase, view]);

@@ -2,8 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check } from "@tauri-apps/plugin-updater";
 import type { UpdateStatus } from "../components/UpdateOverlay";
-
-const isTauri = typeof window !== "undefined" && typeof (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !== "undefined";
+import { isTauri } from "../lib/tauri";
 
 const CHECK_TIMEOUT_MS = 22_000;
 
@@ -41,7 +40,7 @@ export function useUpdateCheck() {
   }, []);
 
   const runCheck = useCallback(async (options?: UpdateCheckOptions): Promise<UpdateCheckResult> => {
-    if (!isTauri) return "proceed";
+    if (!isTauri()) return "proceed";
 
     if (upToDateTimerRef.current != null) {
       clearTimeout(upToDateTimerRef.current);

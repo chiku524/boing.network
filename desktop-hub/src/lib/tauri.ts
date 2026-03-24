@@ -1,4 +1,6 @@
-/** True when running inside Tauri (desktop app). */
-export const isTauri =
-  typeof window !== "undefined" &&
-  typeof (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !== "undefined";
+import { isTauri as isTauriRuntime } from "@tauri-apps/api/core";
+
+/** True when running inside the Tauri webview (desktop). Uses the official runtime flag, not ad-hoc globals. */
+export function isTauri(): boolean {
+  return isTauriRuntime();
+}
