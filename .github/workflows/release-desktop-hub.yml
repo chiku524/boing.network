@@ -135,3 +135,45 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
+
+  # Copy signed latest.json to the website so the app can use a stable URL. GitHub's
+  # /releases/latest/ points at the newest *any* release; this repo also ships node
+  # binaries, so "latest" can drift away from desktop-hub and break auto-updates.
+  sync-updater-manifest-to-website:
+    name: Sync hub latest.json → website (boing.network/hub-updater)
+    needs: build-and-release
+    if: startsWith(github.ref, 'refs/tags/desktop-hub/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download latest.json from this hub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          mkdir -p /tmp/hub-updater
+          gh release download "$TAG" -R "${{ github.repository }}" -p latest.json -D /tmp/hub-updater
+          test -s /tmp/hub-updater/latest.json
+
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Commit manifest for Cloudflare Pages
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          mkdir -p website/public/hub-updater
+          cp /tmp/hub-updater/latest.json website/public/hub-updater/latest.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add website/public/hub-updater/latest.json
+          if git diff --staged --quiet; then
+            echo "No changes to latest.json"
+            exit 0
+          fi
+          git commit -m "chore(hub): sync updater manifest from ${TAG_NAME}"
+          git pull --rebase origin main
+          git push origin main

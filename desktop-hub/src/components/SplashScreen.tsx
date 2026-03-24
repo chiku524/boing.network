@@ -64,8 +64,9 @@ export function SplashScreen() {
           await relaunch();
           return;
         }
-      } catch {
-        // No updater config or network error: continue to app
+      } catch (err) {
+        // Missing capability (e.g. splash window not in updater scope), network, or verify errors — continue to app.
+        console.warn("[Boing Hub] Update check failed:", err);
       }
 
       if (cancelledRef.current) return;

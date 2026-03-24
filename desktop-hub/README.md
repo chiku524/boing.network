@@ -87,13 +87,15 @@ desktop-hub/
 
 ## Auto-updates
 
-The hub uses [Tauri’s updater plugin](https://v2.tauri.app/plugin/updater/): **Rust** (`tauri-plugin-updater` in `Cargo.toml` + `lib.rs`), **`tauri.conf.json`** (`bundle.createUpdaterArtifacts`, `plugins.updater.pubkey` + `endpoints`), and **capabilities** (`updater:default`).
+The hub uses [Tauri’s updater plugin](https://v2.tauri.app/plugin/updater/): **Rust** (`tauri-plugin-updater` in `Cargo.toml` + `lib.rs`), **`tauri.conf.json`** (`bundle.createUpdaterArtifacts`, `plugins.updater.pubkey` + `endpoints`), and **capabilities** (`updater:default` on **both** `main` and `splashscreen` — the cold-start check runs in the splash window).
 
 - On first launch (after intro), the app checks for updates with a **network timeout** so offline or slow networks do not hang indefinitely.
 - **Settings → Check for updates** shows **“You’re on the latest version”** when nothing newer is available, or a **dismissible error** if the check fails.
 - When an update is found, the UI shows progress; after install, **`tauri-plugin-process`** relaunches the app (Windows uses **passive** install mode by default).
 
-**Update manifest URL:** `plugins.updater.endpoints` points at GitHub’s `…/releases/latest/download/latest.json`. That file is uploaded by [`tauri-action`](../.github/workflows/release-desktop-hub.yml) when builds are signed. Ensure the **latest** GitHub Release is a desktop-hub release when you ship hub updates (or publish `latest.json` from another HTTPS URL you control and change the endpoint).
+**Update manifest URLs:** Primary endpoint is **`https://boing.network/hub-updater/latest.json`** (copied from each hub GitHub Release by CI so it stays correct even when this repo’s GitHub “latest” release is not the desktop app). Fallback: `…/releases/latest/download/latest.json`.
+
+After each **`desktop-hub/v*`** release, the workflow **sync-updater-manifest-to-website** downloads that tag’s `latest.json` into **`website/public/hub-updater/latest.json`** and pushes to `main`. If that push fails (e.g. branch protection), allow **GitHub Actions** to push to `main` or use a token with bypass.
 
 **Signing:** Updates are signed with a minisign keypair. The **public** key is in `tauri.conf.json`. The **private** key must **never** be committed (`desktop-hub/.tauri/` is gitignored). Release CI reads it from GitHub Secrets (see below). To generate a new pair locally (empty password example):
 
