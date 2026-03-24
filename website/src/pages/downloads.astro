@@ -121,6 +121,7 @@ try {
 
     <section class="downloads-section full-width">
       <div class="downloads-section-inner">
+        <div class="downloads-hub-panel">
         <h2 class="downloads-app-title">
           <span class="downloads-app-icon" aria-hidden="true">◇</span>
           Boing Network Hub
@@ -160,6 +161,7 @@ try {
         <p class="downloads-fallback">
           Other architectures or formats? See the <a id="downloads-release-link" href={`${GITHUB_RELEASES_BASE}/tag/${hubTag}`} target="_blank" rel="noopener noreferrer">release page</a> for all assets.
         </p>
+        </div>
       </div>
     </section>
   </article>
@@ -250,8 +252,8 @@ try {
   .downloads-hero {
     padding: 4rem 0;
     text-align: center;
-    background: linear-gradient(180deg, rgba(0, 217, 255, 0.06) 0%, transparent 70%);
-    border-bottom: 1px solid var(--border-color);
+    background: transparent;
+    border-bottom: none;
   }
   .downloads-hero .stage-badge,
   .downloads-hero .downloads-title,
@@ -299,6 +301,13 @@ try {
   .downloads-section {
     padding: 3rem 0 2rem;
   }
+  .downloads-hub-panel {
+    background: linear-gradient(180deg, #0A1E2E 0%, #0D2E42 100%);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    padding: 1.5rem 1.5rem 1.75rem;
+    box-sizing: border-box;
+  }
   .downloads-app-title {
     font-size: 1.35rem;
     font-weight: 700;
@@ -342,20 +351,22 @@ try {
     display: block;
     min-width: 0;
     padding: 0;
-    background: linear-gradient(180deg, #0A1E2E 0%, #0D2E42 100%);
-    border: 1px solid var(--border-color);
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 0.875rem;
     text-decoration: none;
     color: inherit;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
     cursor: pointer;
   }
   .download-card:hover {
-    border-color: rgba(0, 217, 255, 0.14);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 217, 255, 0.2);
+    background: rgba(0, 0, 0, 0.12);
+    box-shadow: none;
   }
   .download-card:active {
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.03);
+    background: rgba(0, 0, 0, 0.18);
+    box-shadow: none;
   }
   .download-card-content {
     display: flex;
@@ -417,6 +428,7 @@ try {
     .downloads-section-inner { padding: 0 1.25rem; }
     .downloads-hero { padding: 3rem 0; }
     .downloads-section { padding: 2rem 0 3rem; }
+    .downloads-hub-panel { padding: 1.25rem 1.15rem 1.5rem; }
     .downloads-cards { grid-template-columns: 1fr; }
   }
 </style>
