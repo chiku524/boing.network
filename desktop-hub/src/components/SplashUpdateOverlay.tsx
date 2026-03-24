@@ -1,3 +1,5 @@
+import { BoingLoaderDots } from "./BoingLoaderDots";
+
 type Props = {
   phase: "checking" | "opening" | "downloading" | "installing";
   version: string | null;
@@ -31,7 +33,9 @@ export default function SplashUpdateOverlay({ phase, version }: Props) {
           <img src="/favicon.svg" alt="" width={56} height={56} />
         </div>
         <p className="splash-update-overlay__name">Boing Network Hub</p>
-        <div className="splash-update-overlay__spinner" aria-hidden />
+        <div className="splash-update-overlay__loader">
+          <BoingLoaderDots size="lg" />
+        </div>
         <p className="splash-update-overlay__message">{label}</p>
       </div>
     </div>

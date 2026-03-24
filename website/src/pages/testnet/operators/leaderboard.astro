@@ -2,6 +2,7 @@
 import Layout from '../../../layouts/Layout.astro';
 import Breadcrumbs from '../../../components/Breadcrumbs.astro';
 import HubNav from '../../../components/HubNav.astro';
+import BoingLoader from '../../../components/BoingLoader.astro';
 import { TESTNET_RPC_URL, BOOTNODES, isTestnetLive } from '../../../config/testnet';
 import '../../../styles/hub-common.css';
 ---
@@ -45,7 +46,9 @@ import '../../../styles/hub-common.css';
         </thead>
         <tbody id="leaderboard-tbody">
           <tr id="leaderboard-placeholder-row">
-            <td colspan="4" style="text-align: center; color: var(--text-tertiary); padding: 2rem;">Loading…</td>
+            <td colspan="4" class="leaderboard-loading-cell">
+              <BoingLoader block label="Loading leaderboard" />
+            </td>
           </tr>
         </tbody>
       </table>

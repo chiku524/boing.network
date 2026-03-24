@@ -784,19 +784,6 @@
   .hub-rank-badge { animation: none; }
 }
 
-/* Hub empty state (e.g. no dApps yet) */
+/* Hub empty state (e.g. no dApps yet) — loader from boing-loader.css */
 .hub-empty-state { position: relative; }
 .hub-empty-state__visual { text-align: center; margin-top: 1rem; }
-.hub-empty-state__icon {
-  display: inline-block;
-  font-size: 2.5rem;
-  color: rgba(0, 217, 255, 0.4);
-  animation: hub-empty-spin 4s linear infinite;
-}
-@keyframes hub-empty-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .hub-empty-state__icon { animation: none; }
-}

@@ -40,7 +40,14 @@ import { TESTNET_RPC_URL } from '../../config/testnet';
         placeholder="0x..."
         maxlength="66"
       />
-      <button id="request-btn" type="button" aria-busy="false">Request 1,000 testnet BOING</button>
+      <button id="request-btn" type="button" aria-busy="false">
+        <span class="faucet-btn-inner">
+          <span class="faucet-btn-label">Request 1,000 testnet BOING</span>
+          <span class="boing-loader boing-loader--sm faucet-inline-loader" hidden aria-hidden="true">
+            <span class="boing-loader__dot"></span><span class="boing-loader__dot"></span><span class="boing-loader__dot"></span>
+          </span>
+        </span>
+      </button>
       <p id="message" class="message" aria-live="polite" data-state=""></p>
     </section>
 
@@ -67,6 +74,8 @@ import { TESTNET_RPC_URL } from '../../config/testnet';
     const accountInput = document.getElementById('account-id') as HTMLInputElement;
     const btn = document.getElementById('request-btn') as HTMLButtonElement;
     const messageEl = document.getElementById('message') as HTMLParagraphElement;
+    const faucetLabel = btn?.querySelector('.faucet-btn-label');
+    const faucetLoader = btn?.querySelector('.faucet-inline-loader') as HTMLElement | null;
 
     // Prefill account ID from ?address= (e.g. from boing.observer or wallet deep link)
     const params = new URLSearchParams(window.location.search);
@@ -100,6 +109,8 @@ import { TESTNET_RPC_URL } from '../../config/testnet';
 
       btn.disabled = true;
       btn.setAttribute('aria-busy', 'true');
+      if (faucetLabel) (faucetLabel as HTMLElement).textContent = 'Requesting…';
+      if (faucetLoader) faucetLoader.hidden = false;
       setMessage('Requesting…');
 
       try {
@@ -129,6 +140,11 @@ import { TESTNET_RPC_URL } from '../../config/testnet';
       } finally {
         btn.disabled = false;
         btn.setAttribute('aria-busy', 'false');
+        if (faucetLabel) (faucetLabel as HTMLElement).textContent = 'Request 1,000 testnet BOING';
+        if (faucetLoader) {
+          faucetLoader.hidden = true;
+          faucetLoader.setAttribute('aria-hidden', 'true');
+        }
       }
     });
   })();
@@ -189,23 +205,17 @@ import { TESTNET_RPC_URL } from '../../config/testnet';
   .faucet-form button[aria-busy="true"] {
     position: relative;
   }
-  .faucet-form button[aria-busy="true"]::after {
-    content: '';
-    display: inline-block;
-    width: 0.9em;
-    height: 0.9em;
-    margin-left: 0.5em;
-    vertical-align: middle;
-    border: 2px solid currentColor;
-    border-right-color: transparent;
-    border-radius: 50%;
-    animation: faucet-spin 0.6s linear infinite;
+  .faucet-btn-inner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
   }
-  @keyframes faucet-spin {
-    to { transform: rotate(360deg); }
+  .faucet-inline-loader[hidden] {
+    display: none !important;
   }
-  @media (prefers-reduced-motion: reduce) {
-    .faucet-form button[aria-busy="true"]::after { animation: none; opacity: 0.7; }
+  .faucet-inline-loader:not([hidden]) {
+    display: inline-flex !important;
   }
   .message { margin-top: 1rem; min-height: 1.5em; font-size: 0.95rem; }
   .message[data-state="success"] { color: var(--accent-teal); font-weight: 500; }

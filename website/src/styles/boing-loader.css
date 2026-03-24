@@ -1,0 +1,107 @@
+/* Boing — bouncy three-dot loader (website + portal; markup matches desktop hub) */
+
+.boing-loader-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.boing-loader-wrap--block {
+  justify-content: center;
+  padding: 1rem 0;
+}
+
+.boing-loader {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.4em;
+  height: 1.25em;
+  font-size: 10px;
+  color: var(--accent-teal, #00d9ff);
+  vertical-align: middle;
+}
+
+.boing-loader--sm {
+  font-size: 8px;
+  gap: 0.35em;
+  height: 1.1em;
+}
+
+.boing-loader--lg {
+  font-size: 12px;
+  gap: 0.45em;
+  height: 1.45em;
+}
+
+.boing-loader--block {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+}
+
+.boing-loader__dot {
+  width: 1em;
+  height: 1em;
+  min-width: 6px;
+  min-height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.92;
+  will-change: transform;
+  animation: boing-loader-dot 0.88s cubic-bezier(0.33, 1, 0.68, 1) infinite;
+  transform-origin: center bottom;
+}
+
+.boing-loader__dot:nth-child(2) {
+  animation-delay: 0.14s;
+}
+
+.boing-loader__dot:nth-child(3) {
+  animation-delay: 0.28s;
+}
+
+@keyframes boing-loader-dot {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, -0.9em, 0) scale(1.08);
+  }
+}
+
+.boing-loader__caption {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-tertiary, rgba(240, 244, 248, 0.65));
+  text-align: center;
+}
+
+.hub-empty-state__visual .boing-loader {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.leaderboard-loading-cell {
+  text-align: center;
+  vertical-align: middle;
+  padding: 2rem !important;
+  color: var(--text-tertiary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boing-loader__dot {
+    animation: none;
+  }
+  .boing-loader__dot:nth-child(1) {
+    opacity: 1;
+  }
+  .boing-loader__dot:nth-child(2) {
+    opacity: 0.72;
+  }
+  .boing-loader__dot:nth-child(3) {
+    opacity: 0.48;
+  }
+}

@@ -1,12 +1,13 @@
 import { useState, useCallback, useEffect } from "react";
 import { AppIcon } from "../components/AppIcons";
+import { BoingLoaderDots } from "../components/BoingLoaderDots";
 
 type Props = { url: string; title: string; appId: string };
 
 function LoadingSpinner() {
   return (
-    <div className="app-loading" aria-hidden>
-      <span className="app-loading-spinner" />
+    <div className="app-loading" role="status" aria-live="polite" aria-busy="true" aria-label="Loading app">
+      <BoingLoaderDots size="lg" />
       <span className="app-loading-text">Loading…</span>
     </div>
   );

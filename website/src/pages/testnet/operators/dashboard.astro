@@ -81,6 +81,8 @@ import '../../../styles/hub-common.css';
 <script is:inline src="/portal-session.js"></script>
 <script>
   (function () {
+    var BL_ROW =
+      '<div class="boing-loader boing-loader--block" role="status" aria-live="polite" aria-label="Loading"><span class="boing-loader__dot"></span><span class="boing-loader__dot"></span><span class="boing-loader__dot"></span></div>';
     var expectedRole = 'node_operator';
     var session = window.BoingPortalSession && window.BoingPortalSession.getSession();
     var authEl = document.getElementById('portal-auth');
@@ -116,7 +118,7 @@ import '../../../styles/hub-common.css';
     function loadDashboard(hex) {
       if (!loadBtn || !registrationContent) return;
       loadBtn.textContent = 'Loading…';
-      registrationContent.innerHTML = '<p>Loading…</p>';
+      registrationContent.innerHTML = BL_ROW;
       fetch('/api/portal/me?account_id_hex=' + encodeURIComponent(hex))
         .then(function (res) { return res.json().catch(function () { return {}; }); })
         .then(function (data) {

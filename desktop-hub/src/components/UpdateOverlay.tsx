@@ -1,3 +1,5 @@
+import { BoingLoaderDots } from "./BoingLoaderDots";
+
 export type UpdateStatus =
   | { phase: "idle" }
   | { phase: "checking" }
@@ -15,7 +17,7 @@ type Props = {
   onDismissError?: () => void;
 };
 
-/** VibeMiner-style overlay: full-screen blur, centered card with icon, spinner, and phase label. */
+/** VibeMiner-style overlay: full-screen blur, centered card with icon, bouncy loader, and phase label. */
 export function UpdateOverlay({ status, showCheckingWhenIdle, onDismissError }: Props) {
   if (status.phase === "uptodate") {
     return (
@@ -71,7 +73,9 @@ export function UpdateOverlay({ status, showCheckingWhenIdle, onDismissError }: 
           <img src="/favicon.svg" alt="" className="update-overlay__icon-img" />
         </div>
         <p className="update-overlay__title">Boing Network Hub</p>
-        <div className="update-overlay__spinner" aria-hidden="true" />
+        <div className="update-overlay__loader">
+          <BoingLoaderDots />
+        </div>
         <p className="update-overlay__message">{label}</p>
         {(status.phase === "downloading" || status.phase === "installing") && (
           <div className="update-overlay__progress-wrap">

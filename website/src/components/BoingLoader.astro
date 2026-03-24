@@ -1,0 +1,31 @@
+---
+/**
+ * Springy three-dot loading indicator. Requires global `boing-loader.css` (imported from Layout).
+ */
+interface Props {
+  size?: 'sm' | 'md' | 'lg';
+  /** Center in a block with vertical padding */
+  block?: boolean;
+  /** Accessible name (not shown unless caption is set) */
+  label?: string;
+  /** Optional visible text under the dots */
+  caption?: string;
+  class?: string;
+}
+const { size = 'md', block = false, label = 'Loading', caption, class: className } = Astro.props;
+const sizeClass = size === 'sm' ? 'boing-loader--sm' : size === 'lg' ? 'boing-loader--lg' : '';
+---
+
+<div class:list={['boing-loader-wrap', block && 'boing-loader-wrap--block', className]}>
+  <div
+    class:list={['boing-loader', sizeClass, block && 'boing-loader--block']}
+    role="status"
+    aria-live="polite"
+    aria-label={label}
+  >
+    <span class="boing-loader__dot"></span>
+    <span class="boing-loader__dot"></span>
+    <span class="boing-loader__dot"></span>
+  </div>
+  {caption && <p class="boing-loader__caption">{caption}</p>}
+</div>

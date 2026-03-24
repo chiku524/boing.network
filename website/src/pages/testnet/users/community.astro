@@ -2,6 +2,7 @@
 import Layout from '../../../layouts/Layout.astro';
 import Breadcrumbs from '../../../components/Breadcrumbs.astro';
 import HubNav from '../../../components/HubNav.astro';
+import BoingLoader from '../../../components/BoingLoader.astro';
 import { QUESTS } from '../../../config/quests';
 import '../../../styles/hub-common.css';
 ---
@@ -32,7 +33,7 @@ import '../../../styles/hub-common.css';
         </div>
         <div id="quest-chart" class="testnet-chart-bars" style="display: none;"></div>
         <div id="quest-stats-wrap" class="dashboard-placeholder">
-          <p>Loading…</p>
+          <BoingLoader block label="Loading quest stats" />
         </div>
       </section>
 

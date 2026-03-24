@@ -137,20 +137,10 @@
   color: transparent;
 }
 
-.splash-update-overlay__spinner {
-  width: 28px;
-  height: 28px;
+.splash-update-overlay__loader {
   margin-top: 1rem;
-  border: 2px solid var(--accent-teal);
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: splash-spinner 0.8s linear infinite;
-}
-
-@keyframes splash-spinner {
-  to {
-    transform: rotate(360deg);
-  }
+  display: flex;
+  justify-content: center;
 }
 
 .splash-update-overlay__message {
