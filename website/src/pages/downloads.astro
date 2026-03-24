@@ -122,37 +122,34 @@ try {
     <section class="downloads-section full-width">
       <div class="downloads-section-inner">
         <div class="downloads-hub-panel">
-        <h2 class="downloads-app-title">
-          <span class="downloads-app-icon" aria-hidden="true">◇</span>
-          Boing Network Hub
-        </h2>
-        <p class="downloads-app-desc">All-in-one desktop app (Tauri 2): Observer, Wallet, Finance, and Testnet in one window. Windows, macOS, and Linux.</p>
-        <p id="downloads-hub-version" class="downloads-version">Version {hubVersion} · <a href={`${GITHUB_RELEASES_BASE}/tag/${hubTag}`} target="_blank" rel="noopener noreferrer" class="downloads-release-link">Release</a></p>
+          <h2 class="downloads-app-title">
+            <span class="downloads-app-icon" aria-hidden="true">◇</span>
+            Boing Network Hub
+          </h2>
+          <p class="downloads-app-desc">All-in-one desktop app (Tauri 2): Observer, Wallet, Finance, and Testnet in one window. Windows, macOS, and Linux.</p>
+          <p id="downloads-hub-version" class="downloads-version">Version {hubVersion} · <a href={`${GITHUB_RELEASES_BASE}/tag/${hubTag}`} target="_blank" rel="noopener noreferrer" class="downloads-release-link">Release</a></p>
+        </div>
 
         <div id="downloads-hub-list" class="downloads-cards" role="list">
           {useApiAssets
             ? apiAssets.map((item) => (
                 <a href={item.url} class="download-card" download={item.name} rel="noopener noreferrer" title={item.name} role="listitem">
-                  <div class="download-card-content">
-                    <span class="download-platform">{item.platform}</span>
-                    <h3 class="download-card-title">{item.label}</h3>
-                    {item.note && <span class="download-note">{item.note}</span>}
-                    <p class="download-description">{item.description || 'Download for your platform'}</p>
-                    <span class="download-cta">Download →</span>
-                  </div>
+                  <span class="download-platform">{item.platform}</span>
+                  <h3 class="download-card-title">{item.label}</h3>
+                  {item.note && <span class="download-note">{item.note}</span>}
+                  <p class="download-description">{item.description || 'Download for your platform'}</p>
+                  <span class="download-cta">Download →</span>
                 </a>
               ))
             : FALLBACK_DOWNLOADS.map((item) => {
                 const url = directDownload(FALLBACK_TAG, item.filename);
                 return (
                   <a href={url} class="download-card" download={item.filename} rel="noopener noreferrer" role="listitem">
-                    <div class="download-card-content">
-                      <span class="download-platform">{item.platform}</span>
-                      <h3 class="download-card-title">{item.label}</h3>
-                      {item.note && <span class="download-note">{item.note}</span>}
-                      <p class="download-description">{item.description}</p>
-                      <span class="download-cta">Download →</span>
-                    </div>
+                    <span class="download-platform">{item.platform}</span>
+                    <h3 class="download-card-title">{item.label}</h3>
+                    {item.note && <span class="download-note">{item.note}</span>}
+                    <p class="download-description">{item.description}</p>
+                    <span class="download-cta">Download →</span>
                   </a>
                 );
               })}
@@ -161,7 +158,6 @@ try {
         <p class="downloads-fallback">
           Other architectures or formats? See the <a id="downloads-release-link" href={`${GITHUB_RELEASES_BASE}/tag/${hubTag}`} target="_blank" rel="noopener noreferrer">release page</a> for all assets.
         </p>
-        </div>
       </div>
     </section>
   </article>
@@ -224,7 +220,7 @@ try {
           listEl.innerHTML = sorted
             .map(
               (a) =>
-                `<a href="${escUrl(a.browser_download_url)}" class="download-card" download="${esc(a.name)}" rel="noopener noreferrer" title="${esc(a.name)}" role="listitem"><div class="download-card-content"><span class="download-platform">${esc(a.platform)}</span><h3 class="download-card-title">${esc(a.label)}</h3>${a.note ? `<span class="download-note">${esc(a.note)}</span>` : ''}<p class="download-description">${esc(a.description || 'Download for your platform')}</p><span class="download-cta">Download →</span></div></a>`
+                `<a href="${escUrl(a.browser_download_url)}" class="download-card" download="${esc(a.name)}" rel="noopener noreferrer" title="${esc(a.name)}" role="listitem"><span class="download-platform">${esc(a.platform)}</span><h3 class="download-card-title">${esc(a.label)}</h3>${a.note ? `<span class="download-note">${esc(a.note)}</span>` : ''}<p class="download-description">${esc(a.description || 'Download for your platform')}</p><span class="download-cta">Download →</span></a>`
             )
             .join('');
         })
@@ -329,7 +325,7 @@ try {
   .downloads-version {
     font-size: 0.9rem;
     color: var(--text-tertiary);
-    margin: 0 0 1.5rem;
+    margin: 0;
   }
   .downloads-release-link {
     color: var(--accent-teal);
@@ -342,15 +338,21 @@ try {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
     gap: 1rem 1.25rem;
-    margin: 0 0 1.5rem;
+    margin: 1.25rem 0 1.5rem;
     list-style: none;
     padding: 0;
     align-items: stretch;
   }
   .download-card {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
     min-width: 0;
-    padding: 0;
+    min-height: 0;
+    height: 100%;
+    padding: 1.25rem;
+    box-sizing: border-box;
     background: transparent;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 0.875rem;
@@ -367,15 +369,6 @@ try {
   .download-card:active {
     background: rgba(0, 0, 0, 0.18);
     box-shadow: none;
-  }
-  .download-card-content {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-    padding: 1.25rem;
-    height: 100%;
-    box-sizing: border-box;
   }
   .download-platform {
     font-size: 0.7rem;
