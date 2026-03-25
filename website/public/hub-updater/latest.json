@@ -1,51 +1,51 @@
 {
-  "version": "0.1.21",
+  "version": "0.1.22",
   "notes": "All-in-one desktop app: Observer, Wallet, Finance, Testnet. Direct downloads at https://boing.network/downloads",
-  "pub_date": "2026-03-25T11:11:58.484Z",
+  "pub_date": "2026-03-25T20:21:35.518Z",
   "platforms": {
-    "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURXdLa29TaFhTVWcxTEdIaG1SMEwyS29XcWRPaE42dkUyVkZuOEpLUmlJSFhwMC96TkNDRUR1YnZwVzVZbWtBRWNCRnI2Z2tTVFQ1WnJlWFRRVGwrQ0FJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDM2OTA3CWZpbGU6Qm9pbmcgTmV0d29yayBIdWIuYXBwLnRhci5negpSVXNpa0d2VUFocklqbEhWdWh6S2hPeWk0cE1DbERIbEtzMDNsTmI2Zk1FTER6c0F4djNvTnh0ejBMMkN5SjZZNFNDdUpoZWRneVNnd3VCT3UvbGpEdz09Cg==",
-      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.21/Boing.Network.Hub_aarch64.app.tar.gz"
-    },
-    "darwin-aarch64-app": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURXdLa29TaFhTVWcxTEdIaG1SMEwyS29XcWRPaE42dkUyVkZuOEpLUmlJSFhwMC96TkNDRUR1YnZwVzVZbWtBRWNCRnI2Z2tTVFQ1WnJlWFRRVGwrQ0FJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDM2OTA3CWZpbGU6Qm9pbmcgTmV0d29yayBIdWIuYXBwLnRhci5negpSVXNpa0d2VUFocklqbEhWdWh6S2hPeWk0cE1DbERIbEtzMDNsTmI2Zk1FTER6c0F4djNvTnh0ejBMMkN5SjZZNFNDdUpoZWRneVNnd3VCT3UvbGpEdz09Cg==",
-      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.21/Boing.Network.Hub_aarch64.app.tar.gz"
-    },
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURXpCY3RuNmZDY0hCd2FyN2hHamNqTS9MUk9TY0V6TzBlcFJPOXYzSlVRV3JpWWh6N3ZBcDN5SVg1L0tVUVQzeGd6TjRXRE9OcHFVaTRBaDAyRGQ1VUFZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDM2OTQ2CWZpbGU6Qm9pbmcgTmV0d29yayBIdWIuYXBwLnRhci5negozQ0l6S2U2T3p6Q3FRa3phczZkQks5blo1OXRBMkFYRTYva0FYc3BnVC9kTForQzVPS2EzRnJLakZUVjdqSHJRb0dleFM4LzlGMzdlZ09tVkxaV2tDQT09Cg==",
-      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.21/Boing.Network.Hub_x64.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURXdlZTB1T2p2dmRWb0tEbHMvVzJpNmhhVG9DZ0dSQWc5Mjd1amJOTGtYN3dCdlBwcHpOU04yNVc3Z0c3czVsazhYSFVFY3hEUGVZTEVtT1lYRm4yV0FNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDY5ODkzCWZpbGU6Qm9pbmcgTmV0d29yayBIdWIuYXBwLnRhci5negpaTXZKdkdPeis0VVZaRWJNdnV1c2xqUEhwZ0xobWIvUDcxeXUxV0MxeXJldTlESStpQ3lLR20wN2pKa1RaeDNZRmhhRDJMWnBMblFhelY3RlN4RnJEZz09Cg==",
+      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.22/Boing.Network.Hub_x64.app.tar.gz"
     },
     "darwin-x86_64-app": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURXpCY3RuNmZDY0hCd2FyN2hHamNqTS9MUk9TY0V6TzBlcFJPOXYzSlVRV3JpWWh6N3ZBcDN5SVg1L0tVUVQzeGd6TjRXRE9OcHFVaTRBaDAyRGQ1VUFZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDM2OTQ2CWZpbGU6Qm9pbmcgTmV0d29yayBIdWIuYXBwLnRhci5negozQ0l6S2U2T3p6Q3FRa3phczZkQks5blo1OXRBMkFYRTYva0FYc3BnVC9kTForQzVPS2EzRnJLakZUVjdqSHJRb0dleFM4LzlGMzdlZ09tVkxaV2tDQT09Cg==",
-      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.21/Boing.Network.Hub_x64.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURXdlZTB1T2p2dmRWb0tEbHMvVzJpNmhhVG9DZ0dSQWc5Mjd1amJOTGtYN3dCdlBwcHpOU04yNVc3Z0c3czVsazhYSFVFY3hEUGVZTEVtT1lYRm4yV0FNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDY5ODkzCWZpbGU6Qm9pbmcgTmV0d29yayBIdWIuYXBwLnRhci5negpaTXZKdkdPeis0VVZaRWJNdnV1c2xqUEhwZ0xobWIvUDcxeXUxV0MxeXJldTlESStpQ3lLR20wN2pKa1RaeDNZRmhhRDJMWnBMblFhelY3RlN4RnJEZz09Cg==",
+      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.22/Boing.Network.Hub_x64.app.tar.gz"
     },
-    "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURTM0TC9BWEo3ai8wZzQ2M0ZieHVQdkgyVE1uZml1bXcvNVV1R3MxaG41RmppZzUxM2ZkZmd5MWhDMFlYQVRLc0dLbzMzaHZyaElLU3h2djVvM0pZa3dFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDM3MDc2CWZpbGU6Qm9pbmcgTmV0d29yayBIdWJfMC4xLjIxX2FtZDY0LkFwcEltYWdlCklKUEdQT1JXbmFiSFVvYlQwaVZaUGFtb1NjLzlIanQ1NGwzUldKTnVSZm0xbzZ4T2hUQlVhNEhwbEEvdndINDcxamtjamV4MDBoeEliYmRHZk5jSkFnPT0K",
-      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.21/Boing.Network.Hub_0.1.21_amd64.AppImage"
+    "darwin-aarch64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURThaa2diaEk1aXdOWUZSUUtlRmlqVU9FZ0J5Wm92RW4yL3I5Z0dnRGxRajc2QmVGZmVwbFkyMUdTYWJHVmFEMTFrS3I5RTltbUljSm4zajJ4Qm1ZWHdrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDY5OTM5CWZpbGU6Qm9pbmcgTmV0d29yayBIdWIuYXBwLnRhci5negp0bUl3Tk9MQTF0eUtYeXFOVkh2d1lqdW05ckhqbEY0SnRFMDVGN1lWS1l5Z05qNzREb2VUelVocjZTdS80dVFqWDluNDQvRU9oc2V3eFV6TDA5TE5Bdz09Cg==",
+      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.22/Boing.Network.Hub_aarch64.app.tar.gz"
     },
-    "linux-x86_64-appimage": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURTM0TC9BWEo3ai8wZzQ2M0ZieHVQdkgyVE1uZml1bXcvNVV1R3MxaG41RmppZzUxM2ZkZmd5MWhDMFlYQVRLc0dLbzMzaHZyaElLU3h2djVvM0pZa3dFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDM3MDc2CWZpbGU6Qm9pbmcgTmV0d29yayBIdWJfMC4xLjIxX2FtZDY0LkFwcEltYWdlCklKUEdQT1JXbmFiSFVvYlQwaVZaUGFtb1NjLzlIanQ1NGwzUldKTnVSZm0xbzZ4T2hUQlVhNEhwbEEvdndINDcxamtjamV4MDBoeEliYmRHZk5jSkFnPT0K",
-      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.21/Boing.Network.Hub_0.1.21_amd64.AppImage"
-    },
-    "linux-x86_64-deb": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURTRtWWN1NXRMVWIwVmM4K2wzZFR6aGs1azVaWnFYWWNiaW9NWDE1SklpMkQxb3NScEZDYUl2QWNQQitQS3BQclIxc1VFU29JQS9NU0g0TEQyUzhtSVFFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDM3MDc2CWZpbGU6Qm9pbmcgTmV0d29yayBIdWJfMC4xLjIxX2FtZDY0LmRlYgpna3BnbFIxWVozQjBOSEVjMHViaFFRb3NrNzkwNTI2bVJCVUl0ajFQNUpwUG9mZGtYcFM3cDVuVTNBMkQ4VmpnaU1EWkRLQUpVZGZuZUJrclkwN2RBZz09Cg==",
-      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.21/Boing.Network.Hub_0.1.21_amd64.deb"
-    },
-    "linux-x86_64-rpm": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURXdOdmdpU1cydnlNRFpTZU96TkkwL0grbFhWRVl2ejZYeCt5LzRHTUNlNE5haTVQdVhibm1tcURoTU9VOWloMFpsNzN0WlpQdm15b2EvRS9jdUt0cnc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDM3MDc2CWZpbGU6Qm9pbmcgTmV0d29yayBIdWItMC4xLjIxLTEueDg2XzY0LnJwbQpJbS9vTE0wdDF4M2I0UVNTanAxcEVwVmVPU2VpUWRQSE9yNUZ6OXk1T0lIRmhIYnFZS1NuUVZUZ1VmZWIyaXNYb0tOemUrSXhGcEdVOHBaQlBSNStCZz09Cg==",
-      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.21/Boing.Network.Hub-0.1.21-1.x86_64.rpm"
+    "darwin-aarch64-app": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURThaa2diaEk1aXdOWUZSUUtlRmlqVU9FZ0J5Wm92RW4yL3I5Z0dnRGxRajc2QmVGZmVwbFkyMUdTYWJHVmFEMTFrS3I5RTltbUljSm4zajJ4Qm1ZWHdrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDY5OTM5CWZpbGU6Qm9pbmcgTmV0d29yayBIdWIuYXBwLnRhci5negp0bUl3Tk9MQTF0eUtYeXFOVkh2d1lqdW05ckhqbEY0SnRFMDVGN1lWS1l5Z05qNzREb2VUelVocjZTdS80dVFqWDluNDQvRU9oc2V3eFV6TDA5TE5Bdz09Cg==",
+      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.22/Boing.Network.Hub_aarch64.app.tar.gz"
     },
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURTVweFl3TStsTXBhVDYwMnFWSHg4MlpHUnNKeHNCc2NWQnlyaFVOc25MMVUyRCswTjJKLy9PcWtuaEZKM2lSRjBkNTNjVEVhTkdPMkxKR0RSdGRpSkFvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDM3MTE1CWZpbGU6Qm9pbmcgTmV0d29yayBIdWJfMC4xLjIxX3g2NF9lbi1VUy5tc2kKdGRlS2MvK2J2ejZsSDJxSGEvWnZoVjQyUFFrTHhjbVM2UG9reWt0OEN4dzd0cDR6ZTM2SE1HVHhEQncrcGlTbFcxV3JKdlNEbnNkTGl2VHEyL1dqRFE9PQo=",
-      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.21/Boing.Network.Hub_0.1.21_x64_en-US.msi"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURTB0MjE5T0lqcUVRRDdLS1F2clJndFBHSWlzMEQwVHloK3FkODJBaElMaFg0QzFVbVU5MkIyeXMvVkZYQkdKVFBnSHN3VWhqSHUrbTg0eWhUblNLTWc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDcwMDI4CWZpbGU6Qm9pbmcgTmV0d29yayBIdWJfMC4xLjIyX3g2NF9lbi1VUy5tc2kKSGxBNUxxcE9WaW1wL3FiSHp6QWg5WDhrdmZ1VUZmcGdhQU5tS01wb3NReEZ6VFgydnE5NUN3Ly9zNEtFdXZlMnJybExGbGQwV1BObUN6dnpzSnNZRGc9PQo=",
+      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.22/Boing.Network.Hub_0.1.22_x64_en-US.msi"
     },
     "windows-x86_64-msi": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURTVweFl3TStsTXBhVDYwMnFWSHg4MlpHUnNKeHNCc2NWQnlyaFVOc25MMVUyRCswTjJKLy9PcWtuaEZKM2lSRjBkNTNjVEVhTkdPMkxKR0RSdGRpSkFvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDM3MTE1CWZpbGU6Qm9pbmcgTmV0d29yayBIdWJfMC4xLjIxX3g2NF9lbi1VUy5tc2kKdGRlS2MvK2J2ejZsSDJxSGEvWnZoVjQyUFFrTHhjbVM2UG9reWt0OEN4dzd0cDR6ZTM2SE1HVHhEQncrcGlTbFcxV3JKdlNEbnNkTGl2VHEyL1dqRFE9PQo=",
-      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.21/Boing.Network.Hub_0.1.21_x64_en-US.msi"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURTB0MjE5T0lqcUVRRDdLS1F2clJndFBHSWlzMEQwVHloK3FkODJBaElMaFg0QzFVbVU5MkIyeXMvVkZYQkdKVFBnSHN3VWhqSHUrbTg0eWhUblNLTWc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDcwMDI4CWZpbGU6Qm9pbmcgTmV0d29yayBIdWJfMC4xLjIyX3g2NF9lbi1VUy5tc2kKSGxBNUxxcE9WaW1wL3FiSHp6QWg5WDhrdmZ1VUZmcGdhQU5tS01wb3NReEZ6VFgydnE5NUN3Ly9zNEtFdXZlMnJybExGbGQwV1BObUN6dnpzSnNZRGc9PQo=",
+      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.22/Boing.Network.Hub_0.1.22_x64_en-US.msi"
     },
     "windows-x86_64-nsis": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURXhEQUpaeDNLeGs5eExUYkFBMi9xMlRuOXFMVS9rd3M0ZnIyZXM0QTl3WUt2Nk5QeEtwSG1MT0pHT3IvT29ydW9FV0pCRFQzTmd4UURac0xxSm5NcWdvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDM3MTE1CWZpbGU6Qm9pbmcgTmV0d29yayBIdWJfMC4xLjIxX3g2NC1zZXR1cC5leGUKRnNtbjlKWFRvYWVVNUpLQjRUcnF0ZzFMemovdytWL1ZCNERmc283cUYrWkl0QmNTUldTWGpEZHVNOVNOa1QvMzU2cXZYV0plMTlMZmNLeFEyZlltQ1E9PQo=",
-      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.21/Boing.Network.Hub_0.1.21_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURTN4R3RhTXZEU0wxSC95V2YxQ0ZZUlUvUm9FbG4rQmowV1pHVGc0eCtiMVErb2ZIcUgvYUlWYi9qd1VxRG95MlZGWEtEQkJKQ2kzNTNyeWIxUmc1UVFFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDcwMDI4CWZpbGU6Qm9pbmcgTmV0d29yayBIdWJfMC4xLjIyX3g2NC1zZXR1cC5leGUKOU9oYjhMUUdYQjBjN0FycUJPbncvVlZFcCs3WFExZG51SlpScU1VdzlXMUU1NUNXMiswNno0aUF4QjBUcGJ1Y1FpbTVENE1LekpUSy81QTB3QWpVQ3c9PQo=",
+      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.22/Boing.Network.Hub_0.1.22_x64-setup.exe"
+    },
+    "linux-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURXdJbEVoZTJFcVcxcWxnbldjRkZrVnBkNnR4Z2VoaGtnQzNLK3BBQTJaT0pkVFFzOFFnZnRkUnpzNE1CVllCcHluemhpM0k4aUJWQzNUdDZDU0lPVEE4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDcwMDg3CWZpbGU6Qm9pbmcgTmV0d29yayBIdWJfMC4xLjIyX2FtZDY0LkFwcEltYWdlCmVCTnFyZW83VTViUzRuYzNkbzZ6VjFxK3FETGtzWk0rWkVuU1hpcGJuNFJScFAwaFZnUzJUMG9tam1wdWkzRG5hNlBGb2l2b1ZoYk16enJvRnp3eEFBPT0K",
+      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.22/Boing.Network.Hub_0.1.22_amd64.AppImage"
+    },
+    "linux-x86_64-appimage": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURXdJbEVoZTJFcVcxcWxnbldjRkZrVnBkNnR4Z2VoaGtnQzNLK3BBQTJaT0pkVFFzOFFnZnRkUnpzNE1CVllCcHluemhpM0k4aUJWQzNUdDZDU0lPVEE4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDcwMDg3CWZpbGU6Qm9pbmcgTmV0d29yayBIdWJfMC4xLjIyX2FtZDY0LkFwcEltYWdlCmVCTnFyZW83VTViUzRuYzNkbzZ6VjFxK3FETGtzWk0rWkVuU1hpcGJuNFJScFAwaFZnUzJUMG9tam1wdWkzRG5hNlBGb2l2b1ZoYk16enJvRnp3eEFBPT0K",
+      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.22/Boing.Network.Hub_0.1.22_amd64.AppImage"
+    },
+    "linux-x86_64-deb": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURThIaUh2WnlWTmJJNkpwVk5wc0dFUmtyaCtoVlV2S2d0Y3BTV1FnTHhwRzN1WlVSK0JuWGZnODFTYXE5L2l1b1JTaERjODNRUTk2QkFjQXo0b2pWYlFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDcwMDg3CWZpbGU6Qm9pbmcgTmV0d29yayBIdWJfMC4xLjIyX2FtZDY0LmRlYgo0S2Q2T0YrY3VzNk1PM1Z2d09hQ3Q2WFNSU0R6VHFmSmRwR1FyK3lJbGgra1UwLzdkSHpiaUhGV3NBUk93MytxeW56ZlVyTWFRTHRCdDZ4UmgyajNEQT09Cg==",
+      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.22/Boing.Network.Hub_0.1.22_amd64.deb"
+    },
+    "linux-x86_64-rpm": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbE4xOVFNM3JURXcvYW1LTi9HY2tkdGhYa3FkM1J4c3NXR29UMW4yaUR4MTA5SWwyRENvRlNpRElrSU9WZGxBK0Z5NnA5WjlCS3E5VVZaQ3VHRkNwNExrd2FXbk5oOVFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0NDcwMDg3CWZpbGU6Qm9pbmcgTmV0d29yayBIdWItMC4xLjIyLTEueDg2XzY0LnJwbQpuZm9KQjl2Wko5OHk2STBxd0dta0syc2xUM1IwblMzZ1J4bkFZSk44NDhQODNYeHBqMHJ2cXFYdE9PYmJnU3plNTV6TGNVTWRqZUZqc05XS1NuR2NEdz09Cg==",
+      "url": "https://github.com/chiku524/boing.network/releases/download/desktop-hub/v0.1.22/Boing.Network.Hub-0.1.22-1.x86_64.rpm"
     }
   }
 }
