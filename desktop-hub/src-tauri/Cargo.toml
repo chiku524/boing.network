@@ -1,6 +1,6 @@
 [package]
 name = "boing-network-hub"
-version = "0.1.19"
+version = "0.1.20"
 description = "Boing Network all-in-one desktop hub"
 authors = ["Boing Network"]
 license = ""
@@ -23,5 +23,17 @@ tauri-plugin-updater = "2"
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 
-[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+# Windows: vendored single-instance (see single_instance_windows.rs) — upstream can miss FindWindowW
+# during startup and incorrectly allow a second full instance.
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.60", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_DataExchange",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[target.'cfg(all(not(target_os = "android"), not(target_os = "ios"), not(target_os = "windows")))'.dependencies]
 tauri-plugin-single-instance = "2"

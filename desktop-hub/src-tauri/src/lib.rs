@@ -4,6 +4,9 @@ use tauri::{
     Manager, WindowEvent,
 };
 
+#[cfg(target_os = "windows")]
+mod single_instance_windows;
+
 #[tauri::command]
 async fn close_splash_and_show_main(app: tauri::AppHandle) -> Result<(), String> {
     let splash = app
@@ -107,7 +110,18 @@ fn main_window_close_to_tray(window: &tauri::Window, event: &WindowEvent) {
 pub fn run() {
     let mut builder = tauri::Builder::default();
 
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(target_os = "windows")]
+    {
+        builder = builder.plugin(single_instance_windows::init(|app, _args, _cwd| {
+            focus_running_hub_instance(app);
+        }));
+    }
+
+    #[cfg(all(
+        not(target_os = "android"),
+        not(target_os = "ios"),
+        not(target_os = "windows")
+    ))]
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             focus_running_hub_instance(app);
