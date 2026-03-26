@@ -31,8 +31,9 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # Build only node + CLI; skip desktop-hub (Tauri/GTK) which CI runners do not provision.
       - name: Build release
-        run: cargo build --release
+        run: cargo build --release -p boing-node -p boing-cli
 
       - name: Prepare artifacts (Unix)
         if: matrix.os != 'windows-latest'
