@@ -262,6 +262,28 @@ For full setup steps, see [INFRASTRUCTURE-SETUP.md](INFRASTRUCTURE-SETUP.md). If
 - **Faucet balance:** Check the faucet account balance via `boing_getBalance` with the faucet account ID; refill or alert when low (genesis funding is 10M; 1,000 per request).
 - **Bootnode reachability:** Ensure ports 4001 (P2P) and 8545 (RPC, if exposed) are reachable from the internet; use a simple TCP check or your monitoring stack.
 
+### 8.5 Log: `P2P: block publish error: InsufficientPeers` (Gossipsub)
+
+**What it means:** libp2p Gossipsub only forwards a published message to peers that have **advertised subscription** to the topic (`boing/blocks` / `boing/transactions`). Right after startup—or on very small networks—there can be a **short window** where you are connected (or still dialing) but **no peer is in `topic_peers` yet**, so `publish` returns `InsufficientPeers`.
+
+**What is *not* broken:** Local consensus already **committed** the block (you will see `Consensus: committed block` in the same trace). JSON-RPC, faucet, and wallet balance use the node’s local chain, not Gossipsub.
+
+**Propagation:** Other nodes can still obtain blocks via the **block request/response** protocol (`/boing/block-sync/1`) once they are connected; Gossipsub is an optimization for fan-out, not the only sync path.
+
+**If the second node never catches up:** Check bootnode multiaddrs, firewall **TCP 4001**, matching genesis, and that both sides run a build with the same network ID / chain config—not this warning alone.
+
+### 8.6 “Smart contracts”, boing.finance, and Boing devnet
+
+**Boing L1 today is not an EVM chain.** Execution uses the **Boing VM** (stack machine + opcodes in `crates/boing-execution`, bytecode QA in `boing-qa`). Contracts are deployed with on-chain **`ContractDeploy`** / called with **`ContractCall`** payloads inside Boing `Transaction`s, submitted as `boing_submitTransaction` (see `docs/RPC-API-SPEC.md`). There is **no** deployed `dexRouter` / `UniswapV2Factory` style **Solidity** surface on Boing testnet for **boing.finance** to talk to; that app’s **chain 6913** entries in `contracts.js` are placeholders (`0x000…`).
+
+**To get on-chain programs on devnet:**
+
+1. **Author bytecode** accepted by the protocol QA gate (see `docs/QUALITY-ASSURANCE-NETWORK.md` and mempool/RPC QA checks).
+2. **Build and sign** a `ContractDeploy` transaction with the Boing signing model (BLAKE3 + Ed25519 + bincode), or use tooling that outputs `boing_submitTransaction`-compatible hex (CLI/SDK as they mature).
+3. **Run nodes** with the same genesis and peer connectivity so blocks (and deploy txs) propagate.
+
+**To make boing.finance Swap / Deploy Token / pools work “on Boing”** you would need either: **(a)** a **separate EVM-compatible chain** (or rollup) with real factory/router addresses wired into `contracts.js`, or **(b)** a **large product effort** to implement Boing-native DEX logic against Boing RPC and the custom VM—not just filling `6913` with addresses on current Boing L1.
+
 ---
 
 *Boing Network — Authentic. Decentralized. Optimal. Sustainable.*

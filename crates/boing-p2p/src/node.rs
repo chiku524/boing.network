@@ -12,6 +12,7 @@ use libp2p::mdns::tokio::Behaviour as Mdns;
 use libp2p::request_response::{self, ProtocolSupport};
 use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
 use libp2p::StreamProtocol;
+use libp2p::gossipsub::PublishError;
 use libp2p::{gossipsub, SwarmBuilder};
 use tokio::sync::{mpsc, oneshot};
 use tracing::{info, warn};
@@ -173,8 +174,19 @@ impl P2pNode {
                                 if let Err(e) = bincode::serialize(&block) {
                                     warn!("P2P: block serialize error: {}", e);
                                 } else if let Ok(bytes) = bincode::serialize(&block) {
-                                    if let Err(e) = swarm.behaviour_mut().gossipsub.publish(blocks_topic.clone(), bytes) {
-                                        warn!("P2P: block publish error: {}", e);
+                                    if let Err(e) =
+                                        swarm.behaviour_mut().gossipsub.publish(blocks_topic.clone(), bytes)
+                                    {
+                                        // Gossipsub returns InsufficientPeers when no remote peer has advertised
+                                        // subscription to `boing/blocks` yet (common for a few heartbeats after
+                                        // connect). Local consensus and RPC are unaffected.
+                                        if matches!(e, PublishError::InsufficientPeers) {
+                                            tracing::debug!(
+                                                "P2P: block not gossip-published yet (InsufficientPeers); peers may still catch up via block-sync"
+                                            );
+                                        } else {
+                                            warn!("P2P: block publish error: {}", e);
+                                        }
                                     } else {
                                         info!("P2P: broadcast block height={}", block.header.height);
                                     }
@@ -182,8 +194,16 @@ impl P2pNode {
                             }
                             Some(BroadcastMsg::Transaction(tx)) => {
                                 if let Ok(bytes) = bincode::serialize(&tx) {
-                                    if let Err(e) = swarm.behaviour_mut().gossipsub.publish(txs_topic.clone(), bytes) {
-                                        warn!("P2P: tx publish error: {}", e);
+                                    if let Err(e) =
+                                        swarm.behaviour_mut().gossipsub.publish(txs_topic.clone(), bytes)
+                                    {
+                                        if matches!(e, PublishError::InsufficientPeers) {
+                                            tracing::debug!(
+                                                "P2P: tx not gossip-published yet (InsufficientPeers)"
+                                            );
+                                        } else {
+                                            warn!("P2P: tx publish error: {}", e);
+                                        }
                                     } else {
                                         info!("P2P: broadcast tx from {:?}", tx.sender);
                                     }
