@@ -14,14 +14,15 @@ GitHub Actions builds **`release-{linux-x86_64,macos-aarch64,windows-x86_64}.zip
    git push origin testnet-v0.1.3
    ```
 
-3. Wait for workflow **Release binaries** to finish. It opens a **draft** GitHub Release with the three zips attached.
-4. Review release notes, then **publish** the draft (required for public download URLs to work).
-5. Refresh Boing website D1 listing SHAs (from `website/`):
+3. Wait for workflow **Release binaries** to finish. For **`testnet*`** tags the workflow **publishes** the release immediately so `https://github.com/.../releases/download/<tag>/...` works. For **`v*`** tags it still creates a **draft** until you publish manually.
+4. If you ever see HTTP 404 from the refresh script, the release is almost certainly still a **draft** (or the workflow has not finished uploading). Open **GitHub → Releases** and click **Publish release** on the draft.
+5. Refresh Boing website D1 listing SHAs (either from repo root or `website/`):
 
    ```bash
+   # from repo root:
    node scripts/network-listings-release-sql.mjs testnet-v0.1.3
-   # then apply printed SQL or:
    node scripts/network-listings-release-sql.mjs testnet-v0.1.3 --apply
+   # or from website/: cd website && node scripts/network-listings-release-sql.mjs testnet-v0.1.3 [--apply]
    ```
 
-6. Bump VibeMiner defaults (`BOING_TESTNET_DEFAULT_DOWNLOAD_TAG`, `networks.ts`) and redeploy if you want new installs to track the tag.
+7. Bump VibeMiner defaults (`BOING_TESTNET_DEFAULT_DOWNLOAD_TAG`, `networks.ts`) and redeploy if you want new installs to track the tag.

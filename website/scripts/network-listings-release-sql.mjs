@@ -15,7 +15,7 @@
 
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { writeFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
 import https from 'node:https';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -113,7 +113,8 @@ async function main() {
       if (statusCode === 404) {
         console.error('');
         console.error(`No file at that URL. Common causes:`);
-        console.error(`  • Tag "${tag}" has no published release, or the release is still a draft.`);
+        console.error(`  • Release is still a draft — GitHub hides draft assets from /releases/download/... (publish the release).`);
+        console.error(`  • Tag "${tag}" has no release yet, or the release uses a different tag name.`);
         console.error(`  • Workflow has not finished uploading assets yet.`);
         console.error(`  • Asset names differ (expected: ${ROWS.map((r) => r.zip).join(', ')}).`);
         console.error('');
@@ -149,10 +150,15 @@ VALUES (
       )
       .join('\n');
     writeFileSync(sqlPath, body, 'utf8');
+    const wranglerJs = join(WEBSITE_ROOT, 'node_modules', 'wrangler', 'bin', 'wrangler.js');
+    if (!existsSync(wranglerJs)) {
+      console.error('Missing website/node_modules/wrangler. Run: cd website && npm install');
+      return 1;
+    }
     const r = spawnSync(
-      'npx',
-      ['wrangler', 'd1', 'execute', 'boing-network-db', '--remote', '--file', sqlPath],
-      { cwd: WEBSITE_ROOT, stdio: 'inherit', shell: true }
+      process.execPath,
+      [wranglerJs, 'd1', 'execute', 'boing-network-db', '--remote', '--yes', '--file', sqlPath],
+      { cwd: WEBSITE_ROOT, stdio: 'inherit' }
     );
     try {
       rmSync(dir, { recursive: true });
