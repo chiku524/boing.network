@@ -33,7 +33,7 @@ This document is the **single source of truth** for keeping **boing.network** (w
 | **boing.express** | `VITE_BOING_TESTNET_RPC` | `VITE_BOING_MAINNET_RPC` | `https://testnet-rpc.boing.network` (no trailing slash) |
 | **boing.observer** | `NEXT_PUBLIC_TESTNET_RPC` | `NEXT_PUBLIC_MAINNET_RPC` | `https://testnet-rpc.boing.network` (no trailing slash) |
 
-- **Node CORS:** The boing-node RPC server must allow origins: `https://boing.network`, `https://www.boing.network`, `https://boing.observer`, `https://boing.express`, and localhost variants. See [INFRASTRUCTURE-SETUP.md](INFRASTRUCTURE-SETUP.md).
+- **Node CORS:** The boing-node RPC server must allow origins: `https://boing.network`, `https://www.boing.network`, `https://boing.observer`, `https://boing.express`, `https://boing.finance`, `https://www.boing.finance`, and localhost variants. See [INFRASTRUCTURE-SETUP.md](INFRASTRUCTURE-SETUP.md).
 
 ---
 

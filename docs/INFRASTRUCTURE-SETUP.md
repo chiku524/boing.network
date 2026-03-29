@@ -121,6 +121,17 @@ curl -s -X POST https://testnet-rpc.boing.network/ \
 
 Expected: `{"jsonrpc":"2.0","id":1,"result":<number>}`
 
+**Verify faucet is enabled on the tunneled node** (the process listening on `8545` must be started with `--faucet-enable`, e.g. `scripts/start-bootnode-1.bat`):
+
+```bash
+curl -s -X POST https://testnet-rpc.boing.network/ \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"boing_faucetRequest","params":["0x0000000000000000000000000000000000000000000000000000000000000001"]}'
+```
+
+- **Good:** JSON with `"result"` (`ok`, `amount`, …) or a rate-limit / balance error — faucet RPC is active.
+- **Bad:** `"message":"Faucet not enabled on this node."` — the node behind the tunnel was started **without** `--faucet-enable`, or the tunnel points at the wrong machine (e.g. secondary full node only). **Fix:** Run the primary bootnode script on the same PC as the tunnel, or add `--faucet-enable` to whichever node receives tunnel traffic on `8545`.
+
 ---
 
 ## Step 3: Secondary Machine — Bootnode 2
@@ -176,7 +187,7 @@ Once both bootnodes and the tunnel are running:
 
 ## CORS
 
-The boing-node RPC server includes CORS headers so browser-based clients (e.g. boing.observer, boing.express, boing.network faucet) can call the RPC from different origins. Allowed origins: `https://boing.observer`, `https://boing.express`, `https://boing.network`, `https://www.boing.network`, and localhost variants for development.
+The boing-node RPC server includes CORS headers so browser-based clients (e.g. boing.observer, boing.express, boing.network faucet, **boing.finance**) can call the RPC from different origins. Allowed origins include: `https://boing.observer`, `https://boing.express`, `https://boing.network`, `https://www.boing.network`, `https://boing.finance`, `https://www.boing.finance`, and localhost variants for development. After adding an origin, **rebuild and restart** the node that serves public RPC.
 
 ---
 
@@ -187,7 +198,8 @@ The boing-node RPC server includes CORS headers so browser-based clients (e.g. b
 | Bootnode 2 can't connect | Primary firewall allows TCP 4001; primary is running; correct IP |
 | RPC not reachable | Cloudflare tunnel running; node has RPC on 8545 |
 | CORS errors in browser | Node must be rebuilt with CORS support (included in boing-node); redeploy |
-| Faucet fails | Node started with `--faucet_enable`; tunnel forwards to 8545 |
+| **boing.finance** shows “Testnet RPC unreachable” | Often **CORS**: browser blocks `fetch` if the node build predates `boing.finance` in the allow list — rebuild `boing-node`, restart the **primary** RPC process, confirm `OPTIONS` from that origin returns `access-control-allow-origin`. |
+| Faucet: “Faucet not enabled on this node.” | The RPC URL hits a node **without** `--faucet-enable`. Use `--faucet-enable` on the **same** node the tunnel forwards to (see `start-bootnode-1` scripts). A secondary full node alone cannot serve the public faucet. |
 | "No nodes" in VibeMiner | Website built with `PUBLIC_BOOTNODES` and `PUBLIC_TESTNET_RPC_URL`; config redeployed |
 
 ---

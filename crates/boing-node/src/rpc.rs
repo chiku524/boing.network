@@ -553,6 +553,8 @@ pub fn rpc_router(
             HeaderValue::from_static("https://boing.express"),
             HeaderValue::from_static("https://boing.network"),
             HeaderValue::from_static("https://www.boing.network"),
+            HeaderValue::from_static("https://boing.finance"),
+            HeaderValue::from_static("https://www.boing.finance"),
             HeaderValue::from_static("https://bootnode2.boing.network"),
             HeaderValue::from_static("https://testnet-rpc-2.boing.network"),
             HeaderValue::from_static("http://localhost:3000"),
