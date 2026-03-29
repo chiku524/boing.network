@@ -478,6 +478,11 @@ impl RuleRegistry {
 }
 
 pub mod pool;
+pub mod pool_config;
+
+pub use pool_config::{
+    qa_pool_config_from_json, QaPoolExpiryPolicy, QaPoolGovernanceConfig, GOVERNANCE_QA_POOL_CONFIG_KEY,
+};
 
 /// Governance target key for updating the QA rule registry. When a governance proposal is executed
 /// with this key, the node (or operator) should replace the in-memory RuleRegistry with the

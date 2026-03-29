@@ -1,8 +1,8 @@
 //! Boing VM — deterministic execution engine.
 
 use boing_primitives::{hasher, AccountId, AccountState, Transaction, TransactionPayload};
+use boing_qa::{check_contract_deploy_full_with_metadata, QaResult, RuleRegistry};
 use boing_state::StateStore;
-use boing_qa::{check_contract_deploy, DEFAULT_MAX_BYTECODE_SIZE};
 
 use crate::gas::base;
 use super::interpreter::Interpreter;
@@ -43,12 +43,31 @@ impl TransferState for super::parallel::ExecutionView {
     }
 }
 
+fn default_qa_registry() -> RuleRegistry {
+    RuleRegistry::new()
+}
+
 /// Virtual machine for executing transactions.
-pub struct Vm;
+pub struct Vm {
+    /// Same rule set as mempool deploy QA (`check_contract_deploy_full_with_metadata`).
+    qa_registry: RuleRegistry,
+}
 
 impl Vm {
     pub fn new() -> Self {
-        Self
+        Self {
+            qa_registry: default_qa_registry(),
+        }
+    }
+
+    /// Use the same [RuleRegistry] as the node mempool so execution rejects the same deploys as admission.
+    pub fn with_qa_registry(qa_registry: RuleRegistry) -> Self {
+        Self { qa_registry }
+    }
+
+    /// Reference to the QA registry used for contract deploy execution checks.
+    pub fn qa_registry(&self) -> &RuleRegistry {
+        &self.qa_registry
     }
 
     /// Execute Transfer tx against any TransferState (for parallel path).
@@ -163,28 +182,46 @@ impl Vm {
             TransactionPayload::ContractCall { contract, calldata } => {
                 self.execute_contract_call(state, tx, contract, calldata)?
             }
-            TransactionPayload::ContractDeploy { bytecode }
-            | TransactionPayload::ContractDeployWithPurpose { bytecode, .. }
-            | TransactionPayload::ContractDeployWithPurposeAndMetadata { bytecode, .. } => {
-                self.execute_contract_deploy(state, tx, bytecode)?
+            TransactionPayload::ContractDeploy { .. }
+            | TransactionPayload::ContractDeployWithPurpose { .. }
+            | TransactionPayload::ContractDeployWithPurposeAndMetadata { .. } => {
+                self.execute_contract_deploy(state, tx)?
             }
         };
         Ok(gas_used)
     }
 
-    fn execute_contract_deploy(&self, state: &mut StateStore, tx: &Transaction, bytecode: &[u8]) -> Result<u64, VmError> {
-        // Defense in depth: run QA check before applying. Mempool already rejected bad deploys, but
-        // blocks could come from network; this ensures we never apply bytecode that fails QA.
-        match check_contract_deploy(bytecode, None, None, DEFAULT_MAX_BYTECODE_SIZE) {
-            boing_qa::QaResult::Allow => {}
-            boing_qa::QaResult::Reject(r) => {
+    fn execute_contract_deploy(&self, state: &mut StateStore, tx: &Transaction) -> Result<u64, VmError> {
+        // Defense in depth: same full QA path as mempool (`Mempool::insert`), using payload fields.
+        // Malicious blocks must not apply deploys that honest mempools would reject.
+        let Some((bytecode, purpose, desc_hash, asset_name, asset_symbol)) = tx.payload.as_contract_deploy()
+        else {
+            return Err(VmError::NotImplemented("Not a contract deploy"));
+        };
+
+        match check_contract_deploy_full_with_metadata(
+            bytecode,
+            purpose,
+            desc_hash,
+            asset_name,
+            asset_symbol,
+            &self.qa_registry,
+        ) {
+            QaResult::Allow => {}
+            QaResult::Reject(r) => {
                 return Err(VmError::QaRejected {
                     rule_id: r.rule_id.0,
                     message: r.message,
                 });
             }
-            boing_qa::QaResult::Unsure => {
-                return Err(VmError::QaPendingPool);
+            QaResult::Unsure => {
+                // Aligns with mempool: Unsure is not a hard reject. Community QA pool admits some Unsure
+                // txs; at execution we only enforce Allow vs Reject. Block validity / honest producers
+                // are the gate for whether an Unsure deploy was properly accepted off-chain.
+                tracing::debug!(
+                    target: "boing_execution::vm",
+                    "contract deploy QA Unsure at execution — proceeding with deploy"
+                );
             }
         }
 
@@ -229,6 +266,70 @@ impl Default for Vm {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use boing_primitives::{AccessList, Account, AccountState};
+    use ed25519_dalek::SigningKey;
+    use rand::rngs::OsRng;
+
+    #[test]
+    fn full_qa_reject_empty_bytecode() {
+        let vm = Vm::new();
+        let key = SigningKey::generate(&mut OsRng);
+        let sender = AccountId(key.verifying_key().to_bytes());
+        let mut state = StateStore::new();
+        state.insert(Account {
+            id: sender,
+            state: AccountState {
+                balance: 1_000_000,
+                nonce: 0,
+                stake: 0,
+            },
+        });
+        let tx = Transaction {
+            nonce: 0,
+            sender,
+            payload: TransactionPayload::ContractDeploy {
+                bytecode: vec![],
+            },
+            access_list: AccessList::default(),
+        };
+        assert!(matches!(vm.execute(&tx, &mut state), Err(VmError::QaRejected { .. })));
+    }
+
+    #[test]
+    fn full_qa_unsure_deploy_still_executes() {
+        let reg = RuleRegistry::new().with_always_review_categories(vec!["meme".to_string()]);
+        let vm = Vm::with_qa_registry(reg);
+        let key = SigningKey::generate(&mut OsRng);
+        let sender = AccountId(key.verifying_key().to_bytes());
+        let mut state = StateStore::new();
+        state.insert(Account {
+            id: sender,
+            state: AccountState {
+                balance: 1_000_000,
+                nonce: 0,
+                stake: 0,
+            },
+        });
+        let tx = Transaction {
+            nonce: 0,
+            sender,
+            payload: TransactionPayload::ContractDeployWithPurposeAndMetadata {
+                bytecode: vec![0x00],
+                purpose_category: "meme".to_string(),
+                description_hash: None,
+                asset_name: None,
+                asset_symbol: None,
+            },
+            access_list: AccessList::default(),
+        };
+        assert!(vm.execute(&tx, &mut state).is_ok());
+        assert_eq!(state.get(&sender).unwrap().nonce, 1);
+    }
+}
+
 fn derive_contract_address(sender: &AccountId, nonce: u64) -> AccountId {
     let mut h = hasher();
     h.update(&sender.0);
@@ -260,6 +361,4 @@ pub enum VmError {
     InvalidJump,
     #[error("QA rejected: {rule_id} — {message}")]
     QaRejected { rule_id: String, message: String },
-    #[error("QA pending pool (deployment referred to community)")]
-    QaPendingPool,
 }

@@ -36,6 +36,7 @@ fn node_with_accounts() -> BoingNode {
         p2p: boing_p2p::P2pNode::default(),
         dapp_registry: boing_node::dapp_registry::DappRegistry::new(),
         intent_pool: boing_node::intent_pool::IntentPool::new(),
+        qa_pool: boing_node::node::pending_qa_pool_default(),
         persistence: None,
     }
 }

@@ -15,6 +15,12 @@
 
 **Summary:** The main **reject** triggers are: **specs failure** (size, opcodes, well-formedness), **blocklist match**, **scam pattern match**, and **invalid purpose category**. The main **allow** condition is: **all hard rules pass** and **purpose is valid or omitted**. **Unsure** is used for **edge cases** (ambiguous declaration, policy-required review) so the community pool can decide without a single gatekeeper. For how to **update** QA rules (blocklist, content blocklist, scam patterns, etc.) via governance, see [Appendix C: Governance-mutable QA rules](#appendix-c-governance-mutable-qa-rules).
 
+### Public transparency — live registry and canonical reference
+
+- **Live rule registry (read-only):** JSON-RPC **`boing_getQaRegistry`** with params `[]` returns the **effective** `RuleRegistry` JSON the node is using (same shape as `qa_registry.json`). No authentication required.
+- **Canonical reference JSON (for comparison and docs):** [`docs/config/CANONICAL-QA-REGISTRY.md`](config/CANONICAL-QA-REGISTRY.md) describes [`qa_registry.canonical.json`](config/qa_registry.canonical.json) and [`qa_pool_config.canonical.json`](config/qa_pool_config.canonical.json), aligned with code defaults. **Deployed networks may differ** after governance or operator policy updates—always verify against **`boing_getQaRegistry`** and **`boing_qaPoolConfig`** on the RPC you trust.
+- **Explorer:** [Boing Observer — QA transparency](https://boing.observer/qa) loads live pool parameters, pending queue, and registry JSON from public RPC.
+
 ---
 
 ## Table of Contents
@@ -592,6 +598,8 @@ When voting on an Unsure item: (1) Does it match any malice category above? → 
 
 > **Purpose:** How to update protocol QA rules (including the content blocklist for vulgarity/offensiveness) via governance so that vulgar and offensive assets are not deployed. All QA rule sets are **mutable** through the standard governance process.
 
+**Read-only transparency:** The effective registry on any node is returned by JSON-RPC **`boing_getQaRegistry`** (no params). For a **documented baseline** to diff against, see **[docs/config/CANONICAL-QA-REGISTRY.md](config/CANONICAL-QA-REGISTRY.md)** and the JSON files in **`docs/config/`**.
+
 ### C.1 What can be updated
 
 The following are **governance-mutable**:
@@ -614,7 +622,7 @@ The following are **governance-mutable**:
    - Deserialize: `boing_qa::rule_registry_from_json(&target_value)`.
    - Replace the in-memory QA rule registry used by the mempool and RPC with this registry.
 
-3. **Persistence** — Nodes that support config persistence should save the updated registry (e.g. to `qa_registry.json`) so it survives restarts until the next governance update.
+3. **Persistence** — Nodes should save the updated registry to `qa_registry.json` and pool config to `qa_pool_config.json` (under the data directory) so they survive restarts until the next governance update. Use **`BoingNode::set_qa_policy`** to apply both in memory and on disk.
 
 ### C.3 JSON format for `RuleRegistry`
 
@@ -635,6 +643,31 @@ The `target_value` is a JSON object with the same shape as `RuleRegistry`:
 - **scam_patterns:** In Rust `Vec<Vec<u8>>`. In JSON use an array of hex or base64 strings.
 
 Governance should maintain a **content_blocklist** of terms that the network does not allow in asset names or symbols (vulgarity, slurs, offensiveness). Add or remove terms by proposing a new full `RuleRegistry` JSON with the updated list.
+
+### C.3.1 QA pool governance (`qa_pool_config`)
+
+Separate proposal key **`qa_pool_config`** (`boing_qa::GOVERNANCE_QA_POOL_CONFIG_KEY`) controls who may resolve **Unsure** deploys and how large the pending queue may grow. Deserialize with `boing_qa::qa_pool_config_from_json`. Nodes persist it as **`qa_pool_config.json`** next to **`qa_registry.json`**.
+
+Example JSON:
+
+```json
+{
+  "administrators": ["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+  "max_pending_items": 32,
+  "max_pending_per_deployer": 2,
+  "review_window_secs": 604800,
+  "quorum_fraction": 0.5,
+  "allow_threshold_fraction": 0.6666666666666666,
+  "reject_threshold_fraction": 0.6666666666666666,
+  "default_on_expiry": "reject",
+  "dev_open_voting": false
+}
+```
+
+- **administrators:** 32-byte account IDs (hex). Only these voters count for governance-final decisions on pooled deploys. Leave empty only with **`dev_open_voting: true`** (local dev).
+- **max_pending_items:** Global cap; when reached, new Unsure submissions are refused (**anti-congestion**). Set **`0`** to disable the pool entirely.
+- **max_pending_per_deployer:** Per-address cap (`0` = unlimited).
+- **`BoingNode::set_qa_policy`** updates mempool, VM, executor, and pool together so rules stay aligned.
 
 ### C.4 Deploy-time metadata (asset name / symbol)
 

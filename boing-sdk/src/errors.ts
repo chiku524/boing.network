@@ -26,9 +26,31 @@ export class BoingRpcError extends Error {
     return this.code === -32050;
   }
 
-  /** True if deployment was referred to community QA pool (-32051). */
+  /** True if deployment was referred to governance QA pool (-32051). */
   get isQaPendingPool(): boolean {
     return this.code === -32051;
+  }
+
+  /** True if QA pool is disabled by governance (-32054). */
+  get isQaPoolDisabled(): boolean {
+    return this.code === -32054;
+  }
+
+  /** True if QA pool hit global max pending (-32055). */
+  get isQaPoolFull(): boolean {
+    return this.code === -32055;
+  }
+
+  /** True if deployer exceeded per-address pool cap (-32056). */
+  get isQaPoolDeployerCap(): boolean {
+    return this.code === -32056;
+  }
+
+  /** For -32051, `data.tx_hash` when present. */
+  get pendingPoolTxHash(): string | undefined {
+    if (this.code !== -32051 || !this.data || typeof this.data !== 'object') return undefined;
+    const d = this.data as Record<string, unknown>;
+    return typeof d.tx_hash === 'string' ? d.tx_hash : undefined;
   }
 
   /** QA rejection details when code is -32050. */

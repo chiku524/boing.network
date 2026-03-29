@@ -4,6 +4,8 @@ use boing_primitives::{Account, AccountId, AccountState, Block, Hash, SignedTran
 use boing_consensus::ConsensusEngine;
 use boing_execution::{BlockExecutor, TransactionScheduler, Vm};
 use boing_p2p::{P2pEvent, P2pNode};
+use boing_qa::pool::{PendingQaQueue, PoolError, PoolResolution, QaPoolVote};
+use boing_qa::{QaPoolGovernanceConfig, RuleRegistry};
 use boing_state::StateStore;
 use tokio::sync::mpsc;
 
@@ -41,8 +43,28 @@ pub struct BoingNode {
     pub p2p: P2pNode,
     pub dapp_registry: DappRegistry,
     pub intent_pool: IntentPool,
+    /// Community QA pool for deploys that return Unsure from automation.
+    pub qa_pool: PendingQaQueue,
     /// Persistence backend; None for in-memory only (e.g. tests).
     pub persistence: Option<Persistence>,
+}
+
+/// Result of recording a vote and resolving the pool item when possible.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum QaPoolVoteResult {
+    Pending,
+    Rejected,
+    /// Pool allowed; transaction was inserted into the mempool.
+    AllowedAdmitted,
+    /// Pool allowed but the tx was already in the mempool (duplicate).
+    AllowedAlreadyInMempool,
+    /// Pool allowed but mempool rejected insertion (e.g. pending limit).
+    AllowedMempoolFailed(String),
+}
+
+/// Default QA pool for tests / dev node (open voting, generous caps). Production uses [`QaPoolGovernanceConfig::production_default`] via governance.
+pub fn pending_qa_pool_default() -> PendingQaQueue {
+    PendingQaQueue::from_governance_config(QaPoolGovernanceConfig::development_default())
 }
 
 impl BoingNode {
@@ -64,18 +86,22 @@ impl BoingNode {
             },
         });
 
+        // Keep mempool, BlockExecutor, and Vm in sync: all use this registry for deploy QA.
+        let qa_registry = RuleRegistry::new();
+
         Self {
             chain,
             consensus,
             state,
-            executor: BlockExecutor::new(),
+            executor: BlockExecutor::with_qa_registry(qa_registry.clone()),
             producer: BlockProducer::new(proposer).with_max_txs(100),
-            vm: Vm::new(),
+            vm: Vm::with_qa_registry(qa_registry.clone()),
             scheduler: TransactionScheduler::new(),
-            mempool: Mempool::new(),
+            mempool: Mempool::new().with_qa_registry(qa_registry),
             p2p: P2pNode::default(),
             dapp_registry: DappRegistry::new(),
             intent_pool: IntentPool::new(),
+            qa_pool: pending_qa_pool_default(),
             persistence: None,
         }
     }
@@ -103,9 +129,40 @@ impl BoingNode {
             }
 
             node.persistence = Some(persistence);
+
+            if let Some(ref p) = node.persistence {
+                let load_reg = p.load_qa_registry()?;
+                let load_pool = p.load_qa_pool_config()?;
+                if load_reg.is_some() || load_pool.is_some() {
+                    let reg = load_reg.unwrap_or_else(|| node.mempool.qa_registry().clone());
+                    let pool = load_pool.unwrap_or_else(QaPoolGovernanceConfig::development_default);
+                    node.apply_qa_policy_without_persist(reg, pool);
+                }
+            }
         }
 
         Ok(node)
+    }
+
+    /// Apply QA registry + pool config without writing disk (used when loading from persistence).
+    fn apply_qa_policy_without_persist(&mut self, registry: RuleRegistry, pool_config: QaPoolGovernanceConfig) {
+        self.mempool.set_qa_registry(registry.clone());
+        self.executor = BlockExecutor::with_qa_registry(registry.clone());
+        self.vm = Vm::with_qa_registry(registry);
+        self.qa_pool.set_governance_config(pool_config);
+    }
+
+    /// Set QA rules and pool governance together; persists to `qa_registry.json` / `qa_pool_config.json` when `data_dir` is configured.
+    pub fn set_qa_policy(&mut self, registry: RuleRegistry, pool_config: QaPoolGovernanceConfig) {
+        self.apply_qa_policy_without_persist(registry.clone(), pool_config.clone());
+        if let Some(ref p) = self.persistence {
+            if let Err(e) = p.save_qa_registry(&registry) {
+                tracing::warn!("Failed to save qa_registry.json: {}", e);
+            }
+            if let Err(e) = p.save_qa_pool_config(&pool_config) {
+                tracing::warn!("Failed to save qa_pool_config.json: {}", e);
+            }
+        }
     }
 
     /// Create a node with live P2P. Returns the node and a receiver for incoming blocks/txs.
@@ -161,12 +218,56 @@ impl BoingNode {
 
     /// Submit a signed transaction to the mempool.
     pub fn submit_transaction(&self, signed: SignedTransaction) -> Result<(), MempoolError> {
-        self.mempool.insert(signed)
+        match self.mempool.insert(signed.clone()) {
+            Ok(()) => Ok(()),
+            Err(MempoolError::QaPendingPool(tx_hash)) => {
+                let item = boing_qa::pool::PendingQaItem::from_signed(&signed)
+                    .map_err(|e| MempoolError::QaPoolEnqueue(e.to_string()))?;
+                match self.qa_pool.add(item) {
+                    Ok(()) | Err(PoolError::Duplicate) => {}
+                    Err(PoolError::PoolDisabled) => return Err(MempoolError::QaPoolDisabled),
+                    Err(PoolError::PoolFull) => return Err(MempoolError::QaPoolFull),
+                    Err(PoolError::DeployerCapExceeded) => return Err(MempoolError::QaPoolDeployerCap),
+                    Err(e) => return Err(MempoolError::QaPoolEnqueue(e.to_string())),
+                }
+                Err(MempoolError::QaPendingPool(tx_hash))
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Vote on a pending QA pool item; on Allow, admits the signed tx to the mempool (skipping deploy QA).
+    pub fn qa_pool_vote(&self, tx_hash: Hash, voter: AccountId, vote: QaPoolVote) -> Result<QaPoolVoteResult, PoolError> {
+        self.qa_pool.vote(tx_hash, voter, vote)?;
+        match self.qa_pool.resolve(tx_hash) {
+            PoolResolution::Pending => Ok(QaPoolVoteResult::Pending),
+            PoolResolution::Reject => Ok(QaPoolVoteResult::Rejected),
+            PoolResolution::Allow(bytes) => {
+                let signed: SignedTransaction =
+                    bincode::deserialize(&bytes).map_err(|_| PoolError::Deserialization)?;
+                match self.mempool.insert_after_pool_allow(signed) {
+                    Ok(()) => Ok(QaPoolVoteResult::AllowedAdmitted),
+                    Err(MempoolError::Duplicate) => Ok(QaPoolVoteResult::AllowedAlreadyInMempool),
+                    Err(e) => Ok(QaPoolVoteResult::AllowedMempoolFailed(e.to_string())),
+                }
+            }
+        }
+    }
+
+    fn apply_qa_pool_expirations(&self) {
+        for (_h, res) in self.qa_pool.prune_expired() {
+            if let PoolResolution::Allow(bytes) = res {
+                if let Ok(signed) = bincode::deserialize::<SignedTransaction>(&bytes) {
+                    let _ = self.mempool.insert_after_pool_allow(signed);
+                }
+            }
+        }
     }
 
     /// Produce one block from mempool if there are pending txs.
     /// Broadcasts the block via P2P on success.
     pub fn produce_block_if_ready(&mut self) -> Option<boing_primitives::Hash> {
+        self.apply_qa_pool_expirations();
         let hash = self.producer.produce_block(
             &self.chain,
             &self.mempool,

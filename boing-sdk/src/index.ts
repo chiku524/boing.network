@@ -37,6 +37,12 @@ export type {
   SubmitIntentResult,
   QaCheckResult,
   QaCheckResponse,
+  QaPoolConfigResult,
+  QaPoolItemSummary,
+  QaPoolListResult,
+  QaPoolVoteResult,
+  OperatorApplyQaPolicyResult,
+  QaRegistryResult,
   FaucetResult,
   JsonRpcResponse,
 } from './types.js';

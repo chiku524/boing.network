@@ -2,6 +2,7 @@
 //!
 //! Run a Boing blockchain validator or full node.
 
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -13,6 +14,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use boing_primitives::{Account, AccountState};
 use boing_node::{faucet, node, rpc, security};
+use boing_qa;
 use boing_tokenomics::BLOCK_TIME_SECS;
 
 const SYNC_INTERVAL_SECS: u64 = 2;
@@ -43,6 +45,14 @@ struct Args {
     /// Data directory for chain and state persistence
     #[arg(long, default_value = "./data")]
     data_dir: String,
+
+    /// Optional path to qa_registry.json (governance RuleRegistry). Implies --qa-pool-config or keeps current pool config.
+    #[arg(long)]
+    qa_registry: Option<PathBuf>,
+
+    /// Optional path to qa_pool_config.json (governance QA pool). Implies --qa-registry or keeps current registry.
+    #[arg(long)]
+    qa_pool_config: Option<PathBuf>,
 }
 
 #[tokio::main]
@@ -131,6 +141,24 @@ async fn main() -> anyhow::Result<()> {
         )),
     };
 
+    if args.qa_registry.is_some() || args.qa_pool_config.is_some() {
+        let mut n = node.write().await;
+        let registry = if let Some(ref path) = args.qa_registry {
+            let bytes = std::fs::read(path).map_err(|e| anyhow::anyhow!("read --qa-registry: {}", e))?;
+            boing_qa::rule_registry_from_json(&bytes).map_err(|e| anyhow::anyhow!("qa_registry JSON: {}", e))?
+        } else {
+            n.mempool.qa_registry().clone()
+        };
+        let pool_cfg = if let Some(ref path) = args.qa_pool_config {
+            let bytes = std::fs::read(path).map_err(|e| anyhow::anyhow!("read --qa-pool-config: {}", e))?;
+            boing_qa::qa_pool_config_from_json(&bytes).map_err(|e| anyhow::anyhow!("qa_pool_config JSON: {}", e))?
+        } else {
+            n.qa_pool.governance_config()
+        };
+        n.set_qa_policy(registry, pool_cfg);
+        tracing::info!("Applied QA policy from CLI (--qa-registry / --qa-pool-config)");
+    }
+
     // Testnet faucet: ensure faucet account exists and pass signer to RPC
     let faucet_signer = if args.faucet_enable {
         let faucet_id = faucet::testnet_faucet_account_id();
@@ -163,8 +191,22 @@ async fn main() -> anyhow::Result<()> {
     );
 
     let rate_limit = security::RateLimitConfig::default_mainnet();
+    let operator_rpc_token = std::env::var("BOING_OPERATOR_RPC_TOKEN")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| -> Arc<str> { s.into() });
+    if operator_rpc_token.is_some() {
+        tracing::info!(
+            "BOING_OPERATOR_RPC_TOKEN is set: boing_qaPoolVote and boing_operatorApplyQaPolicy require header X-Boing-Operator"
+        );
+    }
     let listener = tokio::net::TcpListener::bind(&rpc_addr).await?;
-    let app = rpc::rpc_router(node.clone(), &rate_limit, faucet_signer);
+    let app = rpc::rpc_router(
+        node.clone(),
+        &rate_limit,
+        faucet_signer,
+        operator_rpc_token,
+    );
     let server = axum::serve(listener, app);
 
     if args.validator {

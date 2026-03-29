@@ -370,6 +370,15 @@ Users should **not** have to enter their password every time they open the walle
 | boing_faucetRequest | [hex_account_id] | Testnet only |
 | boing_chainHeight | [] | Optional: chain height / sync |
 
+### Injected provider (dApp — Boing Express extension)
+
+| Method | Params | Returns / notes |
+|--------|--------|-------------------|
+| boing_signTransaction | `[txObject]` | `0x` + hex(bincode `SignedTransaction`). Requires connected origin. User approves in extension UI. `txObject.type`: `transfer`, `bond`, `unbond`, `contract_deploy_purpose`, `contract_deploy_meta`, `contract_call` (fields per **boing.express** `src/boing/dappTxRequest.ts`). **`contract_deploy` (bare) is rejected** — use a purpose-bearing deploy so declarations match protocol QA. `purpose_category` must be one of the categories accepted by **boing_qa** (e.g. `dapp`, `token`, `nft`, `meme`, `community`, `entertainment`, `tooling`, `other`). Omit `nonce` to use `boing_getAccount` on the wallet’s selected RPC. |
+| boing_sendTransaction | `[txObject]` | Sign, then `boing_simulateTransaction` when supported, then `boing_submitTransaction`; returns **tx hash** string from the node. Mempool **always** runs QA on contract deploy payloads before acceptance. |
+
+**Bincode note:** Wallet encoding must match **Rust** `boing-primitives` (serde/bincode 1.3): `TransactionPayload` enum uses **u32 LE** variant indices in this order: Transfer(0), ContractCall(1), ContractDeploy(2), ContractDeployWithPurpose(3), ContractDeployWithPurposeAndMetadata(4), Bond(5), Unbond(6).
+
 ---
 
 *This document lives in the boing-network repo so the Boing Express team can align with the chain spec and ship the web app and Chrome extension.*

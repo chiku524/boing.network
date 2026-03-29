@@ -3,8 +3,8 @@
  * Fetch release zips from GitHub, print SHA-256 and SQL to refresh network_listings for a tag.
  *
  * Usage (from website/):
- *   node scripts/network-listings-release-sql.mjs testnet-v0.1.2
- *   node scripts/network-listings-release-sql.mjs testnet-v0.1.2 --apply
+ *   node scripts/network-listings-release-sql.mjs testnet-v0.1.3
+ *   node scripts/network-listings-release-sql.mjs testnet-v0.1.3 --apply
  *
  * --apply writes a temp .sql file and runs wrangler d1 execute --remote --file (requires auth).
  *
@@ -26,7 +26,7 @@ const WEBSITE_ROOT = join(__dirname, '..');
 
 const OWNER_REPO = 'chiku524/boing.network';
 const BOOT = '/ip4/73.84.106.121/tcp/4001';
-const CMD_SUFFIX = `--data-dir {dataDir} --p2p-listen /ip4/0.0.0.0/tcp/4001 --bootnodes ${BOOT} --rpc-port 8545`;
+const CMD_SUFFIX = `--data-dir {dataDir} --p2p-listen /ip4/0.0.0.0/tcp/4001 --bootnodes ${BOOT} --rpc-port 8545 --faucet-enable`;
 
 const ROWS = [
   {
@@ -117,7 +117,7 @@ async function main() {
         console.error(`  • Workflow has not finished uploading assets yet.`);
         console.error(`  • Asset names differ (expected: ${ROWS.map((r) => r.zip).join(', ')}).`);
         console.error('');
-        console.error(`Working example: testnet-v0.1.2 — see GitHub → Releases.`);
+        console.error(`Working example: testnet-v0.1.3 — see GitHub → Releases.`);
       }
       return 1;
     }

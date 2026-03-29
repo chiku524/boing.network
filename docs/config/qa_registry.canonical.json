@@ -1,0 +1,7 @@
+{
+  "max_bytecode_size": 32768,
+  "blocklist": [],
+  "scam_patterns": [],
+  "always_review_categories": [],
+  "content_blocklist": []
+}

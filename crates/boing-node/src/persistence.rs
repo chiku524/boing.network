@@ -6,6 +6,8 @@
 use std::path::{Path, PathBuf};
 
 use boing_primitives::{AccountId, AccountState, Block, Hash};
+use boing_qa::pool_config::QaPoolGovernanceConfig;
+use boing_qa::RuleRegistry;
 use boing_state::{ContractStorageEntry, StateStore};
 
 use crate::chain::ChainState;
@@ -15,6 +17,8 @@ const BLOCKS_DIR: &str = "blocks";
 const CHAIN_META_FILE: &str = "meta.bin";
 const STATE_DIR: &str = "state";
 const STATE_FILE: &str = "accounts.bin";
+const QA_REGISTRY_FILE: &str = "qa_registry.json";
+const QA_POOL_CONFIG_FILE: &str = "qa_pool_config.json";
 
 /// Chain metadata stored on disk.
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -161,5 +165,51 @@ impl Persistence {
     /// Check if persisted data exists (we can resume).
     pub fn has_persisted_data(&self) -> bool {
         self.chain_dir().join(CHAIN_META_FILE).exists()
+    }
+
+    fn qa_registry_path(&self) -> std::path::PathBuf {
+        self.base.join(QA_REGISTRY_FILE)
+    }
+
+    fn qa_pool_config_path(&self) -> std::path::PathBuf {
+        self.base.join(QA_POOL_CONFIG_FILE)
+    }
+
+    /// Save QA rule registry (JSON, governance shape). Same format as `qa_registry` proposal value.
+    pub fn save_qa_registry(&self, registry: &RuleRegistry) -> Result<(), PersistenceError> {
+        let path = self.qa_registry_path();
+        let json = serde_json::to_vec_pretty(registry).map_err(|e| PersistenceError::Serialization(e.to_string()))?;
+        std::fs::write(path, json)?;
+        Ok(())
+    }
+
+    pub fn load_qa_registry(&self) -> Result<Option<RuleRegistry>, PersistenceError> {
+        let path = self.qa_registry_path();
+        if !path.exists() {
+            return Ok(None);
+        }
+        let bytes = std::fs::read(&path)?;
+        serde_json::from_slice(&bytes)
+            .map(Some)
+            .map_err(|e| PersistenceError::Serialization(e.to_string()))
+    }
+
+    /// Save QA pool governance config (JSON). Same format as `qa_pool_config` proposal value.
+    pub fn save_qa_pool_config(&self, config: &QaPoolGovernanceConfig) -> Result<(), PersistenceError> {
+        let path = self.qa_pool_config_path();
+        let json = serde_json::to_vec_pretty(config).map_err(|e| PersistenceError::Serialization(e.to_string()))?;
+        std::fs::write(path, json)?;
+        Ok(())
+    }
+
+    pub fn load_qa_pool_config(&self) -> Result<Option<QaPoolGovernanceConfig>, PersistenceError> {
+        let path = self.qa_pool_config_path();
+        if !path.exists() {
+            return Ok(None);
+        }
+        let bytes = std::fs::read(&path)?;
+        serde_json::from_slice(&bytes)
+            .map(Some)
+            .map_err(|e| PersistenceError::Serialization(e.to_string()))
     }
 }

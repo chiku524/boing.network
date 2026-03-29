@@ -10,11 +10,16 @@ import type {
   Block,
   FaucetResult,
   QaCheckResponse,
+  QaPoolConfigResult,
+  QaPoolListResult,
+  QaPoolVoteResult,
   RegisterDappResult,
   SimulateResult,
   SubmitIntentResult,
   SubmitTransactionResult,
   VerifyProofResult,
+  OperatorApplyQaPolicyResult,
+  QaRegistryResult,
 } from './types.js';
 import { ensureHex, validateHex32 } from './hex.js';
 
@@ -27,6 +32,8 @@ export interface BoingClientConfig {
   fetch?: typeof fetch;
   /** Request timeout in ms. Default 30000. Set 0 to disable. */
   timeoutMs?: number;
+  /** Merged into every JSON-RPC request (e.g. `{ 'X-Boing-Operator': token }`). */
+  extraHeaders?: Record<string, string>;
 }
 
 /**
@@ -37,6 +44,7 @@ export class BoingClient {
   private readonly baseUrl: string;
   private readonly fetchImpl: typeof fetch;
   private readonly timeoutMs: number;
+  private readonly extraHeaders: Record<string, string>;
   private id = DEFAULT_RPC_ID;
 
   constructor(config: string | BoingClientConfig) {
@@ -44,10 +52,12 @@ export class BoingClient {
       this.baseUrl = config.replace(/\/$/, '');
       this.fetchImpl = globalThis.fetch;
       this.timeoutMs = DEFAULT_TIMEOUT_MS;
+      this.extraHeaders = {};
     } else {
       this.baseUrl = config.baseUrl.replace(/\/$/, '');
       this.fetchImpl = config.fetch ?? globalThis.fetch;
       this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+      this.extraHeaders = { ...(config.extraHeaders ?? {}) };
     }
   }
 
@@ -63,9 +73,13 @@ export class BoingClient {
       ? setTimeout(() => controller.abort(), this.timeoutMs)
       : null;
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...this.extraHeaders,
+      };
       const res = await this.fetchImpl(this.baseUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(body),
         signal: controller?.signal,
       });
@@ -192,20 +206,69 @@ export class BoingClient {
   }
 
   /**
-   * Pre-flight QA check for a deployment (no submit).
-   * Params: hex bytecode; optionally purpose_category and description_hash.
+   * Pre-flight QA check for a deployment (no submit). Matches node param order:
+   * [hex_bytecode, purpose_category?, description_hash?, asset_name?, asset_symbol?].
+   * When passing asset_name, include description_hash (or use a 32-byte placeholder) per RPC-API-SPEC.
    * Returns allow | reject | unsure; when reject, rule_id and message are set.
    */
+  /** List pending governance QA pool items. */
+  async qaPoolList(): Promise<QaPoolListResult> {
+    return this.request<QaPoolListResult>('boing_qaPoolList', []);
+  }
+
+  /** Read effective QA pool governance config and `pending_count`. */
+  async qaPoolConfig(): Promise<QaPoolConfigResult> {
+    return this.request<QaPoolConfigResult>('boing_qaPoolConfig', []);
+  }
+
+  /** Read-only: effective QA rule registry JSON (same shape as `qa_registry.json`). No auth. */
+  async getQaRegistry(): Promise<QaRegistryResult> {
+    return this.request<QaRegistryResult>('boing_getQaRegistry', []);
+  }
+
+  /**
+   * Vote on a pooled Unsure deploy. `voter` must be a governance administrator unless the node uses dev_open_voting.
+   * Params: tx_hash hex, voter account hex, `allow` | `reject` | `abstain`.
+   */
+  async qaPoolVote(
+    txHashHex: string,
+    voterHex: string,
+    vote: 'allow' | 'reject' | 'abstain'
+  ): Promise<QaPoolVoteResult> {
+    return this.request<QaPoolVoteResult>('boing_qaPoolVote', [
+      validateHex32(txHashHex),
+      validateHex32(voterHex),
+      vote,
+    ]);
+  }
+
+  /**
+   * Apply QA registry and pool governance config on the node (operator RPC).
+   * Params are full JSON documents as strings (same format as `qa_registry.json` / `qa_pool_config.json`).
+   * Requires `X-Boing-Operator` when the node has `BOING_OPERATOR_RPC_TOKEN` set.
+   */
+  async operatorApplyQaPolicy(registryJson: string, qaPoolConfigJson: string): Promise<OperatorApplyQaPolicyResult> {
+    return this.request<OperatorApplyQaPolicyResult>('boing_operatorApplyQaPolicy', [registryJson, qaPoolConfigJson]);
+  }
+
   async qaCheck(
     hexBytecode: string,
     purposeCategory?: string,
-    descriptionHash?: string
+    descriptionHash?: string,
+    assetName?: string,
+    assetSymbol?: string
   ): Promise<QaCheckResponse> {
     const hex = ensureHex(hexBytecode);
     const params: string[] = [hex];
     if (purposeCategory != null) {
       params.push(purposeCategory);
-      if (descriptionHash != null) params.push(descriptionHash);
+      if (descriptionHash != null) {
+        params.push(ensureHex(descriptionHash));
+        if (assetName != null) {
+          params.push(assetName);
+          if (assetSymbol != null) params.push(assetSymbol);
+        }
+      }
     }
     return this.request<QaCheckResponse>('boing_qaCheck', params);
   }

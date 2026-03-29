@@ -10,12 +10,12 @@ use std::time::{Duration, Instant};
 
 use axum::{
     extract::State,
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::IntoResponse,
     routing::post,
     Json, Router,
 };
-use axum::http::header::{HeaderValue, CONTENT_TYPE};
+use axum::http::header::{HeaderName, HeaderValue, CONTENT_TYPE};
 use axum::http::Method;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use governor::{Quota, RateLimiter};
@@ -26,12 +26,16 @@ use tracing::info;
 
 use crate::faucet::{self, testnet_faucet_account_id};
 use crate::mempool::MempoolError;
-use crate::node::BoingNode;
+use crate::node::{BoingNode, QaPoolVoteResult};
 use crate::security::RateLimitConfig;
 use boing_primitives::{
-    AccessList, AccountId, SignedIntent, SignedTransaction, Transaction, TransactionPayload,
+    AccessList, AccountId, Hash, SignedIntent, SignedTransaction, Transaction, TransactionPayload,
 };
-use boing_qa::{check_contract_deploy_full_with_metadata, QaResult, RuleRegistry};
+use boing_qa::pool::{PoolError, QaPoolVote};
+use boing_qa::{
+    check_contract_deploy_full_with_metadata, qa_pool_config_from_json, rule_registry_from_json, QaPoolExpiryPolicy,
+    QaResult, RuleRegistry,
+};
 
 /// Shared node state for RPC and validator loop.
 pub type NodeState = Arc<RwLock<BoingNode>>;
@@ -47,6 +51,20 @@ pub struct RpcState {
     /// When set, enables boing_faucetRequest (testnet only).
     pub faucet_signer: Option<Arc<ed25519_dalek::SigningKey>>,
     pub faucet_cooldown: Option<FaucetCooldown>,
+    /// When set, `boing_qaPoolVote` and `boing_operatorApplyQaPolicy` require header `X-Boing-Operator: <token>`.
+    pub operator_rpc_token: Option<Arc<str>>,
+}
+
+impl RpcState {
+    fn operator_authorized(&self, headers: &HeaderMap) -> bool {
+        match &self.operator_rpc_token {
+            None => true,
+            Some(expected) => headers
+                .get("x-boing-operator")
+                .and_then(|v| v.to_str().ok())
+                .is_some_and(|v| v == expected.as_ref()),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -116,7 +134,38 @@ fn rpc_ok(id: Option<serde_json::Value>, result: serde_json::Value) -> JsonRpcRe
     }
 }
 
-async fn handle_rpc(State(state): State<RpcState>, Json(req): Json<JsonRpcRequest>) -> impl IntoResponse {
+fn parse_hash32_hex(s: &str) -> Result<Hash, String> {
+    let bytes = hex::decode(s.trim_start_matches("0x")).map_err(|e| e.to_string())?;
+    if bytes.len() != 32 {
+        return Err("tx_hash must be 32 bytes".into());
+    }
+    Hash::from_slice(&bytes).ok_or_else(|| "invalid hash".into())
+}
+
+fn parse_account_id_hex(s: &str) -> Result<AccountId, String> {
+    let bytes = hex::decode(s.trim_start_matches("0x")).map_err(|e| e.to_string())?;
+    if bytes.len() != 32 {
+        return Err("account id must be 32 bytes".into());
+    }
+    let mut arr = [0u8; 32];
+    arr.copy_from_slice(&bytes);
+    Ok(AccountId(arr))
+}
+
+fn parse_qa_pool_vote(s: &str) -> Result<QaPoolVote, String> {
+    match s.trim().to_ascii_lowercase().as_str() {
+        "allow" => Ok(QaPoolVote::Allow),
+        "reject" => Ok(QaPoolVote::Reject),
+        "abstain" => Ok(QaPoolVote::Abstain),
+        _ => Err("vote must be allow, reject, or abstain".into()),
+    }
+}
+
+async fn handle_rpc(
+    State(state): State<RpcState>,
+    headers: HeaderMap,
+    Json(req): Json<JsonRpcRequest>,
+) -> impl IntoResponse {
     if let Some(ref limiter) = state.rate_limiter {
         if limiter.check().is_err() {
             return (
@@ -156,10 +205,33 @@ async fn handle_rpc(State(state): State<RpcState>, Json(req): Json<JsonRpcReques
                                 }
                                 rpc_error_with_data(id, -32050, format!("Deployment rejected by QA: {}", r.message), data)
                             }
-                            Err(MempoolError::QaPendingPool) => rpc_error(
+                            Err(MempoolError::QaPendingPool(tx_hash)) => rpc_error_with_data(
                                 id,
                                 -32051,
                                 "Deployment referred to community QA pool.".into(),
+                                serde_json::json!({
+                                    "tx_hash": format!("0x{}", hex::encode(tx_hash.0)),
+                                }),
+                            ),
+                            Err(MempoolError::QaPoolEnqueue(msg)) => {
+                                rpc_error(id, -32000, format!("QA pool enqueue failed: {}", msg))
+                            }
+                            Err(MempoolError::QaPoolDisabled) => rpc_error(
+                                id,
+                                -32054,
+                                "QA pool is disabled by governance (configure administrators in qa_pool_config).".into(),
+                            ),
+                            Err(MempoolError::QaPoolFull) => rpc_error_with_data(
+                                id,
+                                -32055,
+                                "QA pool is at capacity (max_pending_items).".into(),
+                                serde_json::json!({ "reason": "pool_full" }),
+                            ),
+                            Err(MempoolError::QaPoolDeployerCap) => rpc_error_with_data(
+                                id,
+                                -32056,
+                                "QA pool deployer pending limit exceeded.".into(),
+                                serde_json::json!({ "reason": "deployer_cap" }),
                             ),
                             Err(e) => rpc_error(id, -32000, format!("{}", e)),
                         }
@@ -168,6 +240,156 @@ async fn handle_rpc(State(state): State<RpcState>, Json(req): Json<JsonRpcReques
                 },
                 Err(e) => rpc_error(id, -32602, format!("Invalid hex: {}", e)),
             }
+        }
+        "boing_qaPoolList" => {
+            let n = node.read().await;
+            rpc_ok(
+                id,
+                serde_json::json!({ "items": n.qa_pool.list_summaries() }),
+            )
+        }
+        "boing_qaPoolConfig" => {
+            let n = node.read().await;
+            let cfg = n.qa_pool.governance_config();
+            let expiry = match cfg.default_on_expiry {
+                QaPoolExpiryPolicy::Reject => "reject",
+                QaPoolExpiryPolicy::Allow => "allow",
+            };
+            rpc_ok(
+                id,
+                serde_json::json!({
+                    "max_pending_items": cfg.max_pending_items,
+                    "max_pending_per_deployer": cfg.max_pending_per_deployer,
+                    "review_window_secs": cfg.review_window_secs,
+                    "quorum_fraction": cfg.quorum_fraction,
+                    "allow_threshold_fraction": cfg.allow_threshold_fraction,
+                    "reject_threshold_fraction": cfg.reject_threshold_fraction,
+                    "default_on_expiry": expiry,
+                    "dev_open_voting": cfg.dev_open_voting,
+                    "administrator_count": cfg.administrator_accounts().len(),
+                    "accepts_new_pending": cfg.accepts_new_pending(),
+                    "pending_count": n.qa_pool.pending_len(),
+                }),
+            )
+        }
+        "boing_getQaRegistry" => {
+            let n = node.read().await;
+            let reg = n.mempool.qa_registry();
+            match serde_json::to_value(reg) {
+                Ok(v) => rpc_ok(id, v),
+                Err(e) => rpc_error(id, -32000, format!("Failed to serialize QA registry: {}", e)),
+            }
+        }
+        "boing_qaPoolVote" => {
+            if !state.operator_authorized(&headers) {
+                return (
+                    StatusCode::OK,
+                    Json(rpc_error(
+                        id,
+                        -32057,
+                        "Operator authentication required: set X-Boing-Operator to match the node's BOING_OPERATOR_RPC_TOKEN."
+                            .into(),
+                    )),
+                );
+            }
+            let params = req.params.and_then(|p| serde_json::from_value::<Vec<String>>(p).ok());
+            let (tx_hex, voter_hex, vote_s) = match params {
+                Some(v) if v.len() >= 3 => (v[0].clone(), v[1].clone(), v[2].clone()),
+                _ => {
+                    return (
+                        StatusCode::OK,
+                        Json(rpc_error(
+                            id,
+                            -32602,
+                            "Invalid params: expected [tx_hash_hex, voter_hex, allow|reject|abstain]".into(),
+                        )),
+                    );
+                }
+            };
+            let tx_hash = match parse_hash32_hex(&tx_hex) {
+                Ok(h) => h,
+                Err(e) => return (StatusCode::OK, Json(rpc_error(id, -32602, e))),
+            };
+            let voter = match parse_account_id_hex(&voter_hex) {
+                Ok(a) => a,
+                Err(e) => return (StatusCode::OK, Json(rpc_error(id, -32602, e))),
+            };
+            let vote = match parse_qa_pool_vote(&vote_s) {
+                Ok(v) => v,
+                Err(e) => return (StatusCode::OK, Json(rpc_error(id, -32602, e))),
+            };
+            let n = node.read().await;
+            match n.qa_pool_vote(tx_hash, voter, vote) {
+                Ok(QaPoolVoteResult::Pending) => rpc_ok(id, serde_json::json!({ "outcome": "pending" })),
+                Ok(QaPoolVoteResult::Rejected) => rpc_ok(id, serde_json::json!({ "outcome": "reject" })),
+                Ok(QaPoolVoteResult::AllowedAdmitted) => {
+                    rpc_ok(id, serde_json::json!({ "outcome": "allow", "mempool": true }))
+                }
+                Ok(QaPoolVoteResult::AllowedAlreadyInMempool) => rpc_ok(
+                    id,
+                    serde_json::json!({ "outcome": "allow", "mempool": false, "duplicate": true }),
+                ),
+                Ok(QaPoolVoteResult::AllowedMempoolFailed(msg)) => rpc_ok(
+                    id,
+                    serde_json::json!({ "outcome": "allow", "mempool": false, "error": msg }),
+                ),
+                Err(PoolError::NotFound) => {
+                    rpc_error(id, -32052, "No pending QA pool item for that tx_hash.".into())
+                }
+                Err(PoolError::NotAdministrator) => {
+                    rpc_error(id, -32053, "Voter is not a governance QA pool administrator.".into())
+                }
+                Err(e) => rpc_error(id, -32000, e.to_string()),
+            }
+        }
+        "boing_operatorApplyQaPolicy" => {
+            if !state.operator_authorized(&headers) {
+                return (
+                    StatusCode::OK,
+                    Json(rpc_error(
+                        id,
+                        -32057,
+                        "Operator authentication required: set X-Boing-Operator to match the node's BOING_OPERATOR_RPC_TOKEN."
+                            .into(),
+                    )),
+                );
+            }
+            let params = req.params.and_then(|p| serde_json::from_value::<Vec<String>>(p).ok());
+            let (reg_json, pool_json) = match params {
+                Some(v) if v.len() >= 2 => (v[0].clone(), v[1].clone()),
+                _ => {
+                    return (
+                        StatusCode::OK,
+                        Json(rpc_error(
+                            id,
+                            -32602,
+                            "Invalid params: expected [qa_registry_json, qa_pool_config_json] (two JSON strings).".into(),
+                        )),
+                    );
+                }
+            };
+            let registry = match rule_registry_from_json(reg_json.as_bytes()) {
+                Ok(r) => r,
+                Err(e) => {
+                    return (
+                        StatusCode::OK,
+                        Json(rpc_error(id, -32602, format!("Invalid qa_registry JSON: {}", e))),
+                    );
+                }
+            };
+            let pool_cfg = match qa_pool_config_from_json(pool_json.as_bytes()) {
+                Ok(c) => c,
+                Err(e) => {
+                    return (
+                        StatusCode::OK,
+                        Json(rpc_error(id, -32602, format!("Invalid qa_pool_config JSON: {}", e))),
+                    );
+                }
+            };
+            let mut n = node.write().await;
+            n.set_qa_policy(registry, pool_cfg);
+            info!("RPC: operator applied QA policy (registry + pool config)");
+            rpc_ok(id, serde_json::json!({ "ok": true }))
         }
         "boing_chainHeight" => {
             let n = node.read().await;
@@ -280,11 +502,13 @@ async fn handle_rpc(State(state): State<RpcState>, Json(req): Json<JsonRpcReques
             match hex::decode(hex_tx.trim_start_matches("0x")) {
                 Ok(bytes) => match bincode::deserialize::<SignedTransaction>(&bytes) {
                     Ok(signed) => {
-                        let mut state_copy = {
+                        let (mut state_copy, vm) = {
                             let n = node.read().await;
-                            n.state.snapshot()
+                            (
+                                n.state.snapshot(),
+                                boing_execution::Vm::with_qa_registry(n.mempool.qa_registry().clone()),
+                            )
                         };
-                        let vm = boing_execution::Vm::new();
                         match vm.execute(&signed.tx, &mut state_copy) {
                             Ok(gas) => rpc_ok(id, serde_json::json!({"gas_used": gas, "success": true})),
                             Err(e) => rpc_ok(id, serde_json::json!({"gas_used": 0, "success": false, "error": format!("{}", e)})),
@@ -531,6 +755,7 @@ pub fn rpc_router(
     node: NodeState,
     rate_limit: &RateLimitConfig,
     faucet_signer: Option<Arc<ed25519_dalek::SigningKey>>,
+    operator_rpc_token: Option<Arc<str>>,
 ) -> Router {
     let rate_limiter = if rate_limit.requests_per_sec > 0 {
         let rps = NonZeroU32::new(rate_limit.requests_per_sec.max(1)).unwrap_or_else(|| NonZeroU32::new(1).unwrap());
@@ -561,9 +786,14 @@ pub fn rpc_router(
             HeaderValue::from_static("http://localhost:4321"),
             HeaderValue::from_static("http://127.0.0.1:3000"),
             HeaderValue::from_static("http://127.0.0.1:4321"),
+            HeaderValue::from_static("http://localhost:5173"),
+            HeaderValue::from_static("http://127.0.0.1:5173"),
         ]))
         .allow_methods([Method::POST, Method::OPTIONS])
-        .allow_headers([CONTENT_TYPE]);
+        .allow_headers([
+            CONTENT_TYPE,
+            HeaderName::from_static("x-boing-operator"),
+        ]);
 
     Router::new()
         .route("/", post(handle_rpc))
@@ -573,5 +803,6 @@ pub fn rpc_router(
             rate_limiter,
             faucet_signer,
             faucet_cooldown,
+            operator_rpc_token,
         })
 }

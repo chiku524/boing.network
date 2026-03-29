@@ -4,7 +4,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Mutex;
 
-use boing_primitives::{AccountId, SignedTransaction};
+use boing_primitives::{AccountId, Hash, SignedTransaction};
 use boing_qa::{check_contract_deploy_full_with_metadata, RuleRegistry, QaReject, QaResult};
 
 /// Default max pending transactions per sender (matches SECURITY-STANDARDS / RateLimitConfig).
@@ -59,22 +59,45 @@ impl Mempool {
         self
     }
 
+    /// Rule registry used for deploy admission; the VM should use the same instance for execution alignment.
+    pub fn qa_registry(&self) -> &RuleRegistry {
+        &self.qa_registry
+    }
+
+    /// Replace QA registry (governance execution). Prefer [`crate::node::BoingNode::set_qa_policy`] to keep VM/executor in sync.
+    pub fn set_qa_registry(&mut self, registry: RuleRegistry) {
+        self.qa_registry = registry;
+    }
+
     /// Insert a signed transaction. Rejects duplicates, invalid nonces, per-sender cap, and ContractDeploy that fail QA.
     pub fn insert(&self, signed: SignedTransaction) -> Result<(), MempoolError> {
+        self.insert_inner(signed, false)
+    }
+
+    /// Insert after community QA pool approved (`Unsure` path). Skips deploy-time registry QA so the tx does not loop as Unsure.
+    pub fn insert_after_pool_allow(&self, signed: SignedTransaction) -> Result<(), MempoolError> {
+        self.insert_inner(signed, true)
+    }
+
+    fn insert_inner(&self, signed: SignedTransaction, skip_deploy_qa: bool) -> Result<(), MempoolError> {
         signed.verify().map_err(|_| MempoolError::InvalidSignature)?;
-        if let Some((bytecode, purpose, desc_hash, asset_name, asset_symbol)) = signed.tx.payload.as_contract_deploy() {
-            let registry = &self.qa_registry;
-            match check_contract_deploy_full_with_metadata(
-                bytecode,
-                purpose,
-                desc_hash,
-                asset_name,
-                asset_symbol,
-                registry,
-            ) {
-                QaResult::Reject(reject) => return Err(MempoolError::QaRejected(reject)),
-                QaResult::Unsure => return Err(MempoolError::QaPendingPool),
-                QaResult::Allow => {}
+        if !skip_deploy_qa {
+            if let Some((bytecode, purpose, desc_hash, asset_name, asset_symbol)) = signed.tx.payload.as_contract_deploy() {
+                let registry = &self.qa_registry;
+                match check_contract_deploy_full_with_metadata(
+                    bytecode,
+                    purpose,
+                    desc_hash,
+                    asset_name,
+                    asset_symbol,
+                    registry,
+                ) {
+                    QaResult::Reject(reject) => return Err(MempoolError::QaRejected(reject)),
+                    QaResult::Unsure => {
+                        return Err(MempoolError::QaPendingPool(signed.tx.id()));
+                    }
+                    QaResult::Allow => {}
+                }
             }
         }
         let tx_id = signed.tx.id();
@@ -158,6 +181,50 @@ pub enum MempoolError {
     #[error("QA rejected: {0}")]
     QaRejected(QaReject),
     /// Deployment referred to community QA pool (Unsure); not accepted until pool decides.
-    #[error("Deployment referred to community QA pool")]
-    QaPendingPool,
+    #[error("Deployment referred to community QA pool (tx_hash={0})")]
+    QaPendingPool(Hash),
+    #[error("QA pool enqueue failed: {0}")]
+    QaPoolEnqueue(String),
+    #[error("QA pool disabled by governance (no administrators configured)")]
+    QaPoolDisabled,
+    #[error("QA pool is at capacity (max_pending_items); try later")]
+    QaPoolFull,
+    #[error("QA pool deployer pending limit exceeded")]
+    QaPoolDeployerCap,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use boing_primitives::{AccessList, Transaction, TransactionPayload};
+    use boing_qa::RuleRegistry;
+    use ed25519_dalek::SigningKey;
+    use rand::rngs::OsRng;
+
+    #[test]
+    fn unsure_deploy_insert_after_pool_allow_skips_qa() {
+        let reg = RuleRegistry::new().with_always_review_categories(vec!["meme".to_string()]);
+        let pool = Mempool::new().with_qa_registry(reg);
+        let key = SigningKey::generate(&mut OsRng);
+        let sender = AccountId(key.verifying_key().to_bytes());
+        let tx = Transaction {
+            nonce: 0,
+            sender,
+            payload: TransactionPayload::ContractDeployWithPurposeAndMetadata {
+                bytecode: vec![0x00],
+                purpose_category: "meme".to_string(),
+                description_hash: None,
+                asset_name: None,
+                asset_symbol: None,
+            },
+            access_list: AccessList::default(),
+        };
+        let signed = SignedTransaction::new(tx, &key);
+        assert!(matches!(
+            pool.insert(signed.clone()),
+            Err(MempoolError::QaPendingPool(_))
+        ));
+        assert!(pool.insert_after_pool_allow(signed).is_ok());
+        assert_eq!(pool.len(), 1);
+    }
 }

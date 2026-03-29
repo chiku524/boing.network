@@ -34,6 +34,7 @@ fn node_with_p2p(signing_key: &SigningKey, balance: u128, p2p_listen: &str) -> (
         p2p,
         dapp_registry: boing_node::dapp_registry::DappRegistry::new(),
         intent_pool: boing_node::intent_pool::IntentPool::new(),
+        qa_pool: boing_node::node::pending_qa_pool_default(),
         persistence: None,
     };
     (node, event_rx)

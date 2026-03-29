@@ -21,6 +21,12 @@ const CARDS: { id: HubView; title: string; description: string }[] = [
     title: "Testnet",
     description: "Testnet ecosystem — register, faucet, quests, and developer resources. Later: network hub for everyone.",
   },
+  {
+    id: "qa",
+    title: "QA operator",
+    description:
+      "Run the governance QA pool from the hub: list pending deploys, vote, and paste updated registry / pool JSON. Optional operator token when the RPC node requires it.",
+  },
 ];
 
 type Props = { onNavigate: (view: HubView) => void; lastUsedAppId: HubView | null };

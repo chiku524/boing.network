@@ -1,5 +1,7 @@
 //! Boing CLI — init, dev, deploy for dApp development.
 
+use std::path::PathBuf;
+
 use clap::{CommandFactory, Parser, Subcommand};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -7,6 +9,7 @@ mod init;
 mod dev;
 mod deploy;
 mod metrics_register;
+mod qa_apply;
 
 #[derive(Parser)]
 #[command(name = "boing")]
@@ -46,6 +49,9 @@ enum Commands {
     /// Register contract for success-based incentives
     #[command(subcommand)]
     Metrics(MetricsCommands),
+    /// Operator QA: apply registry / pool config to a node
+    #[command(subcommand)]
+    Qa(QaCommands),
     /// Generate shell completion script (bash, zsh, fish, powershell)
     Completions {
         /// Shell: bash, zsh, fish, powershell, elvish
@@ -67,6 +73,22 @@ enum MetricsCommands {
     },
 }
 
+#[derive(Subcommand)]
+enum QaCommands {
+    /// Push `qa_registry.json` and `qa_pool_config.json` via RPC (requires X-Boing-Operator when the node sets BOING_OPERATOR_RPC_TOKEN)
+    Apply {
+        /// Path to QA registry JSON
+        #[arg(long)]
+        registry: PathBuf,
+        /// Path to QA pool governance JSON
+        #[arg(long)]
+        pool: PathBuf,
+        /// Operator shared secret (default: environment variable BOING_OPERATOR_RPC_TOKEN)
+        #[arg(long)]
+        operator_token: Option<String>,
+    },
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::registry()
@@ -84,6 +106,16 @@ async fn main() -> anyhow::Result<()> {
         Commands::Deploy { path } => deploy::run(&cli.rpc_url, &path).await?,
         Commands::Metrics(MetricsCommands::Register { contract, owner }) => {
             metrics_register::run(&cli.rpc_url, &contract, &owner).await?;
+        }
+        Commands::Qa(QaCommands::Apply {
+            registry,
+            pool,
+            operator_token,
+        }) => {
+            let token = operator_token
+                .or_else(|| std::env::var("BOING_OPERATOR_RPC_TOKEN").ok())
+                .filter(|s| !s.trim().is_empty());
+            qa_apply::run(&cli.rpc_url, &registry, &pool, token.as_deref()).await?;
         }
         Commands::Completions { shell } => {
             clap_complete::generate(

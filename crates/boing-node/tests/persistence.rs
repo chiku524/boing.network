@@ -3,6 +3,7 @@
 use boing_node::chain::ChainState;
 use boing_node::persistence::Persistence;
 use boing_primitives::{Account, AccountId, AccountState, Block};
+use boing_qa::{QaPoolGovernanceConfig, RuleRegistry};
 use boing_state::StateStore;
 
 #[test]
@@ -52,4 +53,23 @@ fn test_persistence_roundtrip() {
     assert_eq!(chain2.latest_hash(), block1.hash());
     assert_eq!(state2.get(&proposer).unwrap().balance, 999_900);
     assert_eq!(state2.get(&proposer).unwrap().nonce, 1);
+}
+
+#[test]
+fn test_qa_config_json_roundtrip() {
+    let temp = std::env::temp_dir().join("boing-qa-persist-test");
+    let _ = std::fs::remove_dir_all(&temp);
+    let p = Persistence::new(&temp);
+    p.ensure_dirs().unwrap();
+
+    let reg = RuleRegistry::new().with_max_bytecode_size(12345);
+    p.save_qa_registry(&reg).unwrap();
+    let reg2 = p.load_qa_registry().unwrap().expect("registry");
+    assert_eq!(reg2.max_bytecode_size(), 12345);
+
+    let mut pool = QaPoolGovernanceConfig::development_default();
+    pool.max_pending_items = 99;
+    p.save_qa_pool_config(&pool).unwrap();
+    let pool2 = p.load_qa_pool_config().unwrap().expect("pool");
+    assert_eq!(pool2.max_pending_items, 99);
 }

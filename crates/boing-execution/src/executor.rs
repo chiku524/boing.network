@@ -7,6 +7,8 @@ use rayon::prelude::*;
 use boing_primitives::{Transaction, TransactionPayload};
 use boing_state::StateStore;
 
+use boing_qa::RuleRegistry;
+
 use super::parallel::ExecutionView;
 use super::{TransactionScheduler, Vm, VmError};
 
@@ -21,6 +23,14 @@ impl BlockExecutor {
     pub fn new() -> Self {
         Self {
             vm: Vm::new(),
+            scheduler: TransactionScheduler::new(),
+        }
+    }
+
+    /// Same QA registry as the node mempool so block execution applies identical deploy rules.
+    pub fn with_qa_registry(registry: RuleRegistry) -> Self {
+        Self {
+            vm: Vm::with_qa_registry(registry),
             scheduler: TransactionScheduler::new(),
         }
     }

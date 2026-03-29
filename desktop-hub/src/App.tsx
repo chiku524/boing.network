@@ -21,6 +21,7 @@ import { useUpdateCheck } from "./hooks/useUpdateCheck";
 import { isTauri } from "./lib/tauri";
 import { HomeView } from "./views/HomeView";
 import { EmbedView } from "./views/EmbedView";
+import { QaOperatorView } from "./views/QaOperatorView";
 import { WelcomeView } from "./views/WelcomeView";
 import "./styles.css";
 
@@ -30,6 +31,11 @@ const NAV_ITEMS: { id: HubView; label: string; description: string }[] = [
   { id: "express", label: "Wallet", description: "Same wallet as the Chrome extension — send, stake, connect dApps" },
   { id: "finance", label: "Finance", description: "DEX & DeFi" },
   { id: "network", label: "Testnet", description: "Testnet ecosystem — register, faucet, quests, developers" },
+  {
+    id: "qa",
+    label: "QA operator",
+    description: "Day-to-day governance QA pool — list, vote, and apply policy in the hub (no shell required)",
+  },
 ];
 
 function isValidView(v: string): v is HubView {
@@ -145,8 +151,8 @@ function App() {
         e.preventDefault();
         return;
       }
-      if (e.altKey && e.key >= "1" && e.key <= "5") {
-        const i = e.key === "5" ? 4 : Number(e.key) - 1;
+      if (e.altKey && e.key >= "1" && e.key <= "6") {
+        const i = Number(e.key) - 1;
         const item = NAV_ITEMS[i];
         if (item) {
           e.preventDefault();
@@ -175,6 +181,7 @@ function App() {
 
   const isEmbedView =
     view === "observer" || view === "express" || view === "finance" || view === "network";
+  const isQaView = view === "qa";
   const lastUsedAppId: HubView | null = lastEmbedView;
 
   if (phase === "intro") {
@@ -257,9 +264,16 @@ function App() {
         className="hub-main"
         tabIndex={-1}
         role="main"
-        aria-label={view === "home" ? "Home" : isEmbedView ? NAV_ITEMS.find((n) => n.id === view)?.label ?? "App" : undefined}
+        aria-label={
+          view === "home"
+            ? "Home"
+            : isEmbedView || isQaView
+              ? (NAV_ITEMS.find((n) => n.id === view)?.label ?? "App")
+              : undefined
+        }
       >
         {view === "home" && <HomeView onNavigate={setView} lastUsedAppId={lastUsedAppId} />}
+        {isQaView && <QaOperatorView />}
         {isEmbedView && (
           <EmbedView
             appId={view}

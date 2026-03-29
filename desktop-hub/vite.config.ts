@@ -1,12 +1,20 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 const host = process.env.TAURI_DEV_HOST;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
   clearScreen: false,
   base: "./",
+  resolve: {
+    alias: {
+      "boing-sdk": path.resolve(__dirname, "../boing-sdk/src/index.ts"),
+    },
+  },
   server: {
     port: 5173,
     strictPort: true,

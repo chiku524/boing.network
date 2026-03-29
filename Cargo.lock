@@ -630,7 +630,9 @@ dependencies = [
  "boing-qa",
  "boing-state",
  "criterion",
+ "ed25519-dalek",
  "proptest",
+ "rand 0.8.5",
  "rayon",
  "thiserror 1.0.69",
  "tracing",
@@ -719,10 +721,16 @@ dependencies = [
 name = "boing-qa"
 version = "0.1.0"
 dependencies = [
+ "bincode",
+ "blake3",
  "boing-primitives",
+ "ed25519-dalek",
+ "hex",
+ "rand 0.8.5",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
+ "tracing",
 ]
 
 [[package]]

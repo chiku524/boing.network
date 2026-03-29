@@ -15,7 +15,7 @@ export const HUB_APP_URLS = {
   network: import.meta.env.VITE_NETWORK_URL ?? "https://boing.network/testnet",
 } as const;
 
-export type HubView = "home" | "observer" | "express" | "finance" | "network";
+export type HubView = "home" | "observer" | "express" | "finance" | "network" | "qa";
 
 /** App version (from package.json via Vite define) */
 export const APP_VERSION =

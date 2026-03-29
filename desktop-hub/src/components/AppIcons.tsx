@@ -43,6 +43,13 @@ export function AppIcon({ appId, size = 18, ariaHidden = true }: { appId: string
           <path d="M8.34 13.66 5.64 16.36" />
         </svg>
       );
+    case "qa":
+      return (
+        <svg {...p}>
+          <path d="M9 11l3 3L22 4" />
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+        </svg>
+      );
     case "home":
       return (
         <svg {...p}>
