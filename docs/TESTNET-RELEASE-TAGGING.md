@@ -5,13 +5,13 @@ GitHub Actions builds **`release-{linux-x86_64,macos-aarch64,windows-x86_64}.zip
 ## Ship a new testnet binary (e.g. after new JSON-RPC)
 
 1. Ensure `main` has the code you want (e.g. `boing_getQaRegistry`).
-2. Create and push an **annotated** tag (example `testnet-v0.1.3`):
+2. Create and push an **annotated** tag (example `testnet-v0.1.4`):
 
    ```bash
    git checkout main
    git pull
-   git tag -a testnet-v0.1.3 -m "Testnet node: boing_getQaRegistry and QA transparency RPC"
-   git push origin testnet-v0.1.3
+   git tag -a testnet-v0.1.4 -m "Testnet node: sync zips with main (QA RPC, VM, receipts)"
+   git push origin testnet-v0.1.4
    ```
 
 3. Wait for workflow **Release binaries** to finish. For **`testnet*`** tags the workflow **publishes** the release immediately so `https://github.com/.../releases/download/<tag>/...` works. For **`v*`** tags it still creates a **draft** until you publish manually.
@@ -20,9 +20,9 @@ GitHub Actions builds **`release-{linux-x86_64,macos-aarch64,windows-x86_64}.zip
 
    ```bash
    # from repo root:
-   node scripts/network-listings-release-sql.mjs testnet-v0.1.3
-   node scripts/network-listings-release-sql.mjs testnet-v0.1.3 --apply
-   # or from website/: cd website && node scripts/network-listings-release-sql.mjs testnet-v0.1.3 [--apply]
+   node scripts/network-listings-release-sql.mjs testnet-v0.1.4
+   node scripts/network-listings-release-sql.mjs testnet-v0.1.4 --apply
+   # or from website/: cd website && node scripts/network-listings-release-sql.mjs testnet-v0.1.4 [--apply]
    ```
 
 7. Bump VibeMiner defaults (`BOING_TESTNET_DEFAULT_DOWNLOAD_TAG`, `networks.ts`) and redeploy if you want new installs to track the tag.
