@@ -103,6 +103,8 @@ Save this IP — Bootnode 2 will need it. Example: `73.84.106.121`.
 
 ## Step 2: Primary Machine — Cloudflare Tunnel
 
+**Important:** A “custom domain” on Cloudflare **Pages** or a random **DNS** record is **not** enough — JSON-RPC needs **POST** to your node. Use a **Cloudflare Tunnel** public hostname `testnet-rpc.boing.network` → `http://127.0.0.1:8545`. See **[CLOUDFLARED-TUNNEL-ALIGNMENT.md](./CLOUDFLARED-TUNNEL-ALIGNMENT.md)** and run `node scripts/check-cloudflared-alignment.mjs` after editing `%USERPROFILE%\.cloudflared\config.yml`.
+
 In a **second terminal** on the primary:
 
 ### Windows
