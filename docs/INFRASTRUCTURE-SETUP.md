@@ -63,6 +63,8 @@ If the JSON-RPC endpoint is reachable from the open internet, set a long random 
 
 **Read-only transparency:** **`boing_getQaRegistry`**, **`boing_qaPoolList`**, and **`boing_qaPoolConfig`** do not use the operator token — they are intended for public explorers (e.g. [boing.observer/qa](https://boing.observer/qa)). Canonical baseline JSON for docs lives under [docs/config/CANONICAL-QA-REGISTRY.md](config/CANONICAL-QA-REGISTRY.md).
 
+The **`boing-node` process behind your Cloudflare tunnel** (the one listening on `localhost:8545`) must be a build that includes these methods, or explorers will show **Method not found** even when users run a newer binary locally (e.g. via VibeMiner). See [THREE-CODEBASE-ALIGNMENT.md §2.1](THREE-CODEBASE-ALIGNMENT.md#21-qa-registry-rpc-boing_getqaregistry--two-different-surfaces).
+
 ## Prerequisites
 
 - **Rust** 1.70+ on both machines

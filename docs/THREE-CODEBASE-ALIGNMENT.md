@@ -35,6 +35,19 @@ This document is the **single source of truth** for keeping **boing.network** (w
 
 - **Node CORS:** The boing-node RPC server must allow origins: `https://boing.network`, `https://www.boing.network`, `https://boing.observer`, `https://boing.express`, `https://boing.finance`, `https://www.boing.finance`, and localhost variants. See [INFRASTRUCTURE-SETUP.md](INFRASTRUCTURE-SETUP.md).
 
+### 2.1 QA registry RPC (`boing_getQaRegistry`) — two different surfaces
+
+The same JSON-RPC method exists on **any** `boing-node` that includes it, but **call sites use different URLs**:
+
+| Surface | Who calls it | What to upgrade when you see `Method not found` |
+|--------|----------------|--------------------------------------------------|
+| **Public testnet RPC** | **boing.observer** `/qa`, website tooling that use `https://testnet-rpc.boing.network/` | The **`boing-node` behind the tunnel** (see [INFRASTRUCTURE-SETUP.md](INFRASTRUCTURE-SETUP.md)). Updating a **local** VibeMiner binary does **not** change this URL. |
+| **Local RPC** | Browser/tools pointed at `http://127.0.0.1:8545` (e.g. node started from **VibeMiner**) | The **downloaded / running** `boing-node` on that machine (newer GitHub release zip). This does **not** fix boing.observer until the **public** backend is upgraded too. |
+
+**User confusion to avoid:** “I updated VibeMiner / my local node — why does boing.observer/qa still error?” Because the observer uses **`NEXT_PUBLIC_TESTNET_RPC`** (default public testnet), not your PC’s port 8545. Until that public node runs a build with `boing_getQaRegistry`, the explorer shows **Method not found**; use [canonical QA JSON](config/CANONICAL-QA-REGISTRY.md) for a static baseline, or upgrade the tunnel node.
+
+**VibeMiner copy** should stress **local binary + listing URL**; **boing.observer copy** should stress **configured RPC URL**. Both are correct; cross-link this section from app hints where helpful.
+
 ---
 
 ## 3. Chain IDs and network identifiers
