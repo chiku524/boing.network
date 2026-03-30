@@ -140,6 +140,44 @@ curl -s -X POST https://testnet-rpc.boing.network/ \
 - **Good:** JSON with `"result"` (`ok`, `amount`, …) or a rate-limit / balance error — faucet RPC is active.
 - **Bad:** `"message":"Faucet not enabled on this node."` — the node behind the tunnel was started **without** `--faucet-enable`, or the tunnel points at the wrong machine (e.g. secondary full node only). **Fix:** Run the primary bootnode script on the same PC as the tunnel, or add `--faucet-enable` to whichever node receives tunnel traffic on `8545`.
 
+### QA transparency RPC (`boing_getQaRegistry`, `boing_qaPoolConfig`)
+
+Explorers (e.g. **boing.observer/qa**) and tooling call these read-only methods on **the same public URL** (`https://testnet-rpc.boing.network/`). They are implemented in **current `boing-node`** in this repo (`crates/boing-node/src/rpc.rs`). If the public URL returns **Method not found**, the process behind the tunnel is an **older binary** (or not this codebase’s node)—**not** a DNS or “wrong URL in the website” problem.
+
+**You do not need to buy a new domain.** `testnet-rpc.boing.network` must be a **DNS record in your existing `boing.network` zone** (Cloudflare) pointing at your **Cloudflare Tunnel** (public hostname → `http://127.0.0.1:8545`). VibeMiner’s tunnel button only starts `cloudflared` on **your** PC; it does not create that DNS record for you.
+
+**Operator checklist (primary machine — the one that runs the tunnel):**
+
+1. **Cloudflare (one-time per tunnel):** Zero Trust → Tunnels → create or select tunnel (e.g. `boing-testnet-rpc`). Add a **public hostname**: `testnet-rpc.boing.network` → `http://127.0.0.1:8545`. In DNS for `boing.network`, the tunnel should own the `testnet-rpc` record (CNAME to `*.cfargotunnel.com` as shown in the dashboard).
+2. **Config file:** `cloudflared` uses `~/.cloudflared/config.yml` (Windows: `%USERPROFILE%\.cloudflared\config.yml`) with that tunnel id and ingress; see Cloudflare’s tunnel docs if you are setting this up from scratch.
+3. **Upgrade the node binary** (this fixes “Method not found” for QA methods):
+   ```bash
+   git pull
+   cargo build --release
+   ```
+   Stop the old `boing-node`, then start the new one with the **same** arguments as today (primary bootnode + `--faucet-enable` + RPC on **8545**), e.g. `scripts/start-bootnode-1.bat` or `./scripts/start-bootnode-1.sh`.
+4. **Start the tunnel** after the node is listening (second terminal): `scripts/start-cloudflare-tunnel.bat` or the `cloudflared tunnel run …` command from Step 2 above.
+5. **Verify from any machine:**
+   ```bash
+   node scripts/verify-public-testnet-rpc.mjs
+   ```
+   Or manually:
+   ```bash
+   curl -s -X POST https://testnet-rpc.boing.network/ \
+     -H "Content-Type: application/json" \
+     -d '{"jsonrpc":"2.0","id":1,"method":"boing_getQaRegistry","params":[]}'
+   ```
+   Expect `"result":{...}` not `"error"` with **Method not found**.
+
+**Apps and env (already aligned if you use the canonical URL):**
+
+| App | Variable | Value |
+|-----|----------|--------|
+| **boing.network** (Astro) | `PUBLIC_TESTNET_RPC_URL` at build | `https://testnet-rpc.boing.network/` (default in `website/src/config/testnet.ts` if unset) |
+| **boing.observer** | `NEXT_PUBLIC_TESTNET_RPC` | `https://testnet-rpc.boing.network` (set in Cloudflare Pages / build env for that project) |
+
+No code change is required on the website **only** to “point” at this URL—it is already the default. **boing.observer** must be **deployed** with its env var set to that URL (or rely on its own default if it matches).
+
 ---
 
 ## Step 3: Secondary Machine — Bootnode 2
@@ -209,6 +247,7 @@ The boing-node RPC server includes CORS headers so browser-based clients (e.g. b
 | **boing.finance** shows “Testnet RPC unreachable” | Often **CORS**: browser blocks `fetch` if the node build predates `boing.finance` in the allow list — rebuild `boing-node`, restart the **primary** RPC process, confirm `OPTIONS` from that origin returns `access-control-allow-origin`. |
 | Faucet: “Faucet not enabled on this node.” | The RPC URL hits a node **without** `--faucet-enable`. Use `--faucet-enable` on the **same** node the tunnel forwards to (see `start-bootnode-1` scripts). A secondary full node alone cannot serve the public faucet. |
 | "No nodes" in VibeMiner | Website built with `PUBLIC_BOOTNODES` and `PUBLIC_TESTNET_RPC_URL`; config redeployed |
+| **Method not found:** `boing_getQaRegistry` / `boing_qaPoolConfig` on public URL | Tunnel points to **8545**, but the **boing-node binary** there is too old. Rebuild from this repo on the primary, restart node, keep tunnel. Run `node scripts/verify-public-testnet-rpc.mjs`. |
 
 ---
 
