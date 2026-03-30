@@ -14,8 +14,8 @@ mdns = ["libp2p/mdns"]
 boing-primitives = { path = "../boing-primitives" }
 bincode = "1"
 serde = { version = "1", features = ["derive"] }
-libp2p = { version = "0.54", default-features = false, features = ["tcp", "noise", "yamux", "gossipsub", "tokio", "tls", "macros", "request-response", "cbor"] }
-libp2p-swarm = { version = "0.45", features = ["macros"] }
+libp2p = { version = "0.56", default-features = false, features = ["tcp", "noise", "yamux", "gossipsub", "tokio", "tls", "macros", "request-response", "cbor"] }
+libp2p-swarm = { version = "0.47", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 async-trait = "0.1"

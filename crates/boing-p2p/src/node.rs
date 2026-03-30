@@ -177,12 +177,12 @@ impl P2pNode {
                                     if let Err(e) =
                                         swarm.behaviour_mut().gossipsub.publish(blocks_topic.clone(), bytes)
                                     {
-                                        // Gossipsub returns InsufficientPeers when no remote peer has advertised
+                                        // Gossipsub returns NoPeersSubscribedToTopic when no remote peer has advertised
                                         // subscription to `boing/blocks` yet (common for a few heartbeats after
                                         // connect). Local consensus and RPC are unaffected.
-                                        if matches!(e, PublishError::InsufficientPeers) {
+                                        if matches!(e, PublishError::NoPeersSubscribedToTopic) {
                                             tracing::debug!(
-                                                "P2P: block not gossip-published yet (InsufficientPeers); peers may still catch up via block-sync"
+                                                "P2P: block not gossip-published yet (no subscribed peers); peers may still catch up via block-sync"
                                             );
                                         } else {
                                             warn!("P2P: block publish error: {}", e);
@@ -197,9 +197,9 @@ impl P2pNode {
                                     if let Err(e) =
                                         swarm.behaviour_mut().gossipsub.publish(txs_topic.clone(), bytes)
                                     {
-                                        if matches!(e, PublishError::InsufficientPeers) {
+                                        if matches!(e, PublishError::NoPeersSubscribedToTopic) {
                                             tracing::debug!(
-                                                "P2P: tx not gossip-published yet (InsufficientPeers)"
+                                                "P2P: tx not gossip-published yet (no subscribed peers)"
                                             );
                                         } else {
                                             warn!("P2P: tx publish error: {}", e);
@@ -240,6 +240,7 @@ impl P2pNode {
                             request_response::Event::Message {
                                 peer: _peer,
                                 message: request_response::Message::Request { request, channel, .. },
+                                ..
                             },
                         )) = ev
                         {
