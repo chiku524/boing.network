@@ -53,6 +53,11 @@ impl Mempool {
         self
     }
 
+    /// Runtime cap on distinct pending nonces per sender (minimum **1**).
+    pub fn set_max_pending_per_sender(&mut self, max: usize) {
+        self.max_pending_per_sender = max.max(1);
+    }
+
     /// Use a custom QA rule registry (e.g. loaded from file or from governance). Content blocklist and other rules are applied from this registry.
     pub fn with_qa_registry(mut self, registry: RuleRegistry) -> Self {
         self.qa_registry = registry;
@@ -183,6 +188,21 @@ impl Mempool {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Next nonce for a **new** transaction from `sender`, given the committed `chain_nonce`
+    /// (`AccountState::nonce` on chain). When this sender already has pending txs in the mempool,
+    /// returns one past the highest pending nonce (so callers do not rebuild the same `tx.id()` and
+    /// hit [`MempoolError::Duplicate`]). Used by the testnet faucet RPC.
+    pub fn suggested_next_nonce(&self, sender: AccountId, chain_nonce: u64) -> u64 {
+        let inner = self.inner.lock().unwrap();
+        match inner.by_sender.get(&sender) {
+            Some(by_nonce) if !by_nonce.is_empty() => {
+                let max_pending = *by_nonce.keys().next_back().expect("non-empty");
+                max_pending.saturating_add(1).max(chain_nonce)
+            }
+            _ => chain_nonce,
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -243,5 +263,92 @@ mod tests {
         ));
         assert!(pool.insert_after_pool_allow(signed).is_ok());
         assert_eq!(pool.len(), 1);
+    }
+
+    #[test]
+    fn pending_per_sender_limit_blocks_extra_nonces() {
+        let pool = Mempool::new().with_max_pending_per_sender(2);
+        let key = SigningKey::generate(&mut OsRng);
+        let sender = AccountId(key.verifying_key().to_bytes());
+        for nonce in 0u64..2 {
+            let tx = Transaction {
+                nonce,
+                sender,
+                payload: TransactionPayload::Transfer {
+                    to: AccountId([2u8; 32]),
+                    amount: 1,
+                },
+                access_list: AccessList::default(),
+            };
+            pool.insert(SignedTransaction::new(tx, &key)).unwrap();
+        }
+        let tx3 = Transaction {
+            nonce: 2,
+            sender,
+            payload: TransactionPayload::Transfer {
+                to: AccountId([2u8; 32]),
+                amount: 1,
+            },
+            access_list: AccessList::default(),
+        };
+        assert!(matches!(
+            pool.insert(SignedTransaction::new(tx3, &key)),
+            Err(MempoolError::PendingLimitExceeded { limit: 2, .. })
+        ));
+    }
+
+    #[test]
+    fn suggested_next_nonce_accounts_for_pending_same_sender() {
+        let pool = Mempool::new();
+        let key = SigningKey::generate(&mut OsRng);
+        let sender = AccountId(key.verifying_key().to_bytes());
+        let to = AccountId([3u8; 32]);
+        let tx0 = Transaction {
+            nonce: 5,
+            sender,
+            payload: TransactionPayload::Transfer { to, amount: 1 },
+            access_list: AccessList::default(),
+        };
+        pool.insert(SignedTransaction::new(tx0, &key)).unwrap();
+        assert_eq!(pool.suggested_next_nonce(sender, 5), 6);
+        assert_eq!(pool.suggested_next_nonce(sender, 4), 6);
+    }
+
+    #[test]
+    fn suggested_next_nonce_empty_mempool_is_chain_nonce() {
+        let pool = Mempool::new();
+        let sender = AccountId([9u8; 32]);
+        assert_eq!(pool.suggested_next_nonce(sender, 12), 12);
+    }
+
+    #[test]
+    fn set_max_pending_per_sender_updates_limit() {
+        let mut pool = Mempool::new().with_max_pending_per_sender(16);
+        pool.set_max_pending_per_sender(1);
+        let key = SigningKey::generate(&mut OsRng);
+        let sender = AccountId(key.verifying_key().to_bytes());
+        let t0 = Transaction {
+            nonce: 0,
+            sender,
+            payload: TransactionPayload::Transfer {
+                to: AccountId([2u8; 32]),
+                amount: 1,
+            },
+            access_list: AccessList::default(),
+        };
+        pool.insert(SignedTransaction::new(t0, &key)).unwrap();
+        let t1 = Transaction {
+            nonce: 1,
+            sender,
+            payload: TransactionPayload::Transfer {
+                to: AccountId([2u8; 32]),
+                amount: 1,
+            },
+            access_list: AccessList::default(),
+        };
+        assert!(matches!(
+            pool.insert(SignedTransaction::new(t1, &key)),
+            Err(MempoolError::PendingLimitExceeded { limit: 1, .. })
+        ));
     }
 }

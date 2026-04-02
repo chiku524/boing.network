@@ -20,7 +20,7 @@ use axum::{
 use governor::{Quota, RateLimiter};
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroU32;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex as TokioMutex, RwLock};
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tracing::info;
 
@@ -44,6 +44,11 @@ pub type NodeState = Arc<RwLock<BoingNode>>;
 /// Per-account cooldown for faucet (testnet only).
 pub type FaucetCooldown = Arc<std::sync::Mutex<HashMap<AccountId, Instant>>>;
 
+/// Serializes `boing_faucetRequest` build+submit so concurrent RPCs do not read the same nonce
+/// and collide (duplicate tx id or accidental replacement at the same nonce).
+/// Tokio mutex so the guard is not held across `.await` with a `std::sync` guard (would make the handler `!Send`).
+pub type FaucetSubmitLock = Arc<TokioMutex<()>>;
+
 /// RPC handler state: node + optional global rate limiter + optional testnet faucet.
 #[derive(Clone)]
 pub struct RpcState {
@@ -52,6 +57,7 @@ pub struct RpcState {
     /// When set, enables boing_faucetRequest (testnet only).
     pub faucet_signer: Option<Arc<ed25519_dalek::SigningKey>>,
     pub faucet_cooldown: Option<FaucetCooldown>,
+    pub faucet_submit_lock: Option<FaucetSubmitLock>,
     /// When set, `boing_qaPoolVote` and `boing_operatorApplyQaPolicy` require header `X-Boing-Operator: <token>`.
     pub operator_rpc_token: Option<Arc<str>>,
 }
@@ -202,6 +208,35 @@ fn parse_account_id_hex(s: &str) -> Result<AccountId, String> {
 const GET_LOGS_MAX_BLOCK_RANGE: u64 = 128;
 /// Max log entries returned per `boing_getLogs` call.
 const GET_LOGS_MAX_RESULTS: usize = 2048;
+
+/// `boing_*` method names implemented by this binary; returned by `boing_rpcSupportedMethods`.
+/// Keep sorted and in sync with `rpc_router` match arms for `boing_*` methods.
+const BOING_RPC_SUPPORTED_METHODS: &[&str] = &[
+    "boing_chainHeight",
+    "boing_clientVersion",
+    "boing_faucetRequest",
+    "boing_getAccount",
+    "boing_getAccountProof",
+    "boing_getBalance",
+    "boing_getBlockByHash",
+    "boing_getBlockByHeight",
+    "boing_getContractStorage",
+    "boing_getLogs",
+    "boing_getQaRegistry",
+    "boing_getSyncState",
+    "boing_getTransactionReceipt",
+    "boing_operatorApplyQaPolicy",
+    "boing_qaCheck",
+    "boing_qaPoolConfig",
+    "boing_qaPoolList",
+    "boing_qaPoolVote",
+    "boing_registerDappMetrics",
+    "boing_rpcSupportedMethods",
+    "boing_simulateTransaction",
+    "boing_submitIntent",
+    "boing_submitTransaction",
+    "boing_verifyAccountProof",
+];
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -600,6 +635,19 @@ async fn handle_rpc(
             let height = n.chain.height();
             rpc_ok(id, serde_json::json!(height))
         }
+        "boing_clientVersion" => rpc_ok(
+            id,
+            serde_json::Value::String(format!("boing-node/{}", env!("CARGO_PKG_VERSION"))),
+        ),
+        "boing_rpcSupportedMethods" => rpc_ok(
+            id,
+            serde_json::Value::Array(
+                BOING_RPC_SUPPORTED_METHODS
+                    .iter()
+                    .map(|s| serde_json::Value::String((*s).to_string()))
+                    .collect(),
+            ),
+        ),
         "boing_getSyncState" => {
             let n = node.read().await;
             let head_height = n.chain.height();
@@ -1368,6 +1416,16 @@ async fn handle_rpc(
                     )),
                 );
             };
+            let Some(ref submit_lock) = state.faucet_submit_lock else {
+                return (
+                    StatusCode::OK,
+                    Json(rpc_error(
+                        id,
+                        -32601,
+                        "Faucet not enabled on this node.".into(),
+                    )),
+                );
+            };
             let params = req
                 .params
                 .and_then(|p| serde_json::from_value::<Vec<String>>(p).ok());
@@ -1409,7 +1467,7 @@ async fn handle_rpc(
 
             const COOLDOWN: Duration = Duration::from_secs(60);
             {
-                let mut map = cooldown.lock().unwrap();
+                let map = cooldown.lock().unwrap();
                 if let Some(&last) = map.get(&to_id) {
                     if last.elapsed() < COOLDOWN {
                         return (
@@ -1425,12 +1483,13 @@ async fn handle_rpc(
                         );
                     }
                 }
-                map.insert(to_id, Instant::now());
             }
 
             let faucet_id = testnet_faucet_account_id();
+            let _faucet_gate = submit_lock.lock().await;
+
             let n = node.write().await;
-            let (nonce, balance_ok) = match n.state.get(&faucet_id) {
+            let (chain_nonce, balance_ok) = match n.state.get(&faucet_id) {
                 Some(s) => (s.nonce, s.balance >= faucet::FAUCET_DISPENSE_AMOUNT),
                 None => {
                     return (
@@ -1449,6 +1508,9 @@ async fn handle_rpc(
                     Json(rpc_error(id, -32000, "Faucet balance too low.".into())),
                 );
             }
+            let nonce = n
+                .mempool
+                .suggested_next_nonce(faucet_id, chain_nonce);
             let tx = Transaction {
                 nonce,
                 sender: faucet_id,
@@ -1463,6 +1525,9 @@ async fn handle_rpc(
             let n = node.write().await;
             match n.submit_transaction(signed) {
                 Ok(()) => {
+                    if let Ok(mut map) = cooldown.lock() {
+                        map.insert(to_id, Instant::now());
+                    }
                     info!(
                         "RPC: faucet sent {} to {}",
                         faucet::FAUCET_DISPENSE_AMOUNT,
@@ -1507,13 +1572,14 @@ pub fn rpc_router(
         None
     };
 
-    let (faucet_signer, faucet_cooldown) = if faucet_signer.is_some() {
+    let (faucet_signer, faucet_cooldown, faucet_submit_lock) = if faucet_signer.is_some() {
         (
             faucet_signer,
             Some(Arc::new(std::sync::Mutex::new(HashMap::new()))),
+            Some(Arc::new(TokioMutex::new(()))),
         )
     } else {
-        (None, None)
+        (None, None, None)
     };
 
     let cors = CorsLayer::new()
@@ -1544,6 +1610,7 @@ pub fn rpc_router(
             rate_limiter,
             faucet_signer,
             faucet_cooldown,
+            faucet_submit_lock,
             operator_rpc_token,
         })
 }
