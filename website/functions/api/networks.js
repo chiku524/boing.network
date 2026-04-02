@@ -35,20 +35,20 @@ function isAllowedDownloadUrl(urlString) {
 }
 
 /** Pinned testnet tag for official zips (keep in sync with VibeMiner `BOING_TESTNET_DEFAULT_DOWNLOAD_TAG`). */
-const BOING_TESTNET_DOWNLOAD_TAG = 'testnet-v0.1.4';
+const BOING_TESTNET_DOWNLOAD_TAG = 'testnet-v0.1.5';
 
 /** SHA-256 of each official zip for `BOING_TESTNET_DOWNLOAD_TAG`. */
 const BOING_ZIP_SHA = {
-  windows: '50898a02f3cba1effe0c91a6f0ea48d3eed62ab87b7aeb3ebb653b30a1248f65',
-  linux: 'a96987461201f00d618afad5a494b52837663f90f6d9d3d5c097b6843cad17ab',
-  macos: '26fd3477dfead760b3a04d5449173cbb7468286f33a51eec09d07d96982c0718',
+  windows: '9d5f9abf5872721b9c435e69ccbe539ad3105e677dc6927f713f905cd00ae7bf',
+  linux: 'd502e00dc4c97a2e2223c868d8ec3c5ac087d4c17e2eaf20f0f9d21636090dfa',
+  macos: '2a7ce8f3df050dfbc336edd0b943c3a558a0be32ec8bd273b5ff66be899c399c',
 };
 
-const STALE_TESTNET_TAG_RE = /\/download\/(testnet-v0\.1\.(?:0|1|2))\//;
+const STALE_TESTNET_TAG_RE = /\/download\/(testnet-v0\.1\.(?:0|1|2|3|4))\//;
 
 /**
- * Upgrade chiku524/boing.network release URLs that pointed at zips without QA transparency RPC
- * (`boing_getQaRegistry` / `boing_qaPoolConfig`) in published Windows builds.
+ * Upgrade older chiku524/boing.network testnet release URLs to `BOING_TESTNET_DOWNLOAD_TAG`
+ * (keeps SHA256 in sync when rewriting).
  */
 function maybeUpgradeStaleOfficialBoingZipUrl(url) {
   if (!url || typeof url !== 'string') return null;
@@ -70,6 +70,29 @@ const DEVNET_BASE = {
   chain_id_hex: '0x1b01',
   website: 'https://boing.network',
 };
+
+/**
+ * Machine-readable defaults for desktop clients (e.g. VibeMiner). Safe to extend with new keys;
+ * clients should ignore unknown fields.
+ *
+ * **Sync:** `boing_testnet_download_tag` must match VibeMiner’s `BOING_TESTNET_DEFAULT_DOWNLOAD_TAG` (or
+ * equivalent). See docs/VIBEMINER-INTEGRATION.md §6.
+ */
+function buildNetworksMeta() {
+  return {
+    boing_testnet_download_tag: BOING_TESTNET_DOWNLOAD_TAG,
+    chain_id_hex: DEVNET_BASE.chain_id_hex,
+    public_testnet_rpc_url: DEVNET_BASE.rpc_url,
+    official_bootnodes: [...DEVNET_BASE.bootnodes],
+    cli_long_flags: 'kebab-case',
+    docs: {
+      vibeminer_integration:
+        'https://github.com/chiku524/boing.network/blob/main/docs/VIBEMINER-INTEGRATION.md',
+      pre_vibeminer_commands:
+        'https://github.com/chiku524/boing.network/blob/main/docs/PRE-VIBEMINER-NODE-COMMANDS.md',
+    },
+  };
+}
 
 /** Same bootnodes/RPC/chain; `platform` helps clients choose a listing without parsing zip names. */
 function staticNetworks() {
@@ -145,6 +168,7 @@ async function networksJsonResponse(context) {
       headers,
       body: JSON.stringify({
         ok: true,
+        meta: buildNetworksMeta(),
         networks,
         warning: 'Database not configured; D1 overrides skipped',
       }),
@@ -168,7 +192,7 @@ async function networksJsonResponse(context) {
     return {
       status: 200,
       headers,
-      body: JSON.stringify({ ok: true, networks }),
+      body: JSON.stringify({ ok: true, meta: buildNetworksMeta(), networks }),
     };
   } catch (e) {
     return {

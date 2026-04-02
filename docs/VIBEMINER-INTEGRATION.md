@@ -12,7 +12,7 @@ To support "one-click" running of a Boing node (validator or full node) from Vib
 | Item | What Boing provides |
 |------|----------------------|
 | **Node binary** | `boing-node` (single executable; build from this repo or use a published release). |
-| **How to run** | CLI flags: `--validator`, `--rpc-port`, `--data-dir`, `--p2p_listen`, `--bootnodes`, `--faucet-enable` (testnet). |
+| **How to run** | CLI flags (all **kebab-case** on the shell — see §6): `--validator`, `--rpc-port`, `--data-dir`, `--p2p-listen`, `--bootnodes`, `--faucet-enable`, optional `--dev-rate-limits` for busy local/testnet RPC. |
 | **RPC** | JSON-RPC over HTTP on `--rpc-port` (default 8545). Methods: `boing_chainHeight`, `boing_submitTransaction`, etc. See [RPC-API-SPEC.md](RPC-API-SPEC.md). |
 | **Testnet faucet** | RPC method `boing_faucetRequest([hex_account_id])` when node is started with `--faucet-enable`; or point users to the web faucet. |
 | **Bootnodes** | Comma-separated multiaddrs for testnet/mainnet; published on [TESTNET.md](TESTNET.md) and website `/testnet/join`. |
@@ -37,7 +37,7 @@ No separate "miner" binary: **validating** is done by running `boing-node --vali
    **Testnet:**
 
    ```text
-   boing-node --p2p_listen /ip4/0.0.0.0/tcp/4001 \
+   boing-node --p2p-listen /ip4/0.0.0.0/tcp/4001 \
      --bootnodes <OFFICIAL_TESTNET_BOOTNODES> \
      --validator \
      --rpc-port 8545 \
@@ -47,7 +47,7 @@ No separate "miner" binary: **validating** is done by running `boing-node --vali
    **Mainnet (when live):**
 
    ```text
-   boing-node --p2p_listen /ip4/0.0.0.0/tcp/4001 \
+   boing-node --p2p-listen /ip4/0.0.0.0/tcp/4001 \
      --bootnodes <OFFICIAL_MAINNET_BOOTNODES> \
      --validator \
      --rpc-port 8545 \
@@ -99,19 +99,32 @@ Boing exposes a small JSON list for node runners (used alongside `@vibeminer/sha
 
 | Mechanism | Shape |
 |-----------|--------|
-| **This API + D1** | Three entries: `boing-devnet`, `boing-devnet-linux`, `boing-devnet-macos` (each with `platform`, optional `node_*` from D1). |
-| **VibeMiner static `boing-devnet`** | One id with **`nodePresets`** (Windows / Linux / macOS) — same zips and commands, easier for the desktop preset picker. |
+| **This API + D1** | Top-level **`meta`** (download tag, RPC URL, bootnodes, chain id, CLI flag style, doc links) plus **`networks[]`**: `boing-devnet`, `boing-devnet-linux`, `boing-devnet-macos` (each with `platform`, optional `node_*` from D1). |
+| **VibeMiner static `boing-devnet`** | One id with **`nodePresets`** (Windows / Linux / macOS) — same zips and commands, easier for the desktop preset picker. **Prefer** merging **`meta`** from this API on startup so the app tracks new tags without a rebuild. |
 
-**Refresh D1** after a new `boing-node` GitHub release tag:
+**`meta` fields (stable contract; extra keys may appear):**
+
+| Field | Meaning |
+|-------|---------|
+| **`boing_testnet_download_tag`** | GitHub release tag for official zips — **must match** VibeMiner’s default tag constant (see §6). |
+| **`chain_id_hex`** | Testnet chain id (`0x1b01`). |
+| **`public_testnet_rpc_url`** | Public JSON-RPC (faucet / read-only); same as each row’s **`rpc_url`**. |
+| **`official_bootnodes`** | Multiaddr strings; comma-join for `--bootnodes`. |
+| **`cli_long_flags`** | Always **`kebab-case`** (`--p2p-listen`, not `--p2p_listen`). |
+| **`docs`** | URLs to this file and [PRE-VIBEMINER-NODE-COMMANDS.md](PRE-VIBEMINER-NODE-COMMANDS.md). |
+
+**Maintainer sync:** Step-by-step checklist for the **VibeMiner** desktop repo is in **§6** below.
+
+**Refresh D1** after a new `boing-node` GitHub release tag (replace the tag with the one you published):
 
 ```bash
 cd website
-node scripts/network-listings-release-sql.mjs testnet-v0.1.3
+node scripts/network-listings-release-sql.mjs testnet-v0.1.5
 # Optional: apply (use CLOUDFLARE_API_TOKEN if OAuth fails on D1 import)
-node scripts/network-listings-release-sql.mjs testnet-v0.1.3 --apply
+node scripts/network-listings-release-sql.mjs testnet-v0.1.5 --apply
 ```
 
-Canonical hand-maintained SQL: [website/migrations/insert-boing-devnet-listing.sql](../website/migrations/insert-boing-devnet-listing.sql).
+Canonical hand-maintained SQL: [website/migrations/insert-boing-devnet-listing.sql](../website/migrations/insert-boing-devnet-listing.sql). Latest tag refresh example: [website/migrations/2026-04-02-network-listings-boing-testnet-v0-1-5.sql](../website/migrations/2026-04-02-network-listings-boing-testnet-v0-1-5.sql).
 
 ---
 
@@ -131,13 +144,28 @@ Share the onboarding flow (or a draft) and we'll integrate it into the docs and 
 | Boing provides | Use in VibeMiner |
 |----------------|------------------|
 | `boing-node` binary | Run as process; optional bundling or PATH detection. Windows: build with `--no-default-features`. |
-| `--validator`, `--rpc-port`, `--data-dir`, `--p2p_listen`, `--bootnodes` | Command line for "Start node" / "Start validator". |
+| `--validator`, `--rpc-port`, `--data-dir`, `--p2p-listen`, `--bootnodes` | Command line for "Start node" / "Start validator". |
 | RPC on port 8545 (default) | Status (`boing_chainHeight`), faucet (`boing_faucetRequest`), block/tx queries. See [RPC-API-SPEC.md](RPC-API-SPEC.md). |
 | Public RPC `https://testnet-rpc.boing.network/` | Faucet calls (no local faucet needed); read-only queries. |
 | Bootnode list ([TESTNET.md](TESTNET.md) §6, [website](https://boing.network/testnet/join)) | So the node joins the testnet. |
 | P2P port 4001, RPC port 8545 | Firewall: open 4001 for P2P; 8545 only if exposing RPC. |
 
 No separate miner binary; no custom daemon protocol—just the node binary and JSON-RPC. For launch dependencies (bootnodes, public RPC), see [READINESS.md](READINESS.md) §3.
+
+---
+
+## 6. VibeMiner app maintainers — configuration sync checklist
+
+Use this when shipping a **VibeMiner** release so the desktop app matches **boing.network** and **`boing-node`**.
+
+1. **`BOING_TESTNET_DEFAULT_DOWNLOAD_TAG` (or equivalent)** in the VibeMiner repo — set equal to **`meta.boing_testnet_download_tag`** from `GET https://boing.network/api/networks` (same value as **`BOING_TESTNET_DOWNLOAD_TAG`** in [website/functions/api/networks.js](../website/functions/api/networks.js)).
+2. **Static `networks.ts` / presets** — zip URLs and SHA-256 for Windows / Linux / macOS should match the **`networks[]`** rows (or the GitHub release assets for that tag). Re-fetch **`/api/networks`** after Boing bumps the tag.
+3. **Command templates** — use **kebab-case** flags only (`--p2p-listen`, `--data-dir`, `--rpc-port`, `--bootnodes`, `--faucet-enable`, `--validator`). Underscore forms are **rejected** by current `boing-node` (clap).
+4. **Bootnodes + RPC** — align with **`meta.official_bootnodes`** and **`meta.public_testnet_rpc_url`** (also [website/src/config/testnet.ts](../website/src/config/testnet.ts) / `PUBLIC_BOOTNODES` / `PUBLIC_TESTNET_RPC_URL` at site build time).
+5. **Tunnel preset** — default tunnel name and `cloudflared` flow: [CLOUDFLARED-TUNNEL-ALIGNMENT.md](CLOUDFLARED-TUNNEL-ALIGNMENT.md) (e.g. **`boing-testnet-rpc`**).
+6. **Post-ship smoke** — from [examples/native-boing-tutorial](../examples/native-boing-tutorial): **`npm run preflight-rpc`** with public **`BOING_RPC_URL`** ([PRE-VIBEMINER-NODE-COMMANDS.md](PRE-VIBEMINER-NODE-COMMANDS.md)).
+
+**Source of truth order:** live **`/api/networks`** → GitHub release assets → this repo’s **`networks.js`** constant **`BOING_TESTNET_DOWNLOAD_TAG`**.
 
 ---
 
@@ -164,7 +192,7 @@ Use these values to list **Boing Network** in the VibeMiner request listing form
 | Field | Value |
 |-------|--------|
 | **Node download URL (HTTPS)** | https://github.com/chiku524/boing.network/releases (or direct asset URL when you publish a release, e.g. `https://github.com/chiku524/boing.network/releases/download/v0.1.0/boing-node-...`) |
-| **Command template** | `boing-node --p2p_listen /ip4/0.0.0.0/tcp/4001 --bootnodes /ip4/73.84.106.121/tcp/4001 --validator --rpc-port 8545 --data-dir {dataDir}` |
+| **Command template** | `boing-node --p2p-listen /ip4/0.0.0.0/tcp/4001 --bootnodes /ip4/73.84.106.121/tcp/4001 --validator --rpc-port 8545 --data-dir {dataDir}` (zip builds use the executable name from the release, e.g. `boing-node-windows-x86_64.exe`; see D1 **`node_command_template`**) |
 | **Disk (GB)** | 10 |
 | **RAM (MB)** | 2048 |
 | **Binary SHA256 (optional)** | *(Leave blank or fill per release for integrity)* |
@@ -175,6 +203,7 @@ Use these values to list **Boing Network** in the VibeMiner request listing form
 - Bootnodes: current testnet bootnode is `/ip4/73.84.106.121/tcp/4001`. Canonical list is at [boing.network/testnet/join](https://boing.network/testnet/join) and in [TESTNET.md](TESTNET.md) §6. If VibeMiner supports configurable bootnodes (e.g. from a URL or env), you can document that so operators get the latest list.
 - Omit `--validator` for a full-node-only run if the app offers that option.
 - **Windows:** Build with `--no-default-features` to disable mDNS (see [INFRASTRUCTURE-SETUP.md](INFRASTRUCTURE-SETUP.md)).
+- **Rate limits:** For a **local** node behind heavy wallet/indexer traffic, operators may set env **`BOING_RATE_PROFILE=dev`** or pass **`--dev-rate-limits`** (see [RUNBOOK.md](RUNBOOK.md) §2). Do **not** recommend the dev profile for **public** RPC hosts.
 
 ### Description (required)
 
