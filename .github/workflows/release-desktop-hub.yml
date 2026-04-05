@@ -46,7 +46,15 @@ jobs:
         with:
           node-version: 'lts/*'
           cache: 'npm'
-          # Root has a minimal package-lock.json so setup-node finds it; desktop-hub deps are installed in next step
+          cache-dependency-path: |
+            boing-sdk/package-lock.json
+            desktop-hub/package-lock.json
+
+      # file:../boing-sdk does not install the SDK's devDependencies (TypeScript), so `prepare` cannot run `tsc` there.
+      # Build the SDK once before hub `npm ci` so `dist/` exists and no broken lifecycle runs on the link.
+      - name: Build boing-sdk
+        working-directory: boing-sdk
+        run: npm ci && npm run build
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -59,8 +67,15 @@ jobs:
           # Workspace root contains desktop-hub/src-tauri; target is at repo root
           workspaces: '.'
 
+      - name: Remove stale node_modules (Windows)
+        if: matrix.platform == 'windows-latest'
+        working-directory: desktop-hub
+        shell: bash
+        run: rm -rf node_modules
+
       - name: Install frontend dependencies
         working-directory: desktop-hub
+        shell: bash
         run: npm ci
 
       - name: Import Windows code signing certificate

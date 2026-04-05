@@ -23,8 +23,10 @@ If on Windows you see **"An Application Control policy has blocked this file" (o
 
 ## Quick start
 
+The hub depends on **`boing-sdk`** via `file:../boing-sdk`. Build the SDK first (it is not pre-built in git), then install the hub:
+
 ```bash
-cd desktop-hub
+cd boing-sdk && npm install && npm run build && cd ../desktop-hub
 npm install
 ```
 
