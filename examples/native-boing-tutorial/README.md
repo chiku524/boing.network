@@ -20,6 +20,8 @@ cd ../../boing-sdk && npm install && npm run build
 cd examples/native-boing-tutorial && npm install
 ```
 
+**From the repository root:** the root **`package.json`** exposes the **same** **`npm run <script>`** names as this package (each delegates with **`--prefix examples/native-boing-tutorial`**). After **`boing-sdk`** is built and this package is installed, you can run e.g. **`npm run preflight-rpc`**, **`npm run deploy-native-dex-directory`**, or **`npm run fetch-native-amm-reserves`** from **`boing.network/`** without **`cd`** — see [PRE-VIBEMINER-NODE-COMMANDS.md](../../docs/PRE-VIBEMINER-NODE-COMMANDS.md) §4.
+
 5. **Before relying on public testnet RPC** (deploy, faucet, etc.), run **`npm run preflight-rpc`** or **`npm run check-testnet-rpc`** (uses **`BOING_RPC_URL`**; **`preflight-rpc`** adds a one-shot sync-state poll). See [NETWORK-GO-LIVE-CHECKLIST.md](../../docs/NETWORK-GO-LIVE-CHECKLIST.md) and [PRE-VIBEMINER-NODE-COMMANDS.md](../../docs/PRE-VIBEMINER-NODE-COMMANDS.md).
 
 **Note:** Native AMM bytecode dumps are **gitignored**. From the repo root, write **two lines** (v1 then v2) without mixing stderr into the file:
@@ -189,6 +191,20 @@ After a successful submit, seed liquidity with **`npm run native-amm-submit-cont
 
 **`tx_hash: "ok"` in script JSON:** Current **`boing-node`** returns **`{ "tx_hash": "ok" }`** on successful **`boing_submitTransaction`** — not a 32-byte hash. Use **`predictedPoolHex`** (CREATE2) + **`fetch-native-amm-reserves`** to confirm the pool; see [RPC-API-SPEC.md](../../docs/RPC-API-SPEC.md) § **`boing_submitTransaction`**.
 
+### 7c2. Deploy native DEX pair directory (`npm run deploy-native-dex-directory`)
+
+Deploys the **pair directory** VM program (CREATE2 by default), then optionally submits **`register_pair`** in a **second** transaction when you set pool + token ids. Bytecode: **`cargo run -p boing-execution --example dump_native_dex_factory`** (one `0x…` line). Spec: [NATIVE-DEX-FACTORY.md](../../docs/NATIVE-DEX-FACTORY.md); capability overview: [BOING-NATIVE-DEX-CAPABILITY.md](../../docs/BOING-NATIVE-DEX-CAPABILITY.md).
+
+| Variable | Required |
+|----------|----------|
+| `BOING_SECRET_HEX` | yes |
+| `BOING_DEX_FACTORY_BYTECODE_FILE` or `BOING_DEX_FACTORY_BYTECODE_HEX` | yes |
+| `BOING_RPC_URL` | no — default public testnet |
+| `BOING_USE_CREATE2` | no — default **`1`** (**`NATIVE_DEX_FACTORY_CREATE2_SALT_V1`**) |
+| `BOING_PURPOSE` | no — default **`dapp`** |
+| `BOING_EXPECT_SENDER_HEX` | no |
+| **Optional `register_pair` second tx** | Set all of: **`BOING_DEX_POOL_HEX`**, **`BOING_DEX_TOKEN_A_HEX`**, **`BOING_DEX_TOKEN_B_HEX`**; **`BOING_DEX_FACTORY_HEX`** defaults to predicted directory address |
+
 ### 7d. Print native AMM `contract_call` JSON (`npm run native-amm-print-contract-call-tx`)
 
 Read-only helper: prints **`{ ok, action, tx }`** where **`tx`** matches **`buildNativeConstantProductContractCallTx`** (for Boing Express / wallet paste). No keys, no RPC.
@@ -232,7 +248,58 @@ export BOING_AMOUNT_B=2000000
 npm run native-amm-submit-contract-call
 ```
 
-### 7f. Chain tip poll (`npm run observer-chain-tip-poll`)
+### 7f. Print LP vault `contract_call` JSON (`npm run native-amm-lp-vault-print-contract-call-tx`)
+
+Read-only: **`buildNativeAmmLpVaultConfigureContractCallTx`** or **`buildNativeAmmLpVaultDepositAddContractCallTx`** — same shape as §7d but for the **LP vault** contract ([NATIVE-AMM-LP-VAULT.md](../../docs/NATIVE-AMM-LP-VAULT.md)). LP share token ABI: [NATIVE-LP-SHARE-TOKEN.md](../../docs/NATIVE-LP-SHARE-TOKEN.md).
+
+| Variable | Required |
+|----------|----------|
+| `BOING_SENDER_HEX` | yes |
+| `BOING_VAULT_HEX` | yes |
+| `BOING_POOL_HEX`, `BOING_SHARE_HEX` | yes |
+| `BOING_LP_VAULT_ACTION` | no — **`configure`** (default) or **`deposit`** / **`deposit_add`** |
+| `BOING_AMOUNT_A`, `BOING_AMOUNT_B`, `BOING_MIN_LIQUIDITY`, `BOING_VAULT_MIN_LP` | deposit only (**`BOING_MIN_LIQUIDITY`** / **`BOING_VAULT_MIN_LP`** default **0**) |
+
+### 7g. Submit LP vault `contract_call` (`npm run native-amm-lp-vault-submit-contract-call`)
+
+Same env as **§7f**, plus **`BOING_RPC_URL`** and **`BOING_SECRET_HEX`**. Runs **`submitContractCallWithSimulationRetry`** against **`BOING_VAULT_HEX`**.
+
+| Variable | Required |
+|----------|----------|
+| `BOING_SECRET_HEX` | yes |
+| `BOING_VAULT_HEX`, `BOING_POOL_HEX`, `BOING_SHARE_HEX` | yes |
+| `BOING_RPC_URL` | no — default `http://127.0.0.1:8545` |
+| (same action / amount vars as §7f) | per action |
+
+### 7h. Print LP share `contract_call` JSON (`npm run native-lp-share-print-contract-call-tx`)
+
+Read-only: **`buildLpShareTokenContractCallTx`** for [NATIVE-LP-SHARE-TOKEN.md](../../docs/NATIVE-LP-SHARE-TOKEN.md) (**`transfer`**, **`mint`**, **`set_minter_once`**).
+
+| Variable | Required |
+|----------|----------|
+| `BOING_SENDER_HEX` | yes |
+| `BOING_LP_SHARE_HEX` | yes |
+| `BOING_LP_SHARE_ACTION` | no — **`transfer`** (default), **`mint`**, **`set_minter_once`** |
+| `BOING_TRANSFER_TO_HEX`, `BOING_TRANSFER_AMOUNT` | transfer (**amount** default **1**) |
+| `BOING_MINT_TO_HEX`, `BOING_MINT_AMOUNT` | mint |
+| `BOING_MINTER_HEX` | **`set_minter_once`** |
+
+### 7i. Submit LP share `contract_call` (`npm run native-lp-share-submit-contract-call`)
+
+Same env as **§7h**, plus **`BOING_RPC_URL`** and **`BOING_SECRET_HEX`**.
+
+| Variable | Required |
+|----------|----------|
+| `BOING_SECRET_HEX` | yes |
+| `BOING_LP_SHARE_HEX` | yes |
+| `BOING_RPC_URL` | no — default `http://127.0.0.1:8545` |
+| (same action / amount vars as §7h) | per action |
+
+### 7i2. Browser UI — `boing.finance` (checklist **A7.4**)
+
+With **Boing Express** on chain **6913**, [boing.finance/boing/native-vm](https://boing.finance/boing/native-vm) renders an **LP vault** panel that signs the same `contract_call` shapes as **§7f–§7i**: vault **`configure`**, **`deposit_add`** (nested native `add_liquidity`), and LP share **`transfer`**. Prefill at build time with **`REACT_APP_BOING_NATIVE_AMM_LP_VAULT`** and **`REACT_APP_BOING_NATIVE_AMM_LP_SHARE_TOKEN`** (same **0x + 64 hex** accounts as the CLI env vars). The **Liquidity** page includes the same panel (compact) when native AMM mode is active.
+
+### 7j. Chain tip poll (`npm run observer-chain-tip-poll`)
 
 Operator **monitoring** (no DB): prints one JSON line per interval with **`boing_chainHeight`** and **`boing_getSyncState`**. Use beside nodes until a full explorer / indexer exists ([TESTNET-OPS-RUNBOOK.md](../../docs/TESTNET-OPS-RUNBOOK.md) §3). Stop with **Ctrl+C**.
 
@@ -264,6 +331,8 @@ Node cannot hold the user’s extension key. In a page:
 
 ## Docs
 
+- [BOING-NATIVE-DEX-CAPABILITY.md](../../docs/BOING-NATIVE-DEX-CAPABILITY.md) / [NATIVE-DEX-FACTORY.md](../../docs/NATIVE-DEX-FACTORY.md) / [BOING-L1-DEX-ENGINEERING.md](../../docs/BOING-L1-DEX-ENGINEERING.md) (native DEX stack + pair directory §7c2)
+- [NATIVE-AMM-LP-VAULT.md](../../docs/NATIVE-AMM-LP-VAULT.md) / [NATIVE-LP-SHARE-TOKEN.md](../../docs/NATIVE-LP-SHARE-TOKEN.md) (vault §7f–§7g; LP share token §7h–§7i; browser §7i2)
 - [DEVNET-OPERATOR-NATIVE-AMM.md](../../docs/DEVNET-OPERATOR-NATIVE-AMM.md) (self-hosted RPC: deploy pool + seed liquidity + dApp RPC)
 - [TESTNET-OPS-RUNBOOK.md](../../docs/TESTNET-OPS-RUNBOOK.md) (operators: go-live order, monitoring, **OPS-1**)
 - [BOING-DAPP-INTEGRATION.md](../../docs/BOING-DAPP-INTEGRATION.md)
