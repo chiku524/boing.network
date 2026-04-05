@@ -4,7 +4,7 @@ This document defines a **recommended** calldata layout for NFT-style contracts 
 
 ## Principles
 
-- **Boing VM ≠ EVM.** See `TECHNICAL-SPECIFICATION.md` §7.
+- **Boing VM only.** Opcodes and semantics are Boing-defined (`TECHNICAL-SPECIFICATION.md` §7, [BOING-VM-INDEPENDENCE.md](BOING-VM-INDEPENDENCE.md)).
 - **Storage layout** is contract-defined. A common pattern is **owner mapping**: `SLOAD` / `SSTORE` with key derived from `token_id` (32-byte word) and value = owner `AccountId` or zero if burned.
 - **Authorization** uses **`CALLER`** (`0x33`) to verify transfers (owner or approved operator).
 
@@ -58,16 +58,22 @@ When `metadata_hash` points to JSON (IPFS, HTTPS), recommended keys for marketpl
 
 ### Example call sequences
 
-1. **List (off-chain index):** Indexer reads `owner_of` + metadata URI from `set_metadata_hash` / collection policy; listing state may live **only** in indexer DB (like many EVM marketplaces).
+1. **List (off-chain index):** Indexer reads `owner_of` + metadata URI from `set_metadata_hash` / collection policy; listing state may live **only** in indexer DB (common pattern for off-chain order books).
 2. **Sale (on-chain escrow pattern):** Buyer `ContractCall`s **escrow contract** with `token_id` + seller + price; escrow `ContractCall`s collection contract `transfer_nft` after payment leg—each tx declares **full access list** (buyer, seller, escrow, collection, token ledger).
 3. **Offer / bid:** Same idea with **escrow** holding BOING or a **reference-token** balance ([BOING-REFERENCE-TOKEN.md](BOING-REFERENCE-TOKEN.md)).
 
-### QA
+---
 
-Declare purpose **`NFT`** / **`nft`** for collection contracts; **`dApp`** may apply to marketplace/escrow contracts. Avoid evasive **proxy** patterns that hide reviewed code ([BOING-PATTERN-UPGRADE-PROXY.md](BOING-PATTERN-UPGRADE-PROXY.md)).
+## Canonical collection deploy template (pinned bytecode)
+
+**Implementation:** `boing_execution::reference_nft_collection_template_bytecode()` — minimal collection with **lazy admin** (first caller becomes admin when the admin slot is unset), reference **`owner_of`**, **`transfer_nft`**, **`set_metadata_hash`**, XOR-derived storage keys `REF_NFT_OWNER_STORAGE_XOR` / `REF_NFT_METADATA_STORAGE_XOR` in `crates/boing-execution/src/reference_nft.rs`. **Mint:** when a `token_id` has no owner, only the **admin** may set the owner via `transfer_nft` (lazy mint to `to`).
+
+Integration: [BOING-CANONICAL-DEPLOY-ARTIFACTS.md](BOING-CANONICAL-DEPLOY-ARTIFACTS.md). **`boing-sdk`:** `resolveReferenceNftCollectionTemplateBytecodeHex`, **`REFERENCE_NFT_COLLECTION_TEMPLATE_VERSION`** = **`1`**. Hex: `cargo run -p boing-execution --example dump_reference_token_artifacts` (second line).
 
 ---
 
 ## QA
 
 NFT deploys should declare a valid **purpose** (`NFT`, `nft`, …). Bytecode must satisfy the Boing VM **opcode whitelist** and well-formedness rules. This document does not add new automated bytecode checks beyond existing QA; it standardizes **calldata** for interoperability.
+
+For **marketplace / escrow** contracts, purpose **`dApp`** may apply. Avoid evasive **proxy** patterns that hide reviewed code ([BOING-PATTERN-UPGRADE-PROXY.md](BOING-PATTERN-UPGRADE-PROXY.md)).

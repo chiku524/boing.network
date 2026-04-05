@@ -8,7 +8,12 @@ export class BoingRpcError extends Error {
     message: string,
     public readonly data?: unknown,
     /** RPC method that failed (e.g. "boing_getBalance"). */
-    public readonly method?: string
+    public readonly method?: string,
+    /**
+     * From HTTP **`Retry-After`** when the server returned a retriable status (e.g. 429).
+     * Used by `BoingClient` to wait at least this long before the next retry.
+     */
+    public readonly retryAfterMs?: number
   ) {
     super(message);
     this.name = 'BoingRpcError';
@@ -46,6 +51,11 @@ export class BoingRpcError extends Error {
     return this.code === -32056;
   }
 
+  /** True if the node rejected the call due to HTTP JSON-RPC rate limiting (-32016). */
+  get isRateLimited(): boolean {
+    return this.code === -32016;
+  }
+
   /** For -32051, `data.tx_hash` when present. */
   get pendingPoolTxHash(): string | undefined {
     if (this.code !== -32051 || !this.data || typeof this.data !== 'object') return undefined;
@@ -62,6 +72,34 @@ export class BoingRpcError extends Error {
     }
     return undefined;
   }
+}
+
+/**
+ * JSON-RPC 2.0 **method not found** (-32601). Common when the endpoint is an older Boing node or a
+ * proxy that does not implement a newer `boing_*` method (e.g. `boing_getSyncState`, `boing_getLogs`).
+ */
+export function isBoingRpcMethodNotFound(e: unknown): boolean {
+  return e instanceof BoingRpcError && e.code === -32601;
+}
+
+/**
+ * Whether a failed call is worth retrying (transient HTTP, rate limits, network).
+ * Application errors (e.g. invalid nonce, QA rejection) return false.
+ */
+export function isRetriableBoingRpcError(e: unknown): boolean {
+  if (!(e instanceof BoingRpcError)) return true;
+  if (e.isRateLimited) return true;
+  if (e.code === -32000) {
+    const m = e.message;
+    if (/\bHTTP 429\b/.test(m)) return true;
+    if (/\bHTTP 502\b/.test(m)) return true;
+    if (/\bHTTP 503\b/.test(m)) return true;
+    if (/\bHTTP 504\b/.test(m)) return true;
+    if (/Request timed out after \d+ms/.test(m)) return true;
+    if (/ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN/i.test(m)) return true;
+    if (/fetch failed|Failed to fetch|Load failed|network/i.test(m)) return true;
+  }
+  return false;
 }
 
 /**
@@ -84,6 +122,26 @@ export function explainBoingRpcError(e: unknown): string {
     if (e.isQaPoolFull) return `QA pool is full (global cap): ${e.message}`;
     if (e.isQaPoolDeployerCap) return `QA pool deployer cap reached: ${e.message}`;
     if (e.code === -32057) return `Operator RPC authentication required: ${e.message}`;
+    if (e.isRateLimited) {
+      const hint =
+        e.retryAfterMs != null && e.retryAfterMs > 0
+          ? ` Wait at least ${Math.ceil(e.retryAfterMs / 1000)}s (Retry-After header).`
+          : '';
+      return `Rate limited: ${e.message}.${hint}`;
+    }
+    if (e.code === -32000 && e.message.includes('413')) {
+      return `Request body too large for this RPC endpoint: ${e.message}`;
+    }
+    if (e.code === -32700)
+      return `Invalid JSON in RPC body (parse error): ${e.message}`;
+    if (e.code === -32600)
+      return `Invalid JSON-RPC request (e.g. batch too large or malformed): ${e.message}`;
+    if (e.code === -32601)
+      return `RPC method not implemented on this endpoint (old node or filtered proxy): ${e.message}`;
+    if (e.code === -32602) return `Invalid RPC params: ${e.message}`;
+    if (e.code === -32000 && e.retryAfterMs != null && e.retryAfterMs > 0) {
+      return `Transient RPC error (wait ~${Math.ceil(e.retryAfterMs / 1000)}s per Retry-After): ${e.message}`;
+    }
     return e.toString();
   }
   if (e instanceof Error) return e.message;

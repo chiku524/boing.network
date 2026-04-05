@@ -1,0 +1,14 @@
+{
+  "name": "observer-ingest-reference",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "JSON-file reference for ingest_cursor + gap ranges (swap for D1 using tools/observer-indexer-schema.sql).",
+  "scripts": {
+    "ingest-tick": "node scripts/ingest-state-tick.mjs",
+    "ingest-sqlite-tick": "node scripts/ingest-sqlite-tick.mjs"
+  },
+  "dependencies": {
+    "boing-sdk": "file:../../boing-sdk"
+  }
+}

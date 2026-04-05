@@ -8,7 +8,7 @@ This document specifies an **application-level** pattern for a minimal **constan
 
 ## Goals
 
-- Match **EVM/Solana–class** “swap pool” behavior **without** EVM.
+- Match **mature DEX-style** “swap pool” behavior **without** a foreign bytecode engine on Boing L1.
 - Rely on existing VM features: **`SLOAD`/`SSTORE`**, **`CALLER`**, **`ADDRESS`**, arithmetic opcodes, **`LOG*`** for indexers.
 - Make **access lists** explicit: every swap touches **pool contract + both reserve ledgers** (or a single contract that tracks both token balances in storage).
 
@@ -62,7 +62,7 @@ Reuse the **96-byte word** style from reference token/NFT for wallet consistency
 
 ## Security notes (non-exhaustive)
 
-- Reentrancy-style issues: Boing VM is not EVM; still **order** state updates and external calls carefully.
+- Reentrancy-style issues: Boing VM has its own call model; still **order** state updates and external calls carefully.
 - Rounding: favor the pool on rounding to avoid drain.
 - Oracle manipulation: if using an on-chain oracle pattern, see the oracle doc; TWAP and multi-block windows are **app-layer** concerns.
 

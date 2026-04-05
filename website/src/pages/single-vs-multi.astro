@@ -20,7 +20,7 @@ import Layout from '../layouts/Layout.astro';
     <section class="section">
       <h2>Single node</h2>
       <p><strong>Use case:</strong> Local development, trying the chain on your laptop, or running a private instance. No need to connect to anyone else.</p>
-      <p>Run the node <strong>without</strong> <code>--p2p_listen</code>. The node runs in isolation: it produces blocks if you pass <code>--validator</code>, and serves RPC. No bootnodes needed.</p>
+      <p>Run the node <strong>without</strong> <code>--p2p-listen</code>. The node runs in isolation: it produces blocks if you pass <code>--validator</code>, and serves RPC. No bootnodes needed.</p>
       <pre class="code-block"><code># Full node (no block production)
 ./boing-node --rpc-port 8545 --data-dir ./data
 
@@ -32,8 +32,8 @@ import Layout from '../layouts/Layout.astro';
     <section class="section">
       <h2>Multi-node testnet</h2>
       <p><strong>Use case:</strong> Joining the public testnet — many nodes connected via P2P, syncing blocks and (optionally) validating together.</p>
-      <p>Run the node <strong>with</strong> <code>--p2p_listen</code> and <code>--bootnodes</code>. Your node will dial the bootnodes to discover the network, then sync and gossip with peers. If you pass <code>--validator</code>, it can produce blocks when it’s the leader.</p>
-      <pre class="code-block"><code>./boing-node --p2p_listen /ip4/0.0.0.0/tcp/4001 \
+      <p>Run the node <strong>with</strong> <code>--p2p-listen</code> and <code>--bootnodes</code>. Your node will dial the bootnodes to discover the network, then sync and gossip with peers. If you pass <code>--validator</code>, it can produce blocks when it’s the leader.</p>
+      <pre class="code-block"><code>./boing-node --p2p-listen /ip4/0.0.0.0/tcp/4001 \
   --bootnodes /ip4/&lt;BOOTNODE&gt;/tcp/4001 \
   --validator --rpc-port 8545 --data-dir ./data</code></pre>
       <p>See the <a href="/bootnodes">Bootnodes</a> page for how to get the official list, and <a href="/testnet/join">Join Testnet</a> for the full flow.</p>
@@ -46,7 +46,7 @@ import Layout from '../layouts/Layout.astro';
           <tr><th></th><th>Single node</th><th>Multi-node</th></tr>
         </thead>
         <tbody>
-          <tr><td>P2P</td><td>Off</td><td>On (<code>--p2p_listen</code>)</td></tr>
+          <tr><td>P2P</td><td>Off</td><td>On (<code>--p2p-listen</code>)</td></tr>
           <tr><td>Bootnodes</td><td>Not needed</td><td>Required (<code>--bootnodes</code>)</td></tr>
           <tr><td>Sync</td><td>N/A (only your chain)</td><td>Syncs with peers</td></tr>
           <tr><td>Best for</td><td>Local dev, private chain</td><td>Public testnet participation</td></tr>

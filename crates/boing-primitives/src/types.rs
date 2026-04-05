@@ -46,7 +46,7 @@ pub fn nonce_derived_contract_address(sender: &AccountId, deploy_tx_nonce: u64) 
 
 const CREATE2_DOMAIN: &[u8] = b"boing.create2.v1\0";
 
-/// CREATE2-style address: `BLAKE3(domain || deployer || salt || BLAKE3(bytecode))`.
+/// Salt-derived contract address: `BLAKE3(domain || deployer || salt || BLAKE3(bytecode))`.
 /// Shares the same 32-byte [`AccountId`] space as Ed25519-derived accounts; accidental collision is negligible.
 pub fn create2_contract_address(deployer: &AccountId, salt: &[u8; 32], bytecode: &[u8]) -> AccountId {
     let mut ch = hasher();
@@ -114,7 +114,7 @@ impl Transaction {
             | TransactionPayload::ContractDeployWithPurposeAndMetadata { .. } => "Deploy contract".into(),
         };
         if self.payload.deploy_create2_salt().is_some() {
-            payload_str = format!("{payload_str} (CREATE2)");
+            payload_str = format!("{payload_str} (salt-derived)");
         }
         format!(
             "From: {} | Nonce: {} | {}",
@@ -211,7 +211,7 @@ pub type ContractDeployFields<'a> = (
 );
 
 impl TransactionPayload {
-    /// Salt for CREATE2-style deploy, if this payload is a contract deploy variant.
+    /// Salt for salt-derived deploy, if this payload is a contract deploy variant.
     pub fn deploy_create2_salt(&self) -> Option<[u8; 32]> {
         match self {
             TransactionPayload::ContractDeploy { create2_salt, .. } => *create2_salt,
@@ -372,6 +372,33 @@ pub const MAX_EXECUTION_LOG_DATA_BYTES: usize = 1024;
 /// Max log entries per transaction (receipt bound).
 pub const MAX_EXECUTION_LOGS_PER_TX: usize = 24;
 
+/// Leading byte of `ContractDeploy` (all variants) **payload**: the remainder is **init code**.
+///
+/// The node runs init once at deploy (`CALLER` = tx sender, `ADDRESS` = new contract). Logs are
+/// recorded on the deploy transaction receipt. The memory slice passed to `RETURN` becomes the
+/// **runtime bytecode** stored for the contract (empty slice if execution ends via `STOP` without
+/// `RETURN`). Payloads **without** this prefix keep legacy behavior: bytes are stored verbatim and
+/// no VM execution runs at deploy.
+///
+/// `0xFD` is not a valid Boing VM opcode; it is stripped before QA bytecode walks and init execution.
+pub const CONTRACT_DEPLOY_INIT_CODE_MARKER: u8 = 0xFD;
+
+/// `true` if deploy bytecode uses [`CONTRACT_DEPLOY_INIT_CODE_MARKER`] (init + `RETURN` → runtime).
+#[inline]
+pub fn contract_deploy_uses_init_code(bytecode: &[u8]) -> bool {
+    bytecode.first().copied() == Some(CONTRACT_DEPLOY_INIT_CODE_MARKER)
+}
+
+/// Bytecode validated at deploy and passed to the interpreter for init (marker stripped when present).
+#[inline]
+pub fn contract_deploy_init_body(bytecode: &[u8]) -> &[u8] {
+    if contract_deploy_uses_init_code(bytecode) {
+        bytecode.get(1..).unwrap_or(&[])
+    } else {
+        bytecode
+    }
+}
+
 /// One log entry emitted during contract execution (indexer-facing; no bloom in header).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExecutionLog {
@@ -399,7 +426,8 @@ pub struct ExecutionReceipt {
     pub success: bool,
     pub gas_used: u64,
     pub return_data: Vec<u8>,
-    /// Emitted logs from contract execution (empty for transfers / deploy / non-contract txs).
+    /// VM logs from `ContractCall`, or from `ContractDeploy` when init-code mode is used
+    /// ([`CONTRACT_DEPLOY_INIT_CODE_MARKER`]); otherwise empty (e.g. transfers, legacy deploy).
     pub logs: Vec<ExecutionLog>,
     pub error: Option<String>,
 }

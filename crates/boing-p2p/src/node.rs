@@ -1,11 +1,15 @@
 //! P2P node — libp2p swarm with gossipsub, mdns, and block request/response.
 //!
-//! Propagates blocks and transactions; discovers peers via mDNS; fetches blocks on demand.
+//! Propagates blocks and **signed** transactions; discovers peers via mDNS; fetches blocks on demand.
+//! Optional **max connections per IP** (`max_connections_per_ip`, 0 = disabled) limits Sybil-style fan-in.
 
+use std::collections::HashMap;
+use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use libp2p::futures::StreamExt;
+use libp2p::multiaddr::Protocol;
 use libp2p::gossipsub::{IdentTopic, MessageAuthenticity, ValidationMode};
 #[cfg(feature = "mdns")]
 use libp2p::mdns::tokio::Behaviour as Mdns;
@@ -15,10 +19,10 @@ use libp2p::StreamProtocol;
 use libp2p::gossipsub::PublishError;
 use libp2p::{gossipsub, SwarmBuilder};
 use tokio::sync::{mpsc, oneshot};
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::block_sync::{BlockRequest, BlockResponse};
-use boing_primitives::{Block, Hash, Transaction};
+use boing_primitives::{Block, Hash, SignedTransaction};
 
 const BLOCKS_TOPIC: &str = "boing/blocks";
 const TRANSACTIONS_TOPIC: &str = "boing/transactions";
@@ -27,14 +31,15 @@ const TRANSACTIONS_TOPIC: &str = "boing/transactions";
 #[derive(Debug)]
 pub enum P2pEvent {
     BlockReceived(Block),
-    TransactionReceived(Transaction),
+    /// Gossiped signed transaction from a peer (verify before mempool insert).
+    TransactionReceived(SignedTransaction),
     /// Response from request_block (by hash or height).
     BlockFetched(Block),
 }
 
 enum BroadcastMsg {
     Block(Block),
-    Transaction(Transaction),
+    SignedTransaction(SignedTransaction),
 }
 
 enum Command {
@@ -50,6 +55,26 @@ pub trait BlockProvider: Send + Sync {
 }
 
 type BlockSyncBehaviour = request_response::cbor::Behaviour<BlockRequest, BlockResponse>;
+
+fn ip_from_multiaddr(ma: &libp2p::Multiaddr) -> Option<IpAddr> {
+    for p in ma.iter() {
+        match p {
+            Protocol::Ip4(ip) => return Some(IpAddr::V4(ip)),
+            Protocol::Ip6(ip) => return Some(IpAddr::V6(ip)),
+            _ => {}
+        }
+    }
+    None
+}
+
+fn remote_multiaddr(endpoint: &libp2p_core::connection::ConnectedPoint) -> &libp2p::Multiaddr {
+    match endpoint {
+        libp2p_core::connection::ConnectedPoint::Dialer { address, .. } => address,
+        libp2p_core::connection::ConnectedPoint::Listener { send_back_addr, .. } => {
+            send_back_addr
+        }
+    }
+}
 
 #[cfg(feature = "mdns")]
 #[derive(NetworkBehaviour)]
@@ -80,13 +105,19 @@ impl P2pNode {
     /// Create a P2P node and spawn the swarm task.
     /// Returns the node handle and a receiver for incoming P2pEvent.
     /// When `block_provider` is provided, enables block request/response protocol.
+    ///
+    /// `max_connections_per_ip`: cap simultaneous connections sharing the same remote IP (IPv4/IPv6).
+    /// **0** disables the limit. Applies to established connections (best-effort Sybil / fan-in control).
     pub fn new(
         listen_addr: &str,
         block_provider: Option<Arc<dyn BlockProvider>>,
-    ) -> Result<(Self, mpsc::Receiver<P2pEvent>), P2pError> {
+        max_connections_per_ip: u32,
+    ) -> Result<(Self, mpsc::UnboundedReceiver<P2pEvent>), P2pError> {
         let (broadcast_tx, mut broadcast_rx) = mpsc::channel(64);
         let (cmd_tx, mut cmd_rx) = mpsc::channel(32);
-        let (event_tx, event_rx) = mpsc::channel(64);
+        // Unbounded so the swarm task never awaits on backpressure when forwarding gossip / blocks
+        // to the node (bounded channels can stall libp2p and break mesh + tx propagation).
+        let (event_tx, event_rx) = mpsc::unbounded_channel();
 
         let swarm = SwarmBuilder::with_new_identity()
             .with_tokio()
@@ -137,6 +168,8 @@ impl P2pNode {
 
         tokio::spawn(async move {
             let mut swarm = swarm;
+            let mut peer_ips: HashMap<libp2p::PeerId, IpAddr> = HashMap::new();
+            let mut ip_connection_count: HashMap<IpAddr, u32> = HashMap::new();
             let _ = swarm.listen_on(
                 listen_addr
                     .parse()
@@ -161,7 +194,12 @@ impl P2pNode {
                             Some(Command::Dial(addr)) => {
                                 if let Ok(ma) = addr.parse::<libp2p::Multiaddr>() {
                                     if let Err(e) = swarm.dial(ma) {
-                                        warn!("P2P: dial {} failed: {:?}", addr, e);
+                                        boing_telemetry::component_warn(
+                                            "boing_p2p::swarm",
+                                            "p2p",
+                                            "dial_failed",
+                                            format!("{addr}: {e:?}"),
+                                        );
                                     }
                                 }
                             }
@@ -171,41 +209,79 @@ impl P2pNode {
                     msg = broadcast_rx.recv() => {
                         match msg {
                             Some(BroadcastMsg::Block(block)) => {
-                                if let Err(e) = bincode::serialize(&block) {
-                                    warn!("P2P: block serialize error: {}", e);
-                                } else if let Ok(bytes) = bincode::serialize(&block) {
-                                    if let Err(e) =
-                                        swarm.behaviour_mut().gossipsub.publish(blocks_topic.clone(), bytes)
-                                    {
-                                        // Gossipsub returns NoPeersSubscribedToTopic when no remote peer has advertised
-                                        // subscription to `boing/blocks` yet (common for a few heartbeats after
-                                        // connect). Local consensus and RPC are unaffected.
-                                        if matches!(e, PublishError::NoPeersSubscribedToTopic) {
-                                            tracing::debug!(
-                                                "P2P: block not gossip-published yet (no subscribed peers); peers may still catch up via block-sync"
-                                            );
+                                match bincode::serialize(&block) {
+                                    Ok(bytes) => {
+                                        if let Err(e) = swarm
+                                            .behaviour_mut()
+                                            .gossipsub
+                                            .publish(blocks_topic.clone(), bytes)
+                                        {
+                                            // Gossipsub returns NoPeersSubscribedToTopic when no remote peer has advertised
+                                            // subscription to `boing/blocks` yet (common for a few heartbeats after
+                                            // connect). Local consensus and RPC are unaffected.
+                                            if matches!(e, PublishError::NoPeersSubscribedToTopic) {
+                                                boing_telemetry::component_debug(
+                                                    "boing_p2p::swarm",
+                                                    "p2p",
+                                                    "gossip_block_no_subscribed_peers",
+                                                    "block not gossip-published yet (no subscribed peers); peers may still catch up via block-sync",
+                                                );
+                                            } else {
+                                                boing_telemetry::component_warn(
+                                                    "boing_p2p::swarm",
+                                                    "p2p",
+                                                    "gossip_block_publish_failed",
+                                                    e,
+                                                );
+                                            }
                                         } else {
-                                            warn!("P2P: block publish error: {}", e);
+                                            info!("P2P: broadcast block height={}", block.header.height);
                                         }
-                                    } else {
-                                        info!("P2P: broadcast block height={}", block.header.height);
+                                    }
+                                    Err(e) => {
+                                        boing_telemetry::component_warn(
+                                            "boing_p2p::swarm",
+                                            "p2p",
+                                            "block_serialize_failed",
+                                            e,
+                                        );
                                     }
                                 }
                             }
-                            Some(BroadcastMsg::Transaction(tx)) => {
-                                if let Ok(bytes) = bincode::serialize(&tx) {
-                                    if let Err(e) =
-                                        swarm.behaviour_mut().gossipsub.publish(txs_topic.clone(), bytes)
-                                    {
-                                        if matches!(e, PublishError::NoPeersSubscribedToTopic) {
-                                            tracing::debug!(
-                                                "P2P: tx not gossip-published yet (no subscribed peers)"
-                                            );
+                            Some(BroadcastMsg::SignedTransaction(signed)) => {
+                                match bincode::serialize(&signed) {
+                                    Ok(bytes) => {
+                                        if let Err(e) = swarm
+                                            .behaviour_mut()
+                                            .gossipsub
+                                            .publish(txs_topic.clone(), bytes)
+                                        {
+                                            if matches!(e, PublishError::NoPeersSubscribedToTopic) {
+                                                boing_telemetry::component_debug(
+                                                    "boing_p2p::swarm",
+                                                    "p2p",
+                                                    "gossip_tx_no_subscribed_peers",
+                                                    "tx not gossip-published yet (no subscribed peers)",
+                                                );
+                                            } else {
+                                                boing_telemetry::component_warn(
+                                                    "boing_p2p::swarm",
+                                                    "p2p",
+                                                    "gossip_tx_publish_failed",
+                                                    e,
+                                                );
+                                            }
                                         } else {
-                                            warn!("P2P: tx publish error: {}", e);
+                                            info!("P2P: broadcast signed tx from {:?}", signed.tx.sender);
                                         }
-                                    } else {
-                                        info!("P2P: broadcast tx from {:?}", tx.sender);
+                                    }
+                                    Err(e) => {
+                                        boing_telemetry::component_warn(
+                                            "boing_p2p::swarm",
+                                            "p2p",
+                                            "signed_tx_serialize_failed",
+                                            e,
+                                        );
                                     }
                                 }
                             }
@@ -219,11 +295,51 @@ impl P2pNode {
                             let topic = message.topic.as_str();
                             if topic == BLOCKS_TOPIC {
                                 if let Ok(block) = bincode::deserialize(&message.data) {
-                                    let _ = event_tx.send(P2pEvent::BlockReceived(block)).await;
+                                    let _ = event_tx.send(P2pEvent::BlockReceived(block));
                                 }
                             } else if topic == TRANSACTIONS_TOPIC {
-                                if let Ok(tx) = bincode::deserialize(&message.data) {
-                                    let _ = event_tx.send(P2pEvent::TransactionReceived(tx)).await;
+                                if let Ok(signed) = bincode::deserialize::<SignedTransaction>(&message.data)
+                                {
+                                    let _ = event_tx.send(P2pEvent::TransactionReceived(signed));
+                                }
+                            }
+                        } else if let SwarmEvent::ConnectionEstablished {
+                            peer_id,
+                            endpoint,
+                            ..
+                        } = &ev
+                        {
+                            if max_connections_per_ip > 0 {
+                                let ma = remote_multiaddr(endpoint);
+                                if let Some(ip) = ip_from_multiaddr(ma) {
+                                    if !peer_ips.contains_key(peer_id) {
+                                        let cnt = *ip_connection_count.get(&ip).unwrap_or(&0);
+                                        if cnt >= max_connections_per_ip {
+                                            boing_telemetry::component_warn(
+                                                "boing_p2p::swarm",
+                                                "p2p",
+                                                "connection_rejected_ip_cap",
+                                                format!(
+                                                    "peer={peer_id:?} remote_ip={ip} established_from_ip={cnt} limit={max_connections_per_ip}"
+                                                ),
+                                            );
+                                            let _ = swarm.disconnect_peer_id(*peer_id);
+                                        } else {
+                                            *ip_connection_count.entry(ip).or_insert(0) += 1;
+                                            peer_ips.insert(*peer_id, ip);
+                                        }
+                                    }
+                                }
+                            }
+                        } else if let SwarmEvent::ConnectionClosed { peer_id, .. } = &ev {
+                            if max_connections_per_ip > 0 {
+                                if let Some(ip) = peer_ips.remove(peer_id) {
+                                    if let Some(c) = ip_connection_count.get_mut(&ip) {
+                                        *c = c.saturating_sub(1);
+                                        if *c == 0 {
+                                            ip_connection_count.remove(&ip);
+                                        }
+                                    }
                                 }
                             }
                         } else if let SwarmEvent::Behaviour(BoingBehaviourEvent::BlockSync(
@@ -234,7 +350,7 @@ impl P2pNode {
                         )) = ev
                         {
                             if let Some(block) = response.0 {
-                                let _ = event_tx.send(P2pEvent::BlockFetched(block)).await;
+                                let _ = event_tx.send(P2pEvent::BlockFetched(block));
                             }
                         } else if let SwarmEvent::Behaviour(BoingBehaviourEvent::BlockSync(
                             request_response::Event::Message {
@@ -254,7 +370,12 @@ impl P2pNode {
                                 };
                                 let resp = BlockResponse(block);
                                 if let Err(e) = swarm.behaviour_mut().block_sync.send_response(channel, resp) {
-                                    warn!("P2P: block response send error: {:?}", e);
+                                    boing_telemetry::component_warn(
+                                        "boing_p2p::swarm",
+                                        "p2p",
+                                        "block_sync_response_send_failed",
+                                        format!("{e:?}"),
+                                    );
                                 }
                             }
                         } else if let SwarmEvent::NewListenAddr { address, .. } = ev {
@@ -321,9 +442,10 @@ impl P2pNode {
         Ok(())
     }
 
-    pub fn broadcast_transaction(&self, tx: &Transaction) -> Result<(), P2pError> {
+    /// Gossip a verified signed transaction to subscribed peers.
+    pub fn broadcast_signed_transaction(&self, signed: &SignedTransaction) -> Result<(), P2pError> {
         if let Some(ref ch) = self.broadcast_tx {
-            ch.try_send(BroadcastMsg::Transaction(tx.clone()))
+            ch.try_send(BroadcastMsg::SignedTransaction(signed.clone()))
                 .map_err(|e| P2pError::Network(e.to_string()))?;
         }
         Ok(())

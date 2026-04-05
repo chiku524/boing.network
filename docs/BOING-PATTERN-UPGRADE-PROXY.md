@@ -6,7 +6,7 @@
 
 ## Protocol stance
 
-- **Contract code** on Boing is deployed as **bytecode at an `AccountId`**. There is **no** EVM `DELEGATECALL` opcode in the Boing VM spec as of the current execution parity list.
+- **Contract code** on Boing is deployed as **bytecode at an `AccountId`**. There is **no** delegate-to-runtime opcode that swaps implementation bytecode in place in the Boing VM spec as of the current execution parity list.
 - **Immutability by default:** Once deployed and accepted by QA, **bytecode is fixed** for that account unless the protocol adds an explicit **upgrade** mechanism later.
 
 ---

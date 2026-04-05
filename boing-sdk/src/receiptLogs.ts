@@ -44,7 +44,7 @@ export function* iterReceiptLogs(receipt: ExecutionReceipt): Generator<ReceiptLo
 }
 
 /**
- * Ethereum-style topic filter: `filter[i]` null/undefined = wildcard; otherwise exact match on `topics[i]` (normalized).
+ * Topic filter semantics (common log-RPC shape): `filter[i]` null/undefined = wildcard; otherwise exact match on `topics[i]` (normalized).
  */
 export function logMatchesTopicFilter(log: ExecutionLog, filter: (string | null | undefined)[]): boolean {
   for (let i = 0; i < filter.length; i++) {

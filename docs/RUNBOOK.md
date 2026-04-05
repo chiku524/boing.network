@@ -71,6 +71,41 @@ Produces blocks when there are pending transactions.
 cargo run -p boing-node -- --data-dir ./boing-data --rpc-port 8545
 ```
 
+### Mempool: pending transactions per sender
+
+Each account may have only **N** distinct pending nonces in the mempool at once (default **N = 16**, aligned with [`RateLimitConfig::default_mainnet`](../crates/boing-node/src/security.rs)). The process logs `Mempool: max pending txs per sender = …` at startup. Operators can raise the cap (e.g. busy testnet RPC) with:
+
+```bash
+cargo run -p boing-node -- --validator --rpc-port 8545 --pending-txs-per-sender 64
+```
+
+Nonce **replacements** for the same nonce do not count toward the cap.
+
+### Dev rate-limit profile (local / busy testnet)
+
+For **relaxed** JSON-RPC rate limits and a **64** pending-tx cap per sender (see [`RateLimitConfig::default_devnet`](../crates/boing-node/src/security.rs)):
+
+```bash
+cargo run -p boing-node -- --validator --rpc-port 8545 --dev-rate-limits
+```
+
+Same effect without the flag (e.g. Docker / systemd):
+
+```bash
+export BOING_RATE_PROFILE=dev
+cargo run -p boing-node -- --validator --rpc-port 8545
+```
+
+Use **`BOING_RATE_PROFILE=mainnet`** to force the strict profile even if **`--dev-rate-limits`** is mistakenly present on a public RPC host.
+
+You can still override only the mempool cap: `--dev-rate-limits --pending-txs-per-sender 128`. **Do not** use the dev profile on public mainnet RPC endpoints.
+
+### JSON-RPC surface (stale binary or proxy)
+
+If **`boing_chainHeight`** works but other **`boing_*`** calls return **`-32601` Method not found**, the process on the RPC port is almost certainly an **older `boing-node` build** or a **proxy that drops unknown methods**. Rebuild from the current repository (`cargo build -p boing-node --release`) and restart. To see which read-only methods the URL exposes, run **`npm run build`** then **`npm run probe-rpc`** in **`boing-sdk`**, or **`npm run probe-rpc`** from the repository root (prints a **`diagnosis`** when methods are missing). **No SDK build:** from the repo root run **`npm run rpc-endpoint-check`** for a raw JSON-RPC table. **Windows — who owns port 8545:** `netstat -ano | findstr :8545`, then `tasklist /FI "PID eq <pid>" /V` (ensure the image is the **`boing-node`** you just built, not an old `cargo install` path). The tutorial package also exposes **`npm run probe-rpc`**. See [RPC-API-SPEC.md](RPC-API-SPEC.md) § Diagnosing `-32601`.
+
+**Public RPC — chain id for dApps:** Set environment **`BOING_CHAIN_ID=6913`** and **`BOING_CHAIN_NAME=Boing Testnet`** on the **`boing-node`** process so **`boing_getNetworkInfo`** returns them (matches wallet **`boing_chainId`** **`0x1b01`**). Copy-paste template: [`tools/boing-node-public-testnet.env.example`](../tools/boing-node-public-testnet.env.example). Wallets can still use a fixed chain id from app config when the field is **`null`**.
+
 ---
 
 ## 3. RPC Endpoints
@@ -79,6 +114,8 @@ cargo run -p boing-node -- --data-dir ./boing-data --rpc-port 8545
 |--------|--------|-------------|
 | `boing_submitTransaction` | `[hex_signed_tx]` | Submit a signed transaction |
 | `boing_chainHeight` | `[]` | Current chain height |
+| `boing_getSyncState` | `[]` | Committed tip: head / finalized / latest block hash |
+| `boing_getNetworkInfo` | `[]` | dApp discovery: tip + timing + optional **`chain_id`** / **`chain_name`** (env); explicit non-availability of chain-wide TVL / APY — [RPC-API-SPEC.md](RPC-API-SPEC.md) |
 | `boing_getBalance` | `[hex_account_id]` | Spendable balance (decimal string) |
 | `boing_getAccount` | `[hex_account_id]` | Balance, nonce, stake (for wallets and tx building) |
 | `boing_getBlockByHeight` | `[height]` | Block at height (u64) |
@@ -93,8 +130,10 @@ cargo run -p boing-node -- --data-dir ./boing-data --rpc-port 8545
 
 ### Public RPC operators and `boing_getLogs`
 
-- **`boing_getLogs` is more expensive than single-method reads** (scans up to 128 blocks per request). On **shared** or **rate-limited** endpoints, operators should **document** whether the method is enabled and any **extra limits** (e.g. lower QPS than `boing_chainHeight`).
-- If you need to protect the node, prefer **global RPC rate limits** (already supported) or a **reverse proxy** rule; disabling the method is a last resort and breaks indexers that rely on it—see [INDEXER-RECEIPT-AND-LOG-INGESTION.md](INDEXER-RECEIPT-AND-LOG-INGESTION.md).
+- **`boing_getLogs` is more expensive than single-block reads** (each call scans up to **128** committed heights and may return up to **2048** log rows). On **shared** or **rate-limited** endpoints, operators should **document** whether the method is enabled and any **extra limits** (e.g. lower QPS than `boing_chainHeight`).
+- If you need to protect the node, prefer **global RPC rate limits** (see `RateLimitConfig` / node defaults) or a **reverse proxy** rule; disabling the method is a last resort and breaks indexers that rely on it—see [INDEXER-RECEIPT-AND-LOG-INGESTION.md](INDEXER-RECEIPT-AND-LOG-INGESTION.md).
+- **Indexer clients:** use **`boing-sdk`** **`getLogsChunked`** (or equivalent chunking) so each RPC stays within the **128**-block cap; default **`maxConcurrent: 1`** on wide backfills is polite on public tiers. For full block + receipt replay, **`fetchBlocksWithReceiptsForHeightRange`** and **`planIndexerCatchUp`** are documented in the same indexer guide and in [examples/native-boing-tutorial](../examples/native-boing-tutorial/) (`npm run indexer-ingest-tick`).
+- **Internet-facing smoke (no keys):** from the tutorial package, **`npm run preflight-rpc`** with public **`BOING_RPC_URL`** exercises **`check-testnet-rpc`** plus a one-shot **`getSyncState`** sample; command matrix: [PRE-VIBEMINER-NODE-COMMANDS.md](PRE-VIBEMINER-NODE-COMMANDS.md).
 
 Example (curl):
 
@@ -171,7 +210,7 @@ For security incidents and vulnerabilities:
 | 5. **Remediate** | Apply fixes; coordinate upgrades via governance if needed. |
 | 6. **Post-mortem** | Document cause, impact, and prevention. |
 
-**Contacts:** See [SECURITY-STANDARDS.md](SECURITY-STANDARDS.md) for audit and bug bounty details.
+**Contacts:** [SECURITY-STANDARDS.md](SECURITY-STANDARDS.md) § **5. Security Contacts** (responsible disclosure via GitHub Security Advisories; bug bounty **TBD**).
 
 ---
 
@@ -230,13 +269,15 @@ A **bootnode** is a node with a stable, publicly reachable address that other no
 2. **Run with P2P and a fixed port:**
    ```bash
    ./target/release/boing-node \
-     --p2p_listen /ip4/0.0.0.0/tcp/4001 \
+     --p2p-listen /ip4/0.0.0.0/tcp/4001 \
      --validator \
      --rpc-port 8545 \
      --data-dir ./bootnode-data
    ```
 3. **Publish the multiaddr:** Your bootnode address is `/ip4/<YOUR_PUBLIC_IP>/tcp/4001`. Ensure TCP port 4001 (and 8545 if RPC is public) is open in the firewall. Add this multiaddr to [TESTNET.md](TESTNET.md) §6 and to `website/src/config/testnet.ts` (or set `PUBLIC_BOOTNODES` at build time).
 4. **Recommendation:** Run at least **two** bootnodes on different hosts for redundancy.
+5. **P2P transaction gossip:** After a successful **`boing_submitTransaction`** or **`boing_faucetRequest`**, the node gossips the **signed** transaction on `boing/transactions`. Peers verify the signature and apply the same mempool + QA rules as RPC submissions (duplicates and rejects are dropped at debug log level). **Regression:** `cargo test -p boing-node --test p2p_tx_gossip_rpc` (four-node full mesh: RPC submit on one peer → another peer’s mempool contains the same tx id). **Note:** libp2p gossipsub’s default mesh size means **two peers alone** may not propagate topic messages reliably; production testnets should run enough connected peers (or tune gossipsub — see `boing-p2p`).
+6. **Connections per IP:** The active rate-limit profile caps simultaneous P2P connections from the same remote IPv4/IPv6 address (mainnet profile **50**, dev profile **100**). Override with **`--max-connections-per-ip N`**; use **`0`** for unlimited (not recommended on public listeners).
 
 ### 8.2 Running the faucet node
 
@@ -251,10 +292,11 @@ The **faucet** is an RPC method (`boing_faucetRequest`) on a node started with `
      --rpc-port 8545 \
      --data-dir ./faucet-data
    ```
-   For the **public testnet**, also use `--p2p_listen` and `--bootnodes` so this node syncs with the network.
+   For the **public testnet**, also use `--p2p-listen` and `--bootnodes` so this node syncs with the network.
 3. **Publish the RPC URL:** Point users and the website to this node’s RPC (e.g. `https://testnet-rpc.boing.network/`). Set `PUBLIC_TESTNET_RPC_URL` when building the website so the faucet page defaults to this URL.
-4. **Rate limit:** The faucet allows 1 request per 60 seconds per account; no extra config needed.
-5. **Genesis:** The faucet account is funded at genesis with 10,000,000 testnet BOING (see `boing-node/src/faucet.rs`). Ensure all testnet nodes use the same genesis so the faucet balance exists.
+4. **Chain metadata on public testnet:** Export **`BOING_CHAIN_ID=6913`** and **`BOING_CHAIN_NAME=Boing Testnet`** before starting **`boing-node`** (or use **`Environment=`** in systemd) so **`boing_getNetworkInfo`** exposes them — [`tools/boing-node-public-testnet.env.example`](../tools/boing-node-public-testnet.env.example).
+5. **Rate limit:** The faucet allows 1 request per 60 seconds per account; no extra config needed.
+6. **Genesis:** The faucet account is funded at genesis with 10,000,000 testnet BOING (see `boing-node/src/faucet.rs`). Ensure all testnet nodes use the same genesis so the faucet balance exists.
 
 ### 8.3 Cloudflare Tunnel (testnet-rpc.boing.network)
 
@@ -262,9 +304,12 @@ For full setup steps, see [INFRASTRUCTURE-SETUP.md](INFRASTRUCTURE-SETUP.md). If
 
 - **"Failed to initialize DNS local resolver"** — This cloudflared log message is usually harmless. The tunnel has already registered; traffic forwarding works. It occurs when cloudflared cannot reach `region1.v2.argotunnel.com` for optional region/metrics. You can ignore it. If it bothers you, try a different DNS (e.g. 1.1.1.1) or firewall rules that allow outbound DNS.
 
+- **HTTP 530 / body `error code: 1033` (or similar) from `https://testnet-rpc.boing.network/`** — Cloudflare is up, but the **tunnel origin** (the machine running `cloudflared` + `boing-node` RPC) is **unreachable** or the tunnel process is down. This is **not** a JSON-RPC or SDK bug: no `boing_qaCheck` / `boing_chainHeight` will succeed until ops restores the tunnel or you point clients at a **working** RPC (e.g. local `http://127.0.0.1:8545`). The **boing-sdk** surfaces the response body in the error message when the status is non-2xx.
+
 ### 8.4 Monitoring the testnet
 
-- **Chain height:** Call `boing_chainHeight` on the public RPC periodically; alert if growth stalls.
+- **Upgrading the RPC binary:** [PUBLIC-RPC-NODE-UPGRADE-CHECKLIST.md](PUBLIC-RPC-NODE-UPGRADE-CHECKLIST.md) (build, test, tunnel, post-deploy **`check-testnet-rpc`**).
+- **Chain height:** Call `boing_chainHeight` on the public RPC periodically; alert if growth stalls. Tutorial **`BOING_POLL_ONCE=1 node scripts/observer-chain-tip-poll.mjs`** emits one JSON sample (see [TESTNET-OPS-RUNBOOK.md](TESTNET-OPS-RUNBOOK.md) §3).
 - **Faucet balance:** Check the faucet account balance via `boing_getBalance` with the faucet account ID; refill or alert when low (genesis funding is 10M; 1,000 per request).
 - **Bootnode reachability:** Ensure ports 4001 (P2P) and 8545 (RPC, if exposed) are reachable from the internet; use a simple TCP check or your monitoring stack.
 
@@ -280,7 +325,7 @@ For full setup steps, see [INFRASTRUCTURE-SETUP.md](INFRASTRUCTURE-SETUP.md). If
 
 ### 8.6 “Smart contracts”, boing.finance, and Boing devnet
 
-**Boing L1 today is not an EVM chain.** Execution uses the **Boing VM** (stack machine + opcodes in `crates/boing-execution`, bytecode QA in `boing-qa`). Contracts are deployed with on-chain **`ContractDeploy`** / called with **`ContractCall`** payloads inside Boing `Transaction`s, submitted as `boing_submitTransaction` (see `docs/RPC-API-SPEC.md`). There is **no** deployed `dexRouter` / `UniswapV2Factory` style **Solidity** surface on Boing testnet for **boing.finance** to talk to; that app’s **chain 6913** entries in `contracts.js` are placeholders (`0x000…`).
+**Boing L1 uses the Boing VM only.** Execution is the stack machine + opcodes in `crates/boing-execution`, with bytecode QA in `boing-qa`. Contracts are deployed with on-chain **`ContractDeploy`** / called with **`ContractCall`** payloads inside Boing `Transaction`s, submitted as `boing_submitTransaction` (see `docs/RPC-API-SPEC.md`). There is **no** generic factory/router dApp deployment on Boing testnet for **boing.finance** to reuse from other ecosystems; that app’s **chain 6913** entries in `contracts.js` are placeholders (`0x000…`).
 
 **To get on-chain programs on devnet:**
 
@@ -288,7 +333,7 @@ For full setup steps, see [INFRASTRUCTURE-SETUP.md](INFRASTRUCTURE-SETUP.md). If
 2. **Build and sign** a `ContractDeploy` transaction with the Boing signing model (BLAKE3 + Ed25519 + bincode), or use tooling that outputs `boing_submitTransaction`-compatible hex (CLI/SDK as they mature).
 3. **Run nodes** with the same genesis and peer connectivity so blocks (and deploy txs) propagate.
 
-**To make boing.finance Swap / Deploy Token / pools work “on Boing”** you would need either: **(a)** a **separate EVM-compatible chain** (or rollup) with real factory/router addresses wired into `contracts.js`, or **(b)** a **large product effort** to implement Boing-native DEX logic against Boing RPC and the custom VM—not just filling `6913` with addresses on current Boing L1.
+**To make boing.finance Swap / Deploy Token / pools work “on Boing”** you would need either: **(a)** a **separate foreign chain** (or rollup) where factory/router contracts actually exist, wired into `contracts.js`, or **(b)** a **large product effort** to implement Boing-native DEX logic against Boing RPC and the Boing VM—not just filling `6913` with addresses on current Boing L1.
 
 ---
 

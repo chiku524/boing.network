@@ -1,6 +1,10 @@
-# Boing VM — full capability parity roadmap
+# Boing VM — full capability roadmap
 
-This document is the **product-facing** companion to [EXECUTION-PARITY-TASK-LIST.md](EXECUTION-PARITY-TASK-LIST.md). The execution task list tracks **protocol and VM crate work** (receipts, opcodes, QA, RPC). This roadmap tracks **end-to-end capability parity**: what developers and users expect from mature chains (EVM / Solana–class workflows), delivered **through Boing’s native stack** (VM, txs, wallet, SDK), not through Ethereum bytecode compatibility.
+This document is the **product-facing** companion to [EXECUTION-PARITY-TASK-LIST.md](EXECUTION-PARITY-TASK-LIST.md). The execution task list tracks **protocol and VM crate work** (receipts, opcodes, QA, RPC). This roadmap tracks **end-to-end product capabilities** on **Boing’s native stack** (VM, txs, wallet, SDK).
+
+**Normative behavior** is always defined by Boing specs and this repo — not by other networks. Informal “how this feels vs other ecosystems” notes below are **comparisons for readers** only; Boing remains independent — see [BOING-VM-INDEPENDENCE.md](BOING-VM-INDEPENDENCE.md).
+
+**Product goal — same capabilities, Boing execution only:** Boing aims for **application-level parity** with mature smart-contract platforms: the **categories** of things developers and users expect (accounts, transfers, deploy/call, events and logs, fungible and NFT-style assets, DeFi-oriented patterns, simulation, proofs, wallet flows, indexing)—**implemented only** on the **Boing VM** with **Boing** transactions, RPC, and signing, and **protocol-enforced QA** on deployments. **No** EVM, Solana VM, or other foreign bytecode engine runs on Boing L1. Parity is **what you can build and how it feels in product terms**, not importing another chain’s bytecode, ABI, or opcode semantics as the source of truth.
 
 ---
 
@@ -8,9 +12,9 @@ This document is the **product-facing** companion to [EXECUTION-PARITY-TASK-LIST
 
 | In scope | Out of scope (by design) |
 |----------|---------------------------|
-| Same **categories** of capability: auth, transfers, contract deploy/call, events, simulation, proofs, standards (tokens/NFTs), predictable deploy addresses | **Drop-in** ethers.js / MetaMask EVM signing for Solidity on Boing |
-| **Boing-native** APIs: `boing_*` RPC, `boing_signTransaction` / `boing_sendTransaction`, `boing-sdk` | Identical opcode set or ABI encoding as Ethereum |
-| Clear **mapping docs**: “On EVM you X; on Boing you Y” | Solana BPF or SPL compatibility |
+| Same **categories** of capability: auth, transfers, contract deploy/call, events, simulation, proofs, standards (tokens/NFTs), predictable deploy addresses | Foreign-wallet or foreign-bytecode **drop-in** compatibility (other chains’ signing or VMs on Boing) |
+| **Boing-native** APIs: `boing_*` RPC, `boing_signTransaction` / `boing_sendTransaction`, `boing-sdk` | Importing another network’s opcode layout or ABI as the Boing spec |
+| Clear **migration-style docs** for teams (“how you did X elsewhere → how you do it on Boing”) | Running non-Boing VMs inside the Boing node |
 
 **Pillar rule:** New protocol behavior still flows through QA and docs ([QUALITY-ASSURANCE-NETWORK.md](QUALITY-ASSURANCE-NETWORK.md), [RPC-API-SPEC.md](RPC-API-SPEC.md), `boing-qa`).
 
@@ -20,25 +24,25 @@ This document is the **product-facing** companion to [EXECUTION-PARITY-TASK-LIST
 
 Use this to prioritize. Update statuses in PRs as items land.
 
-| Capability area | EVM / Solana analogue | Boing today | Target surface |
-|-----------------|----------------------|-------------|----------------|
-| **Chain read** | `eth_getBalance`, slot reads | `boing_getBalance`, `boing_getAccount`, blocks, proofs | `boing-sdk` + RPC (done) |
-| **Simulation** | `eth_call`, `simulateTransaction` | `boing_simulateTransaction`, suggested access list | SDK helpers (partial — see [accessList.ts](../boing-sdk/src/accessList.ts)) |
-| **Signed tx submit** | `eth_sendRawTransaction` | `boing_submitTransaction` (hex bincode) | SDK + wallet |
-| **Wallet: accounts** | `eth_requestAccounts` | `boing_requestAccounts` + aliases | [BOING-EXPRESS-WALLET.md](BOING-EXPRESS-WALLET.md) |
-| **Wallet: message sign** | `personal_sign` | `boing_signMessage` (BLAKE3 + Ed25519) | Express + portal |
-| **Wallet: tx sign/send** | `eth_signTransaction` / send | `boing_signTransaction`, `boing_sendTransaction` | Express; dApps must call native methods |
-| **Receipts / tx result** | transaction receipts | `ExecutionReceipt`, `boing_getTransactionReceipt`, logs in receipt | Done — see Track R in execution parity list |
-| **Events / logs** | EVM logs | `LOG0`–`LOG4`, receipt logs | Done — Track L |
-| **Contract identity** | `CALLER`, `ADDRESS` | Same spirit in VM | Done — Track C |
-| **Deploy addressing** | CREATE / CREATE2 | Nonce deploy + CREATE2-style salt | Done — Track D |
-| **Token / NFT patterns** | ERC-20 / SPL | Reference layouts + QA purpose deploys | [BOING-REFERENCE-TOKEN.md](BOING-REFERENCE-TOKEN.md), [BOING-REFERENCE-NFT.md](BOING-REFERENCE-NFT.md) |
-| **Access lists** | — / Solana accounts | Declared read/write sets + simulation hints | Done — Track A |
-| **Finality wording** | finalized slots | documented + optional RPC | Done — Track X |
-| **JS tx build + sign** | viem/ethers builders | `boing-sdk` bincode + `signTransactionInput` / `signTransactionInputWithSigner`; vitest golden vs Rust | **Phase 1 (shipped)** — see P4 for simulate→submit tutorial |
-| **High-level SDK** | Contract class, encode ABI-like calls | Reference calldata encoders + `submit*WithSimulationRetry` / deploy flow | **Partial — Phase 1–2** (no generic contract class yet) |
-| **Indexer / explorer** | The Graph, block explorers | Observer spec + receipt/log ingestion + bounded `boing_getLogs` | **Partial — Phase 3** (I1–I3 shipped; heavy indexing still pull/replay) |
-| **Assembler / toolchain** | solc, Anchor | Bytecode + QA; no full HLL | **Gap — Phase 2–4** |
+| Capability area | Informal comparison (not normative) | Boing today | Target surface |
+|-----------------|----------------------------------------|-------------|----------------|
+| **Chain read** | Account/balance reads on typical L1s | `boing_getBalance`, `boing_getAccount`, blocks, proofs | `boing-sdk` + RPC (done) |
+| **Simulation** | Read-only execution preview | `boing_simulateTransaction`, suggested access list | SDK helpers (partial — see [accessList.ts](../boing-sdk/src/accessList.ts)) |
+| **Signed tx submit** | Submit signed payload to mempool | `boing_submitTransaction` (hex bincode) | SDK + wallet |
+| **Wallet: accounts** | Connect & list accounts | `boing_requestAccounts` + aliases | [BOING-EXPRESS-WALLET.md](BOING-EXPRESS-WALLET.md) |
+| **Wallet: message sign** | Off-chain message attestation | `boing_signMessage` (BLAKE3 + Ed25519) | Express + portal |
+| **Wallet: tx sign/send** | Sign / broadcast native txs | `boing_signTransaction`, `boing_sendTransaction` | Express; dApps must call native methods |
+| **Receipts / tx result** | Per-tx execution summary | `ExecutionReceipt`, `boing_getTransactionReceipt`, logs in receipt | Done — see Track R in execution parity list |
+| **Events / logs** | Append-only event blobs | `LOG0`–`LOG4`, receipt logs | Done — Track L |
+| **Contract identity** | “Who am I / who called” | `Caller`, `Address` opcodes | Done — Track C |
+| **Deploy addressing** | Deterministic deploy addresses | Nonce deploy + salt-derived address | Done — Track D |
+| **Token / NFT patterns** | Fungible / NFT conventions | Reference layouts + QA purpose deploys | [BOING-REFERENCE-TOKEN.md](BOING-REFERENCE-TOKEN.md), [BOING-REFERENCE-NFT.md](BOING-REFERENCE-NFT.md) |
+| **Access lists** | Declared state touches | Declared read/write sets + simulation hints | Done — Track A |
+| **Finality wording** | Head vs safe height | documented + optional RPC | Done — Track X |
+| **JS tx build + sign** | JS helpers for chain txs | `boing-sdk` bincode + `signTransactionInput` / `signTransactionInputWithSigner`; vitest golden vs Rust | **Phase 1 (shipped)** — see P4 for simulate→submit tutorial |
+| **High-level SDK** | Typed contract helpers | Reference encoders + **`callAbi.ts`** (**`encodeBoingCallTyped`**, **`BoingReferenceCallDescriptors`**) + `submit*WithSimulationRetry` + **`encodeBoingCall` / `BoingCalldataWord`** + **`createNativeContractSubmitter`** + **chunked `getLogs` + height-range receipts** | **Partial — Phase 1–2** (no foreign ABI / keccak4 / full codegen yet) |
+| **Indexer / explorer** | History + event indexing | Observer spec + receipt/log ingestion + bounded `boing_getLogs` + SDK **`getIndexerChainTips`** / **`fetchBlocksWithReceiptsForHeightRange`** / **`getLogsChunked`** | **Partial — Phase 3** (I1–I3 shipped; backlog: [NEXT-STEPS-FUTURE-WORK.md](NEXT-STEPS-FUTURE-WORK.md) § Indexer / explorer) |
+| **Assembler / toolchain** | HLL → bytecode elsewhere | Asm + JSON mini-IR transpile + line maps; no full HLL | **Partial — Phase 4** ([`BOING-MINI-IR.md`](BOING-MINI-IR.md)) |
 
 ---
 
@@ -46,7 +50,7 @@ Use this to prioritize. Update statuses in PRs as items land.
 
 Tracked in detail in [EXECUTION-PARITY-TASK-LIST.md](EXECUTION-PARITY-TASK-LIST.md).
 
-- Receipts, VM opcode batches, caller/address, logs, access-list simulation hints, reference token/NFT docs, CREATE2-style deploys, finality docs.
+- Receipts, VM opcode batches, caller/address, logs, access-list simulation hints, reference token/NFT docs, salt-derived deploy addresses, finality docs.
 
 **Maintenance:** As new opcodes or receipt fields ship, update execution parity list + this matrix row in the same PR.
 
@@ -71,17 +75,18 @@ Goal: A web dApp can do **full Boing flows without Rust**, using documented patt
 
 ### Track E — Reference dApps
 
-- [x] **E1** — **Single canonical tutorial repo or monorepo package**: deploy reference token bytecode + `contract_call` transfer using only SDK + Express (no ethers for chain txs). **Done:** [examples/native-boing-tutorial](../examples/native-boing-tutorial/) (Node SDK scripts; browser path documented via Express).
+- [x] **E1** — **Single canonical tutorial repo or monorepo package**: deploy reference token bytecode + `contract_call` transfer using only SDK + Express (no third-party chain client SDK for Boing txs). **Done:** [examples/native-boing-tutorial](../examples/native-boing-tutorial/) (Node SDK scripts; browser path documented via Express).
 - [x] **E2** — **boing.finance** (or partner app): one **native Boing** deploy path for at least one user-facing flow (e.g. “deploy on Boing” via `boing_sendTransaction`), documented as the pattern others copy. **Done:** [E2-PARTNER-APP-NATIVE-BOING.md](E2-PARTNER-APP-NATIVE-BOING.md); **boing.finance** Deploy Token links to this guide when a native Boing account is connected.
 
 ---
 
 ## Phase 2 — **Application-pattern** parity (DeFi / NFT / gaming)
 
-Goal: Document and ship **patterns** that match what EVM/Solana ecosystems do, implemented as **Boing contracts + conventions** (not new L1 features unless required).
+Goal: Document and ship **patterns** that match what mature contract ecosystems expect, implemented as **Boing contracts + conventions** (not new L1 features unless required).
 
 - [x] **F1** — **AMM / liquidity**: spec minimal constant-product or orderbook-on-state pattern using current VM; reference bytecode or pseudocode; QA category alignment. **Done:** [BOING-PATTERN-AMM-LIQUIDITY.md](BOING-PATTERN-AMM-LIQUIDITY.md).
 - [x] **F2** — **NFT marketplace / royalties**: extend reference NFT doc with optional metadata keys and example call sequences. **Done:** [BOING-REFERENCE-NFT.md](BOING-REFERENCE-NFT.md) § Marketplace / royalties.
+- [x] **F2b** — **Pinned NFT collection deploy bytecode** (VM program + QA) for partner “form-only” mint UIs — **`reference_nft_collection_template_bytecode()`** in `boing-execution` / [BOING-CANONICAL-DEPLOY-ARTIFACTS.md](BOING-CANONICAL-DEPLOY-ARTIFACTS.md). **Done:** `cargo run -p boing-execution --example dump_reference_token_artifacts` (second line).
 - [x] **F3** — **Upgrade / proxy patterns** (if allowed by QA): document immutability vs allowed delegate patterns; if forbidden, document **why** in QA doc. **Done:** [BOING-PATTERN-UPGRADE-PROXY.md](BOING-PATTERN-UPGRADE-PROXY.md) + [QUALITY-ASSURANCE-NETWORK.md](QUALITY-ASSURANCE-NETWORK.md) Appendix D.
 - [x] **F4** — **Oracle / price feeds**: app-layer design (multi-sig update, TWAP on-contract) — no chain oracle opcode required initially. **Done:** [BOING-PATTERN-ORACLE-PRICE-FEEDS.md](BOING-PATTERN-ORACLE-PRICE-FEEDS.md).
 
@@ -89,11 +94,11 @@ Goal: Document and ship **patterns** that match what EVM/Solana ecosystems do, i
 
 ## Phase 3 — Observability and indexing
 
-Goal: **Solana/EVM-class** visibility into chain history and contract activity.
+Goal: **Strong** visibility into chain history and contract activity (indexers, explorers).
 
 - [x] **I1** — Receipt + log ingestion spec for [BOING-OBSERVER-AND-EXPRESS.md](BOING-OBSERVER-AND-EXPRESS.md) / indexer operators (schemas, replay rules). **Done:** [INDEXER-RECEIPT-AND-LOG-INGESTION.md](INDEXER-RECEIPT-AND-LOG-INGESTION.md).
 - [x] **I2** — Bounded **`boing_getLogs`** (block range + optional `address` / `topics`); caps in [RPC-API-SPEC.md](RPC-API-SPEC.md); integration test `receipts_rpc_integration.rs`.
-- [x] **I3** — **SDK:** `BoingClient.getLogs`, `receiptLogs.ts` helpers (`normalizeTopicWord`, `iterBlockReceiptLogs`, topic filters); types `GetLogsFilter`, `RpcLogEntry`.
+- [x] **I3** — **SDK:** `BoingClient.getLogs`, `receiptLogs.ts` helpers (`normalizeTopicWord`, `iterBlockReceiptLogs`, topic filters); types `GetLogsFilter`, `RpcLogEntry`; **`indexerSync.ts`**: `getIndexerChainTips`, `clampIndexerHeightRange`, **`planIndexerChainTipsWithFallback`**, **`planIndexerCatchUp`**; **`indexerBatch.ts`**: `getLogsChunked` / `fetchReceiptsForHeightRange` / **`fetchBlocksWithReceiptsForHeightRange`** with optional **`maxConcurrent`**, `mapWithConcurrencyLimit`, `flattenReceiptsFromBundles`.
 
 ---
 
@@ -101,17 +106,19 @@ Goal: **Solana/EVM-class** visibility into chain history and contract activity.
 
 Goal: Shrink the gap to “write a contract in a high-level language.” Long-horizon; order depends on product bets.
 
-- [ ] **T1** — **Assembler** for Boing bytecode with gas metadata (even if minimal).
-- [ ] **T2** — **Source map / debug** hook between bytecode and line-level debugging in simulator or test harness.
-- [ ] **T3** — Evaluate **subset transpiler** from a small DSL or restricted Solidity-like IR (only if VM semantics stabilize — tie to [EXECUTION-PARITY-TASK-LIST.md](EXECUTION-PARITY-TASK-LIST.md) Track V).
+- [x] **T1** — **Assembler** for Boing bytecode (minimal mnemonic → hex): [`tools/boing-vm-assemble.mjs`](../tools/boing-vm-assemble.mjs) + [`tools/README.md`](../tools/README.md). Gas per opcode stays in [TECHNICAL-SPECIFICATION.md](TECHNICAL-SPECIFICATION.md); future tooling can embed the same table.
+- [x] **T2** — **Source map / debug** hook: [`tools/boing-vm-assemble.mjs`](../tools/boing-vm-assemble.mjs) **`--map=`** writes JSON (`boing-vm-line-map`) with per-line `byteOffset` / `byteLength`; see [`tools/README.md`](../tools/README.md). Simulators can load this for breakpoints or test assertions.
+- [x] **T3** — **Subset IR + transpiler (v1):** JSON mini-IR and [`tools/boing-vm-transpile-ir.mjs`](../tools/boing-vm-transpile-ir.mjs) (`--self-test`); spec [`docs/BOING-MINI-IR.md`](BOING-MINI-IR.md); examples under `tools/examples/mini-ir-*.json`. Intended as a stable target for small DSLs / codegen — **not** a single high-level contract language. Full HLL remains future work.
 
 ---
 
 ## Phase 5 — Ongoing VM / protocol depth
 
-Continue incremental **Track V**-style work from the execution parity list when contracts need it: arithmetic helpers, precompiles (e.g. verified crypto primitives), stricter gas accounting, formal semantics notes.
+Continue incremental **Track V**-style work from the execution parity list when contracts need it: more arithmetic helpers (e.g. **V7** shifts `Shl`/`Shr`/`Sar`), precompiles (e.g. verified crypto primitives), stricter gas accounting, formal semantics notes.
 
 Each item: spec → `boing-execution` → `boing-qa` → `TECHNICAL-SPECIFICATION.md`.
+
+**Full high-level language (HLL):** not scheduled as a single roadmap checkbox — choose compiler/IR strategy (extend [BOING-MINI-IR.md](BOING-MINI-IR.md), partner with a DSL, or add a Boing-specific language) and then spec opcode coverage + QA story. That remains **product/architecture** work beyond this file’s tracked phases.
 
 ---
 

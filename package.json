@@ -1,5 +1,20 @@
 {
   "name": "boing-network-root",
   "private": true,
-  "description": "Root placeholder for CI; real apps are in website/ and desktop-hub/."
+  "description": "Root placeholder for CI; real apps are in website/ and desktop-hub/.",
+  "scripts": {
+    "boing:smoke": "node scripts/boing-smoke.mjs",
+    "probe-rpc": "node boing-sdk/scripts/probe-rpc.mjs",
+    "rpc-endpoint-check": "node scripts/rpc-endpoint-check.mjs",
+    "indexer-ingest-tick": "npm run indexer-ingest-tick --prefix examples/native-boing-tutorial",
+    "native-amm-e2e": "npm run test:e2e --prefix examples/native-boing-playwright",
+    "check-testnet-rpc": "npm run check-testnet-rpc --prefix examples/native-boing-tutorial",
+    "native-amm-print-contract-call-tx": "npm run native-amm-print-contract-call-tx --prefix examples/native-boing-tutorial",
+    "observer-chain-tip-poll": "npm run observer-chain-tip-poll --prefix examples/native-boing-tutorial",
+    "preflight-rpc": "npm run preflight-rpc --prefix examples/native-boing-tutorial",
+    "check-canonical-pool": "node scripts/check-canonical-native-amm-pool.mjs",
+    "check-observer-readiness": "node scripts/check-observer-readiness.mjs",
+    "observer-ingest-ref-tick": "npm run ingest-tick --prefix examples/observer-ingest-reference",
+    "observer-ingest-sqlite-tick": "npm run ingest-sqlite-tick --prefix examples/observer-ingest-reference"
+  }
 }

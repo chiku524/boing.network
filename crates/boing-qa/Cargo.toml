@@ -6,6 +6,7 @@ description = "Protocol quality assurance: deterministic checks for deployment (
 
 [dependencies]
 boing-primitives = { path = "../boing-primitives" }
+boing-telemetry = { path = "../boing-telemetry" }
 bincode = "1.3"
 blake3 = "1.5"
 hex = "0.4"

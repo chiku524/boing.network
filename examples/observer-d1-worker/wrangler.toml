@@ -1,0 +1,31 @@
+# Minimal scheduled ingest → D1 (`boing-observer-indexer` in Cloudflare).
+name = "boing-observer-d1-ingest"
+main = "src/index.ts"
+compatibility_date = "2025-02-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "OBSERVER_DB"
+database_name = "boing-observer-indexer"
+database_id = "c3149bf5-05b8-4621-89f9-3015ce7b0522"
+
+[triggers]
+crons = ["*/3 * * * *"]
+
+[vars]
+BOING_RPC_URL = "http://127.0.0.1:8545"
+BOING_CHAIN_ID = "unknown"
+BOING_MAX_BLOCKS_PER_TICK = "8"
+BOING_MAX_CONCURRENT = "1"
+BOING_OMIT_MISSING = "0"
+# Lag guard: enforced only after ingest_cursor.readiness_lag_guard_armed = 1 (auto-set when lag ≤ arm threshold).
+BOING_READINESS_MAX_LAG_FINALIZED = "512"
+# Arm when finalized_height - last_committed ≤ this (default 128 in code if unset)
+BOING_READINESS_ARM_WHEN_LAG_LTE = "128"
+# Optional: comma-separated browser origins; omit or `*` → `Access-Control-Allow-Origin: *`
+# BOING_CORS_ORIGINS = "https://example.com,https://app.example.com"
+# BOING_APP_VERSION = "0.1.0"
+# BOING_MAX_REORG_REWIND_STEPS = "4096"
+# BOING_DISABLE_REORG_REWIND = "0"
+# Optional edge cache hint for stable single-object reads (see README § Read API):
+# BOING_READ_CACHE_MAX_AGE = "60"

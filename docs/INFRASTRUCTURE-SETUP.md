@@ -1,5 +1,7 @@
 # Boing Testnet — Infrastructure Setup Guide
 
+**Routing:** [TESTNET-RPC-INFRA.md](TESTNET-RPC-INFRA.md) places this guide next to **public RPC** and **testnet** docs in one map.
+
 This guide walks you through setting up the full testnet infrastructure: **Bootnode 1**, **Bootnode 2**, **Faucet RPC**, and **Cloudflare Tunnel** for the public URL.
 
 ---
@@ -103,7 +105,7 @@ Save this IP — Bootnode 2 will need it. Example: `73.84.106.121`.
 
 ## Step 2: Primary Machine — Cloudflare Tunnel
 
-**Important:** A “custom domain” on Cloudflare **Pages** or a random **DNS** record is **not** enough — JSON-RPC needs **POST** to your node. Use a **Cloudflare Tunnel** public hostname `testnet-rpc.boing.network` → `http://127.0.0.1:8545`. See **[CLOUDFLARED-TUNNEL-ALIGNMENT.md](./CLOUDFLARED-TUNNEL-ALIGNMENT.md)** and run `node scripts/check-cloudflared-alignment.mjs` after editing `%USERPROFILE%\.cloudflared\config.yml`.
+**Important:** A “custom domain” on Cloudflare **Pages** or a random **DNS** record is **not** enough — JSON-RPC needs **POST** to your node. Use a **Cloudflare Tunnel** public hostname `testnet-rpc.boing.network` → `http://127.0.0.1:8545`. See **[Cloudflare tunnel vs Pages-only DNS (HTTP 405)](#cloudflare-tunnel-vs-pages-only-dns-http-405)** below and run `node scripts/check-cloudflared-alignment.mjs` after editing `%USERPROFILE%\.cloudflared\config.yml` (or `~/.cloudflared/config.yml`).
 
 In a **second terminal** on the primary:
 
@@ -229,13 +231,53 @@ Once both bootnodes and the tunnel are running:
 
 1. **Faucet:** Visit [boing.network/faucet](https://boing.network/faucet); enter a 32-byte hex account ID; request testnet BOING.
 2. **VibeMiner:** Should show nodes once the website is deployed with `PUBLIC_BOOTNODES`.
-3. **Terminal validator:** `boing-node --p2p_listen /ip4/0.0.0.0/tcp/4001 --bootnodes <LIST> --validator --rpc-port 8545`
+3. **Terminal validator:** `boing-node --p2p-listen /ip4/0.0.0.0/tcp/4001 --bootnodes <LIST> --validator --rpc-port 8545`
 
 ---
 
 ## CORS
 
 The boing-node RPC server includes CORS headers so browser-based clients (e.g. boing.observer, boing.express, boing.network faucet, **boing.finance**) can call the RPC from different origins. Allowed origins include: `https://boing.observer`, `https://boing.express`, `https://boing.network`, `https://www.boing.network`, `https://boing.finance`, `https://www.boing.finance`, and localhost variants for development. After adding an origin, **rebuild and restart** the node that serves public RPC.
+
+---
+
+## Cloudflare tunnel vs Pages-only DNS (HTTP 405)
+
+### Why you see HTTP 405
+
+Pointing **`testnet-rpc.boing.network`** only at **Cloudflare Pages**, a **Worker**, or a **generic proxied DNS A/AAAA record** does **not** forward JSON-RPC **POST** bodies to **`boing-node`** on your machine. Those stacks often allow **GET** only for static content → **`405 Method Not Allowed`** for `curl -X POST https://testnet-rpc.boing.network/`.
+
+**Boing JSON-RPC requires POST** to `http://127.0.0.1:8545` on the host that runs the node. The supported setup is:
+
+1. **Cloudflare Tunnel** (`cloudflared`) with a **public hostname** `testnet-rpc.boing.network` → `http://127.0.0.1:8545`
+2. **DNS** for `testnet-rpc` owned by that tunnel (CNAME to `*.cfargotunnel.com` as shown in Zero Trust)
+
+### VibeMiner alignment
+
+VibeMiner uses the same flow as `scripts/start-cloudflare-tunnel.bat`:
+
+```text
+cloudflared tunnel --config %USERPROFILE%\.cloudflared\config.yml run boing-testnet-rpc
+```
+
+| Piece | Value |
+|--------|--------|
+| Tunnel **name** in Cloudflare / config | `boing-testnet-rpc` (default in VibeMiner **Settings → Public RPC tunnel**) |
+| **config.yml** location | `%USERPROFILE%\.cloudflared\config.yml` (Windows) or `~/.cloudflared/config.yml` |
+| **ingress** | `hostname: testnet-rpc.boing.network` → `service: http://127.0.0.1:8545` |
+
+Template: **[cloudflared-config.example.yml](./cloudflared-config.example.yml)**.
+
+### Checklist (do in order)
+
+1. **Remove conflicting DNS** — Cloudflare → **DNS** → zone `boing.network` → delete or disable any **`testnet-rpc`** record that points to Pages, a random IP, or anything other than the tunnel (re-add via the tunnel UI if needed).
+2. **Zero Trust → Tunnels** — Create or open tunnel **`boing-testnet-rpc`**. Under **Public hostname**: subdomain **`testnet-rpc.boing.network`**, service **`http://127.0.0.1:8545`**. Save; let Cloudflare create/update the DNS record.
+3. **Local `config.yml`** — After `cloudflared tunnel create boing-testnet-rpc`, ensure the config contains the tunnel UUID, `credentials-file`, and **ingress** for that hostname → `http://127.0.0.1:8545`. Merge from the example file if the dashboard did not write it.
+4. **Verify locally** — `node scripts/check-cloudflared-alignment.mjs` and `curl -X POST http://127.0.0.1:8545` with `boing_chainHeight` (see Step 2 above).
+5. **Start tunnel** — `scripts/start-cloudflare-tunnel.bat` / `.sh`, VibeMiner “link tunnel”, or Zero Trust **Start**.
+6. **Verify public** — `node scripts/verify-public-testnet-rpc.mjs`.
+
+**Related:** [RUNBOOK.md](RUNBOOK.md) §8.3 (HTTP **530** / tunnel origin down).
 
 ---
 

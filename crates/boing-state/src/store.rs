@@ -9,6 +9,19 @@ use crate::sparse_merkle::SparseMerkleTree;
 /// Type alias for persisted contract storage entries: ((contract, key), value).
 pub type ContractStorageEntry = ((AccountId, [u8; 32]), [u8; 32]);
 
+/// Chain-wide sums over the committed account table (balance / stake fields only).
+///
+/// This is **not** “circulating supply”, “total minted”, or protocol treasury accounting; it is the
+/// sum of per-account `balance` and `stake` as held in state. Totals use saturating arithmetic.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ChainNativeAggregates {
+    pub account_count: u64,
+    pub total_balance: u128,
+    pub total_stake: u128,
+    /// `total_balance + total_stake` (saturating); same as summing `(balance + stake)` per account in plain integer math.
+    pub total_native_held: u128,
+}
+
 /// Return type of `export_for_persistence`: accounts, contract code, contract storage.
 pub type PersistenceExport = (
     Vec<(AccountId, AccountState)>,
@@ -115,6 +128,12 @@ impl StateStore {
 
     /// Revert state to checkpoint (e.g. after failed block execution).
     pub fn revert(&mut self, cp: StateCheckpoint) {
+        boing_telemetry::component_debug(
+            "boing_state::store",
+            "state",
+            "reverted_to_checkpoint",
+            "state store reverted to checkpoint",
+        );
         self.accounts = cp.accounts;
         self.contract_code = cp.contract_code;
         self.contract_storage = cp.contract_storage;
@@ -163,6 +182,25 @@ impl StateStore {
         accounts.sort_by(|a, b| b.1.stake.cmp(&a.1.stake));
         accounts.into_iter().take(n).map(|(id, _)| *id).collect()
     }
+
+    /// Sum balances and stakes over all accounts (O(n); intended for node cache refresh after commits).
+    pub fn compute_native_aggregates(&self) -> ChainNativeAggregates {
+        let mut total_balance: u128 = 0;
+        let mut total_stake: u128 = 0;
+        let mut account_count: u64 = 0;
+        for st in self.accounts.values() {
+            account_count = account_count.saturating_add(1);
+            total_balance = total_balance.saturating_add(st.balance);
+            total_stake = total_stake.saturating_add(st.stake);
+        }
+        let total_native_held = total_balance.saturating_add(total_stake);
+        ChainNativeAggregates {
+            account_count,
+            total_balance,
+            total_stake,
+            total_native_held,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -209,5 +247,33 @@ mod tests {
         assert_eq!(state.get_contract_storage(&c, &k), [0u8; 32]);
         state.merge_contract_storage(c, k, v);
         assert_eq!(state.get_contract_storage(&c, &k), v);
+    }
+
+    #[test]
+    fn test_compute_native_aggregates() {
+        let mut state = StateStore::new();
+        let a = AccountId([1u8; 32]);
+        let b = AccountId([2u8; 32]);
+        state.insert(Account {
+            id: a,
+            state: AccountState {
+                balance: 100,
+                nonce: 0,
+                stake: 50,
+            },
+        });
+        state.insert(Account {
+            id: b,
+            state: AccountState {
+                balance: 25,
+                nonce: 0,
+                stake: 0,
+            },
+        });
+        let agg = state.compute_native_aggregates();
+        assert_eq!(agg.account_count, 2);
+        assert_eq!(agg.total_balance, 125);
+        assert_eq!(agg.total_stake, 50);
+        assert_eq!(agg.total_native_held, 175);
     }
 }

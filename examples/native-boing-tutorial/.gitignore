@@ -1,0 +1,5 @@
+# Generated native AMM bytecode dump (regenerate: cargo run -p boing-execution --example dump_native_amm_pool > pool.hex)
+pool.hex
+.env
+.env.*
+*.local

@@ -1,16 +1,24 @@
 /**
  * POST /api/portal/auth/sign-in
- * Wallet-based sign-in: Ed25519 only (Boing-native). No EVM/Solana/other-chain dependencies.
+ * Wallet-based sign-in: Ed25519 only (Boing-native). No foreign-chain stack as the primary signing path.
  * Supports both raw-message and BLAKE3(message) signing (Boing tx style).
  * Uses @noble/ed25519 for verification so it matches the wallet (Boing Express) exactly.
  * Body: { account_id_hex, message, signature } or { account_id_hex, message, message_hex, signature }.
  * If message_hex is present (UTF-8 message bytes as hex), verification uses those exact bytes first for BLAKE3.
  */
-const SIGN_IN_VERSION = 'blake3-noble-v1';
-
 import * as ed from '@noble/ed25519';
 import { sha512 } from '@noble/hashes/sha2.js';
 import { blake3 } from '@noble/hashes/blake3.js';
+
+const SIGN_IN_VERSION = 'blake3-noble-v1';
+
+/** 0x19 byte prefix for legacy personal_sign–family text payloads (EIP-191 style). */
+const LEGACY_TEXT_MESSAGE_VERSION_BYTE = 0x19;
+/** UTF-8 bytes between version byte and decimal length (hex is wire-compatible; do not alter). */
+const LEGACY_TEXT_MESSAGE_DOMAIN_BYTES = Buffer.from(
+  '457468657265756d205369676e6564204d6573736167653a0a',
+  'hex'
+);
 
 export async function onRequestPost(context) {
   const { env, request } = context;
@@ -180,13 +188,18 @@ function normalizeMessage(s) {
   return s.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
 }
 
-function buildEIP191Message(message) {
+/** Optional fallback: legacy personal_sign text prefix (fixed bytes; not Boing’s primary BLAKE3 message format). */
+function buildLegacyPersonalSignPrefixedMessage(message) {
   const msgBuf = Buffer.from(message, 'utf8');
-  const prefix = Buffer.from(`\x19Ethereum Signed Message:\n${msgBuf.length}`, 'utf8');
-  return Buffer.concat([prefix, msgBuf]);
+  return Buffer.concat([
+    Buffer.from([LEGACY_TEXT_MESSAGE_VERSION_BYTE]),
+    LEGACY_TEXT_MESSAGE_DOMAIN_BYTES,
+    Buffer.from(String(msgBuf.length), 'utf8'),
+    msgBuf,
+  ]);
 }
 
-/** All message byte variants to try for Ed25519 (wallet may sign raw, trimmed, with trailing newline, or EIP-191 style). */
+/** All message byte variants to try for Ed25519 (wallet may sign raw, trimmed, with trailing newline, or legacy-prefixed text). */
 function messageVariants(messageRaw) {
   const normalized = normalizeMessage(messageRaw);
   const trimRaw = messageRaw.trim();
@@ -201,9 +214,9 @@ function messageVariants(messageRaw) {
     add(messageRaw + '\n'),
     add(trimRaw + '\n'),
     add(normalized + '\n'),
-    buildEIP191Message(messageRaw),
-    buildEIP191Message(trimRaw),
-    buildEIP191Message(normalized),
+    buildLegacyPersonalSignPrefixedMessage(messageRaw),
+    buildLegacyPersonalSignPrefixedMessage(trimRaw),
+    buildLegacyPersonalSignPrefixedMessage(normalized),
   ];
 }
 

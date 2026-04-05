@@ -20,6 +20,7 @@ bincode = "1"
 dirs = "5"
 thiserror = "1"
 anyhow = "1"
+boing-telemetry = { path = "../boing-telemetry" }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 which = "6"

@@ -87,43 +87,76 @@ impl Governance {
 
     /// Advance to cooling (e.g. after quorum vote).
     pub fn advance_to_cooling(&mut self, id: u64, now: SystemTime) -> Result<(), GovernanceError> {
-        let p = self.proposals.get_mut(&id).ok_or(GovernanceError::NotFound)?;
-        if p.phase != ProposalPhase::Proposal {
-            return Err(GovernanceError::InvalidPhase);
+        let result = (|| {
+            let p = self.proposals.get_mut(&id).ok_or(GovernanceError::NotFound)?;
+            if p.phase != ProposalPhase::Proposal {
+                return Err(GovernanceError::InvalidPhase);
+            }
+            p.phase = ProposalPhase::Cooling;
+            p.cooling_ends_at = Some(now + self.cooling_period);
+            Ok(())
+        })();
+        if let Err(ref e) = result {
+            boing_telemetry::component_warn(
+                "boing_governance::engine",
+                "governance",
+                "advance_to_cooling_failed",
+                e,
+            );
         }
-        p.phase = ProposalPhase::Cooling;
-        p.cooling_ends_at = Some(now + self.cooling_period);
-        Ok(())
+        result
     }
 
     /// Advance to execution (after cooling ends).
     pub fn advance_to_execution(&mut self, id: u64, now: SystemTime) -> Result<(), GovernanceError> {
-        let p = self.proposals.get_mut(&id).ok_or(GovernanceError::NotFound)?;
-        if p.phase != ProposalPhase::Cooling {
-            return Err(GovernanceError::InvalidPhase);
+        let result = (|| {
+            let p = self.proposals.get_mut(&id).ok_or(GovernanceError::NotFound)?;
+            if p.phase != ProposalPhase::Cooling {
+                return Err(GovernanceError::InvalidPhase);
+            }
+            let cooling_ends = p.cooling_ends_at.ok_or(GovernanceError::InvalidPhase)?;
+            if now < cooling_ends {
+                return Err(GovernanceError::CoolingNotEnded);
+            }
+            p.phase = ProposalPhase::Execution;
+            p.execution_ends_at = Some(now + self.execution_window);
+            Ok(())
+        })();
+        if let Err(ref e) = result {
+            boing_telemetry::component_warn(
+                "boing_governance::engine",
+                "governance",
+                "advance_to_execution_failed",
+                e,
+            );
         }
-        let cooling_ends = p.cooling_ends_at.ok_or(GovernanceError::InvalidPhase)?;
-        if now < cooling_ends {
-            return Err(GovernanceError::CoolingNotEnded);
-        }
-        p.phase = ProposalPhase::Execution;
-        p.execution_ends_at = Some(now + self.execution_window);
-        Ok(())
+        result
     }
 
     /// Execute proposal (within execution window). Returns (key, value) to apply.
     pub fn execute(&mut self, id: u64, now: SystemTime) -> Result<(String, Vec<u8>), GovernanceError> {
-        let p = self.proposals.get(&id).ok_or(GovernanceError::NotFound)?;
-        if p.phase != ProposalPhase::Execution {
-            return Err(GovernanceError::InvalidPhase);
+        let result = (|| {
+            let p = self.proposals.get(&id).ok_or(GovernanceError::NotFound)?;
+            if p.phase != ProposalPhase::Execution {
+                return Err(GovernanceError::InvalidPhase);
+            }
+            let window = p.execution_ends_at.ok_or(GovernanceError::InvalidPhase)?;
+            if now > window {
+                return Err(GovernanceError::ExecutionWindowExpired);
+            }
+            Ok((p.target_key.clone(), p.target_value.clone()))
+        })();
+        if result.is_ok() {
+            self.proposals.remove(&id);
+        } else if let Err(ref e) = result {
+            boing_telemetry::component_warn(
+                "boing_governance::engine",
+                "governance",
+                "execute_proposal_failed",
+                e,
+            );
         }
-        let window = p.execution_ends_at.ok_or(GovernanceError::InvalidPhase)?;
-        if now > window {
-            return Err(GovernanceError::ExecutionWindowExpired);
-        }
-        let out = (p.target_key.clone(), p.target_value.clone());
-        self.proposals.remove(&id);
-        Ok(out)
+        result
     }
 
     pub fn get(&self, id: u64) -> Option<&Proposal> {

@@ -1,6 +1,6 @@
 # Execution parity — code task list
 
-**Why “multi-year” came up before:** That label applies to **full ecosystem parity** with EVM *and* Solana (Solidity toolchain, full opcode sets, precompiles, BPF programs, SPL, wallets, indexers, audits). That is not the same as **shipping useful Boing features** inspired by those chains.
+**Why “multi-year” came up before:** That label applies to matching **every** external ecosystem toolchain and surface area (multiple foreign VMs, wallets, indexers, audits at once). That is not the same as **shipping useful Boing-native features** on the schedule below.
 
 **What is realistic with focused work:** Individual **tracks** below are on the order of **days to a few weeks** each (spec + implementation + tests + doc), depending on review and whether the change touches consensus/persistence. Several tracks can run in parallel if people split crates.
 
@@ -33,45 +33,50 @@ Goal: Every included tx has a **deterministic execution summary** clients and in
 
 ---
 
-## Track V — VM opcodes & gas (EVM-inspired, audit-first)
+## Track V — Boing VM opcodes & gas (audit-first)
 
 Goal: Expand the Boing VM **incrementally**; each batch is reviewable.
 
 - [x] **V1** — **Integer compare / logic (batch 1):** `LT` (0x10), `GT` (0x11), `EQ` (0x14), `ISZERO` (0x15), `AND`/`OR`/`XOR`/`NOT` (0x16–0x19). Updated `bytecode.rs`, `interpreter.rs`, `gas`.
-- [x] **V2** — **Division (batch 2):** `DIV` (`0x04`), `MOD` (`0x06`) — unsigned 256-bit; divisor zero → `VmError::DivisionByZero` (Boing VM; opcode bytes match EVM labels only where noted in spec).
+- [x] **V2** — **Division (batch 2):** `DIV` (`0x04`), `MOD` (`0x06`) — unsigned 256-bit; divisor zero → `VmError::DivisionByZero` (Boing VM; see `TECHNICAL-SPECIFICATION.md` §7).
 - [x] **V3** — **More arithmetic (optional batch):** e.g. `ADDMOD`, `MULMOD` if needed by contracts; same spec + QA updates.
 - [x] **V4** — Update **`boing-qa`** static bytecode walk (valid opcodes, jump targets) for all new opcode bytes.
 - [x] **V5** — Update `docs/TECHNICAL-SPECIFICATION.md` §7 and `docs/QUALITY-ASSURANCE-NETWORK.md` opcode list.
 - [x] **V6** — VM unit tests for `LT` + `ISZERO` plus **compare/bitwise matrix** (`LT`/`GT`/`EQ`/`ISZERO`/`AND`/`OR`/`XOR`/`NOT` small-value coverage); **proptest** over arbitrary 256-bit words in `crates/boing-execution/tests/proptest_compare_bitwise.rs`.
+- [x] **V7** — **Bit shifts:** `Shl` (`0x1b`), `Shr` (`0x1c`), `Sar` (`0x1d`) — stack top = shift word, second = value; effective count ≡ shift (mod 256) via big-endian low byte. `boing-qa` whitelist, `TECHNICAL-SPECIFICATION.md` §7.2, `tools/boing-vm-assemble.mjs` / `boing-vm-transpile-ir.mjs`, proptest `proptest_shift.rs`, interpreter smoke + `BigInt` SAR encoding (`to_signed_bytes_be`).
+- [x] **V8** — **Nested `Call` (`0xf1`):** sub-call with merged logs, memory return buffer, remaining-gas budget, depth limit (`MAX_CALL_DEPTH`), `StorageAccess::get_contract_code`; `boing-qa` whitelist + `TECHNICAL-SPECIFICATION.md` §7.2; `tools/boing-vm-assemble.mjs` / `boing-vm-transpile-ir.mjs`.
+- [x] **V9** — **`Mul` (`0x03`) full 256×256 → 256:** interpreter matches **Div** / **MulMod** width (low **256** bits of product); fixes prior low-**64** operand truncation. Unit + **`proptest_mul.rs`**; `TECHNICAL-SPECIFICATION.md` §7.2; native CP pool fee step documented in [NATIVE-AMM-CALLDATA.md](NATIVE-AMM-CALLDATA.md).
 
 ---
 
 ## Track C — Execution context (caller / contract identity)
 
-Goal: Contracts can implement patterns that need **who called** and **current code address** (EVM `CALLER` / `ADDRESS` spirit).
+Goal: Contracts can implement patterns that need **who called** and **current code address** (same roles as `Caller` / `Address` opcodes in the Boing VM).
 
-- [x] **C1** — **Boing semantics:** `CALLER` = transaction signer (`tx.sender`); `ADDRESS` = contract account whose code is executing. No native “value” field on calls yet (balances move only via host / other tx types).
+- [x] **C1** — **Boing semantics:** At **top-level** `ContractCall`, **`Caller`** = `tx.sender`; **`Address`** = executing contract. **Nested `Call` (`0xf1`):** inner frame **`Caller`** = the contract that issued `Call` (parent’s **`Address`**). See `TECHNICAL-SPECIFICATION.md` §7.2. No native “value” field on calls yet (balances move only via host / other tx types).
 - [x] **C2** — Implemented: `Interpreter::run(caller_id, contract_id, …)`; opcodes `Caller` (`0x33`), `Address` (`0x30`).
 - [x] **C3** — Gas + `boing-qa` whitelist updated.
 - [x] **C4** — `TECHNICAL-SPECIFICATION.md` §7.2; reference token doc for wallet calldata.
+- [x] **C5** — Nested **`Call`** wiring: `Interpreter::run_nested`, `VmError::{CallDepthExceeded, CallBufferTooLarge}`; `StateStore` implements `get_contract_code` for sub-calls.
+- [x] **C6** — **Canonical reference fungible template bytecode:** implement balances + `transfer` / `mint_first` (or documented subset) in `boing-execution`, `check_contract_deploy_full` **Allow/Unsure** for purpose **`token`**, export hex from `dump_reference_token_artifacts`, pin default in **`boing-sdk`** and [BOING-CANONICAL-DEPLOY-ARTIFACTS.md](BOING-CANONICAL-DEPLOY-ARTIFACTS.md). *(Partner UIs: [E2-PARTNER-APP-NATIVE-BOING.md](E2-PARTNER-APP-NATIVE-BOING.md).)*
 
 ---
 
 ## Track L — Logs / events (optional, receipt sub-feature)
 
-Goal: Small, bounded **event blobs** for indexers (not full Ethereum log bloom unless justified).
+Goal: Small, bounded **event blobs** for indexers (no heavy log-bloom filter layer unless justified).
 
 - [x] **L1** — Caps: 4 topics × 32 bytes, 1024 bytes data per log, 24 logs per tx (`boing-primitives` constants).
 - [x] **L2** — Opcodes `LOG0`..`LOG4` (`0xa0`..`0xa4`).
 - [x] **L3** — `ExecutionReceipt.logs`; RPC receipts + `boing_simulateTransaction` include `logs`; bincode shape **breaking** for old receipt files.
 - [x] **L4** — **`boing_getLogs`** for filtered log queries (see **R10**; caps in spec).
-- [ ] **L5** (future) — If **deploy-time** bytecode execution ever emits logs (constructor / init run on `ContractDeploy`), update **`docs/RPC-API-SPEC.md`**, **`INDEXER-RECEIPT-AND-LOG-INGESTION.md`**, and **`boing_getLogs`** attribution in `rpc.rs` in the **same PR** (today logs on deploy txs are empty until the VM runs init code).
+- [x] **L5** — **Init-code deploys** (`0xFD` prefix on deploy bytecode, `CONTRACT_DEPLOY_INIT_CODE_MARKER` in `boing_primitives`): VM runs init once at deploy; receipt logs + `boing_getLogs` attribution (deploy-derived address); legacy unprefixed deploys unchanged. Spec: **`docs/TECHNICAL-SPECIFICATION.md`** §4.4; indexer: **`INDEXER-RECEIPT-AND-LOG-INGESTION.md`**; RPC filter wording **`RPC-API-SPEC.md`**.
 
 *Dependency:* best done after **R2–R4** minimum.
 
 ---
 
-## Track X — RPC: commitment / finality (Solana-inspired clarity)
+## Track X — RPC: commitment / finality (explicit head vs finalized)
 
 Goal: Honest **finality** wording for BFT (not “instant finality” lies).
 
@@ -83,7 +88,7 @@ Goal: Honest **finality** wording for BFT (not “instant finality” lies).
 
 ## Track A — Access lists & parallelism (already partially there)
 
-Goal: Make **Solana-style explicit touches** a first-class dev experience.
+Goal: Make **explicit account touches** (read/write lists) a first-class dev experience for safe parallel execution hints.
 
 - [x] **A1** — Document required `access_list` rules for `ContractCall` / deploy in `TECHNICAL-SPECIFICATION.md` (read vs write keys).
 - [x] **A2** — RPC: `boing_simulateTransaction` returns **`suggested_access_list`** (heuristic) and **`access_list_covers_suggestion`** on success and failure.
@@ -104,9 +109,9 @@ Goal: **Purpose + specs** QA for token-like deploys (`QUALITY-ASSURANCE-NETWORK.
 
 ---
 
-## Track D — Deterministic deploy addresses (CREATE2-style)
+## Track D — Deterministic deploy addresses (salt-derived)
 
-Goal: Predictable contract addresses without full EVM compatibility.
+Goal: Predictable contract addresses from deployer + salt + bytecode hash, without importing a foreign VM.
 
 - [x] **D1** — Spec: salt + deployer + bytecode hash → `AccountId` scheme.
 - [x] **D2** — Implement in deploy path; ensure **no collision** with Ed25519-derived accounts (namespace bit or prefix).
@@ -126,9 +131,11 @@ Then: **R5** or **C** or **T1** depending on product priority.
 
 ## References
 
-For **SDK, wallet, indexer, and dApp-facing parity** (not only crate work), see [BOING-VM-CAPABILITY-PARITY-ROADMAP.md](BOING-VM-CAPABILITY-PARITY-ROADMAP.md).
+For **SDK, wallet, indexer, and dApp-facing capability planning** (not only crate work), see [BOING-VM-CAPABILITY-PARITY-ROADMAP.md](BOING-VM-CAPABILITY-PARITY-ROADMAP.md) — comparisons there are **illustrative**; behavior is always Boing-defined ([BOING-VM-INDEPENDENCE.md](BOING-VM-INDEPENDENCE.md)). **Tooling IR (T3):** [BOING-MINI-IR.md](BOING-MINI-IR.md) + `tools/boing-vm-transpile-ir.mjs`.
 
-For **native AMM** (Boing VM pools → wallets → boing.finance), see [NATIVE-AMM-INTEGRATION-CHECKLIST.md](NATIVE-AMM-INTEGRATION-CHECKLIST.md).
+For **backlog themes** after checked-off tracks (indexer scale, NATIVE-AMM follow-ups, testnet/ops pointers), see [NEXT-STEPS-FUTURE-WORK.md](NEXT-STEPS-FUTURE-WORK.md).
+
+For **native AMM** (Boing VM pools → wallets → boing.finance), see [NATIVE-AMM-INTEGRATION-CHECKLIST.md](NATIVE-AMM-INTEGRATION-CHECKLIST.md). **Canonical testnet pool id** is published in [RPC-API-SPEC.md](RPC-API-SPEC.md) / [TESTNET.md](TESTNET.md) §5.3 and as **`CANONICAL_BOING_TESTNET_NATIVE_CP_POOL_HEX`** in **`boing-sdk`**; **future** rotations: [OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md).
 
 | Area | Location |
 |------|----------|

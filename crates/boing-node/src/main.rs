@@ -12,21 +12,54 @@ use rand::seq::SliceRandom;
 use tokio::sync::RwLock;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use boing_node::{faucet, node, rpc, security};
+use boing_node::{faucet, logging, node, rpc, security};
 use boing_primitives::{Account, AccountState};
 use boing_qa;
 use boing_tokenomics::BLOCK_TIME_SECS;
 
 const SYNC_INTERVAL_SECS: u64 = 2;
 
+/// JSON-RPC + mempool defaults: **`mainnet`** unless **`--dev-rate-limits`** or **`BOING_RATE_PROFILE=dev`**.
+/// Explicit **`BOING_RATE_PROFILE=mainnet`** keeps the mainnet profile even if **`--dev-rate-limits`** is passed.
+fn rate_limit_config_from_args(dev_rate_limits: bool) -> security::RateLimitConfig {
+    let raw = std::env::var("BOING_RATE_PROFILE").unwrap_or_default();
+    let trimmed = raw.trim();
+    let force_mainnet = trimmed.eq_ignore_ascii_case("mainnet");
+    let force_dev = trimmed.eq_ignore_ascii_case("dev");
+    let use_dev = !force_mainnet && (force_dev || dev_rate_limits);
+    if use_dev {
+        if force_dev && dev_rate_limits {
+            tracing::info!(
+                "Rate limits: dev profile (BOING_RATE_PROFILE=dev and --dev-rate-limits)"
+            );
+        } else if force_dev {
+            tracing::info!("Rate limits: dev profile (BOING_RATE_PROFILE=dev)");
+        } else {
+            tracing::info!("Rate limits: dev profile (--dev-rate-limits)");
+        }
+        security::RateLimitConfig::default_devnet()
+    } else {
+        if force_mainnet && dev_rate_limits {
+            tracing::info!(
+                "Rate limits: mainnet profile (BOING_RATE_PROFILE=mainnet overrides --dev-rate-limits)"
+            );
+        }
+        security::RateLimitConfig::default_mainnet()
+    }
+}
+
 #[derive(Parser)]
-#[command(name = "boing-node")]
+#[command(
+    name = "boing-node",
+    about = "Boing Network full node / validator (JSON-RPC, P2P, optional faucet).",
+    long_about = "Serves JSON-RPC 2.0 over HTTP POST / (see docs/RPC-API-SPEC.md) and optional WebSocket newHeads on GET /ws. Set BOING_CHAIN_ID / BOING_CHAIN_NAME for wallet-facing chain metadata. Use --dev-rate-limits or BOING_RATE_PROFILE=dev for relaxed local/testnet defaults."
+)]
 struct Args {
-    /// Run as validator (produce blocks)
+    /// Run as validator (produce blocks from the mempool on the block-time interval)
     #[arg(long)]
     validator: bool,
 
-    /// RPC port for JSON-RPC HTTP
+    /// TCP port for JSON-RPC (POST /) and WebSocket (GET /ws)
     #[arg(long, default_value = "8545")]
     rpc_port: u16,
 
@@ -34,7 +67,7 @@ struct Args {
     #[arg(long)]
     p2p_listen: Option<String>,
 
-    /// Comma-separated bootnode multiaddrs to dial on startup (e.g. /ip4/1.2.3.4/tcp/4001). Requires --p2p_listen.
+    /// Comma-separated bootnode multiaddrs to dial on startup (e.g. /ip4/1.2.3.4/tcp/4001). Requires --p2p-listen.
     #[arg(long)]
     bootnodes: Option<String>,
 
@@ -53,6 +86,18 @@ struct Args {
     /// Optional path to qa_pool_config.json (governance QA pool). Implies --qa-registry or keeps current registry.
     #[arg(long)]
     qa_pool_config: Option<PathBuf>,
+
+    /// Max pending transactions per sender in the mempool (distinct nonces). Default follows the active rate-limit profile (mainnet **16**, dev **64** unless overridden here).
+    #[arg(long)]
+    pending_txs_per_sender: Option<u32>,
+
+    /// Max simultaneous P2P connections per remote IP (**0** = unlimited). Default follows the active rate-limit profile (mainnet **50**, dev **100** unless overridden here). Only applies when **`--p2p-listen`** is set.
+    #[arg(long)]
+    max_connections_per_ip: Option<u32>,
+
+    /// Relaxed HTTP + mempool defaults for local or busy testnet (`RateLimitConfig::default_devnet`: higher RPS, connections, **64** pending/sender). Equivalent to **`BOING_RATE_PROFILE=dev`**. **`BOING_RATE_PROFILE=mainnet`** forces the strict profile even if this flag is set.
+    #[arg(long)]
+    dev_rate_limits: bool,
 }
 
 #[tokio::main]
@@ -65,10 +110,28 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let args = Args::parse();
+    let mut rate_limit = rate_limit_config_from_args(args.dev_rate_limits);
+    if let Some(n) = args.pending_txs_per_sender {
+        rate_limit.pending_txs_per_sender = n.max(1);
+    }
+    if let Some(n) = args.max_connections_per_ip {
+        rate_limit.connections_per_ip = n;
+    }
+
     let node = match &args.p2p_listen {
         Some(addr) => {
-            let (n, mut p2p_rx) = node::BoingNode::with_p2p(addr, Some(&args.data_dir))
+            let (n, mut p2p_rx) = node::BoingNode::with_p2p(
+                addr,
+                Some(&args.data_dir),
+                rate_limit.connections_per_ip,
+            )
                 .map_err(|e| anyhow::anyhow!("P2P init: {}", e))?;
+            if rate_limit.connections_per_ip > 0 {
+                tracing::info!(
+                    "P2P: max simultaneous connections per remote IP = {}",
+                    rate_limit.connections_per_ip
+                );
+            }
             let p2p = n.p2p.clone();
             let node = Arc::new(RwLock::new(n));
             let node_clone = node.clone();
@@ -87,7 +150,10 @@ async fn main() -> anyhow::Result<()> {
                         tokio::time::sleep(Duration::from_secs(1)).await;
                         for addr in &addrs {
                             if let Err(e) = p2p_boot.dial(addr) {
-                                tracing::warn!("Bootnode dial send failed for {}: {}", addr, e);
+                                logging::log_p2p_event_warn(
+                                    "bootnode_dial",
+                                    &format!("{addr}: {e}"),
+                                );
                             } else {
                                 tracing::info!("Bootnode: dialing {}", addr);
                             }
@@ -103,7 +169,7 @@ async fn main() -> anyhow::Result<()> {
                         | boing_p2p::P2pEvent::BlockFetched(block) => {
                             let mut n = node_clone.write().await;
                             if let Err(e) = n.import_network_block(&block) {
-                                tracing::debug!("P2P: block import failed: {}", e);
+                                logging::log_p2p_event_warn("block_import", &e);
                             } else {
                                 tracing::info!(
                                     "P2P: imported block height={}",
@@ -111,8 +177,16 @@ async fn main() -> anyhow::Result<()> {
                                 );
                             }
                         }
-                        boing_p2p::P2pEvent::TransactionReceived(_tx) => {
-                            // Could insert into mempool
+                        boing_p2p::P2pEvent::TransactionReceived(signed) => {
+                            if let Err(e) = signed.verify() {
+                                logging::log_p2p_event_warn("gossip_tx_bad_signature", &e);
+                                continue;
+                            }
+                            let n = node_clone.write().await;
+                            match n.submit_transaction(signed) {
+                                Ok(()) => tracing::debug!("P2P: gossip tx admitted to mempool"),
+                                Err(e) => logging::log_p2p_event_warn("gossip_tx_mempool_reject", &e),
+                            }
                         }
                     }
                 }
@@ -133,7 +207,7 @@ async fn main() -> anyhow::Result<()> {
                     if let Err(e) =
                         p2p_clone.request_block(peer, BlockRequest::ByHeight(next_height))
                     {
-                        tracing::debug!("P2P: sync request failed: {}", e);
+                        logging::log_p2p_event_warn("sync_block_request", &e);
                     }
                 }
             });
@@ -143,6 +217,16 @@ async fn main() -> anyhow::Result<()> {
             node::BoingNode::with_data_dir(Some(&args.data_dir)).expect("node init"),
         )),
     };
+
+    {
+        let mut n = node.write().await;
+        n.mempool
+            .set_max_pending_per_sender(rate_limit.pending_txs_per_sender.max(1) as usize);
+    }
+    tracing::info!(
+        "Mempool: max pending txs per sender = {}",
+        rate_limit.pending_txs_per_sender.max(1)
+    );
 
     if args.qa_registry.is_some() || args.qa_pool_config.is_some() {
         let mut n = node.write().await;
@@ -180,6 +264,7 @@ async fn main() -> anyhow::Result<()> {
                     stake: 0,
                 },
             });
+            n.refresh_native_aggregates();
             tracing::info!(
                 "Faucet account initialized with {} BOING",
                 faucet::FAUCET_INITIAL_BALANCE
@@ -191,16 +276,6 @@ async fn main() -> anyhow::Result<()> {
         None
     };
 
-    let rpc_addr = format!("0.0.0.0:{}", args.rpc_port);
-    tracing::info!(
-        "Boing node initialized. validator={} rpc={} data_dir={} faucet={}",
-        args.validator,
-        rpc_addr,
-        args.data_dir,
-        args.faucet_enable
-    );
-
-    let rate_limit = security::RateLimitConfig::default_mainnet();
     let operator_rpc_token = std::env::var("BOING_OPERATOR_RPC_TOKEN")
         .ok()
         .filter(|s| !s.trim().is_empty())
@@ -210,8 +285,32 @@ async fn main() -> anyhow::Result<()> {
             "BOING_OPERATOR_RPC_TOKEN is set: boing_qaPoolVote and boing_operatorApplyQaPolicy require header X-Boing-Operator"
         );
     }
+
+    let (head_broadcast_tx, _) = tokio::sync::broadcast::channel::<serde_json::Value>(256);
+    {
+        let mut n = node.write().await;
+        n.head_broadcast = Some(std::sync::Arc::new(head_broadcast_tx.clone()));
+        n.emit_head_subscriber_event();
+    }
+
+    let rpc_addr = format!("0.0.0.0:{}", args.rpc_port);
+    rpc::log_rpc_config_banner(&rpc_addr, rate_limit.requests_per_sec);
+    tracing::info!(
+        "Boing node initialized. validator={} rpc={} data_dir={} faucet={} (WebSocket newHeads: ws://{}/ws)",
+        args.validator,
+        rpc_addr,
+        args.data_dir,
+        args.faucet_enable,
+        rpc_addr
+    );
     let listener = tokio::net::TcpListener::bind(&rpc_addr).await?;
-    let app = rpc::rpc_router(node.clone(), &rate_limit, faucet_signer, operator_rpc_token);
+    let app = rpc::rpc_router(
+        node.clone(),
+        &rate_limit,
+        faucet_signer,
+        operator_rpc_token,
+        Some(head_broadcast_tx),
+    );
     let server = axum::serve(listener, app);
 
     if args.validator {

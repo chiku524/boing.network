@@ -9,6 +9,21 @@ cargo build
 cargo run -p boing-node
 ```
 
+The node serves **JSON-RPC over HTTP POST** on **`http://127.0.0.1:8545/`** by default (`--rpc-port` to change). Try:
+
+```bash
+curl -s -X POST http://127.0.0.1:8545/ -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"boing_health","params":[]}'
+```
+
+**Operators:** set **`BOING_CHAIN_ID`** and **`BOING_CHAIN_NAME`** on the process so `boing_getNetworkInfo` and **`boing_health`** expose chain metadata to wallets (see [docs/RPC-API-SPEC.md](docs/RPC-API-SPEC.md)).
+
+**dApp / TypeScript:** the in-repo SDK is **`boing-sdk/`** (`npm install` / `npm run build` there, or use it as a workspace package). See **`boing-sdk/README.md`** and [docs/BOING-DAPP-INTEGRATION.md](docs/BOING-DAPP-INTEGRATION.md).
+
+**Browser dApps:** additional CORS origins can be set without rebuilding via **`BOING_RPC_CORS_EXTRA_ORIGINS`** (comma-separated list, e.g. `http://localhost:9999,https://my-preview.pages.dev`). **`GET /ws`** supports a **newHeads** WebSocket (handshake in **`boing_getNetworkInfo.developer`**). Machine-readable API: **`boing_getRpcMethodCatalog`** and **`boing_getRpcOpenApi`** (see [docs/RPC-API-SPEC.md](docs/RPC-API-SPEC.md)).
+
+**Ops / Kubernetes:** **`GET /`** returns **405** with **`Allow: GET, POST, OPTIONS`**; **`OPTIONS /`** returns **204** with the same **`Allow`** (discovery / CORS). Optional **`X-Request-Id`** is echoed on responses (or server-generated UUID). **`boing-sdk`:** set **`generateRequestId: true`** on **`BoingClient`** to send a fresh id per HTTP call. **`GET /live`** (process up) and **`GET /ready`** (state lock responsive; optional **`BOING_RPC_READY_MIN_PEERS`**) on the same port as JSON-RPC; paths are under **`boing_getNetworkInfo.developer.http`**. **`boing_health`** includes **`rpc_surface`** (batch max, WS cap, HTTP rate-limit RPS, optional ready peer floor). JSON-RPC **batch** on **`POST /`** (**`BOING_RPC_MAX_BATCH`**, default 32). HTTP **429** responses include **`Retry-After: 1`**. POST body default **8 MiB** (**`BOING_RPC_MAX_BODY_MB`**). WebSocket **`GET /ws`** optional cap: **`BOING_RPC_WS_MAX_CONNECTIONS`** (0 = unlimited).
+
 ## Crates
 
 | Crate | Description |
@@ -25,10 +40,11 @@ cargo run -p boing-node
 
 ## Docs
 
-All project documentation lives in **[docs/](docs/)**:
+All project documentation lives in **[docs/](docs/)**. **Canonical index:** [docs/README.md](docs/README.md) (full map of specs, runbooks, and checklists).
 
 | Doc | Description |
 |-----|-------------|
+| [**docs/README.md**](docs/README.md) | **Index of all `docs/*.md` files** |
 | [**BOING-NETWORK-ESSENTIALS.md**](docs/BOING-NETWORK-ESSENTIALS.md) | **Six pillars, design philosophy, priorities, tech stack, key docs — start here** |
 | [**TECHNICAL-SPECIFICATION.md**](docs/TECHNICAL-SPECIFICATION.md) | **Single source of truth: crypto, data formats, bytecode, gas, RPC, QA rules** |
 | [READINESS.md](docs/READINESS.md) | Beta checklist, six-pillar readiness, launch-blocking path, verification commands |
@@ -42,6 +58,7 @@ All project documentation lives in **[docs/](docs/)**:
 | [BUILD-ROADMAP.md](docs/BUILD-ROADMAP.md) | Implementation tasks and phases |
 | [NETWORK-COST-ESTIMATE.md](docs/NETWORK-COST-ESTIMATE.md) | Cost overview and economic parameters |
 | [RPC-API-SPEC.md](docs/RPC-API-SPEC.md) | JSON-RPC API reference |
+| [TESTNET-RPC-INFRA.md](docs/TESTNET-RPC-INFRA.md) | One map: testnet ops, public RPC, and infra (routing + env matrix) |
 | [INFRASTRUCTURE-SETUP.md](docs/INFRASTRUCTURE-SETUP.md) | Testnet bootnodes, Cloudflare tunnel, deploy config |
 | [WEBSITE-AND-DEPLOYMENT.md](docs/WEBSITE-AND-DEPLOYMENT.md) | Website spec, Cloudflare setup (D1, R2, KV), deployment |
 | [BOING-EXPRESS-WALLET.md](docs/BOING-EXPRESS-WALLET.md) | Boing Express wallet: bootstrap, integration, Chrome Web Store, portal sign-in (Part 3) |

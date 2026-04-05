@@ -1,6 +1,6 @@
 # dApp integration — Boing native path
 
-Short checklist for web apps that want **Boing L1** behavior without assuming EVM (`ethers` / MetaMask signing).
+Short checklist for web apps that want **Boing L1** behavior without assuming a foreign L1 wallet stack (20-byte addresses + secp256k1 signing).
 
 ---
 
@@ -14,6 +14,7 @@ Short checklist for web apps that want **Boing L1** behavior without assuming EV
 ## 2. Chain alignment
 
 - Read `boing_chainId` (fallback `eth_chainId`). Boing testnet uses `0x1b01` (6913 decimal) in docs.
+- For **HTTP JSON-RPC** (servers, scripts, headless dApps), call **`boing_getNetworkInfo`** — **`boing-sdk`** **`getNetworkInfo()`** — for optional numeric **`chain_id`** / **`chain_name`** (when the node sets **`BOING_CHAIN_ID`** / **`BOING_CHAIN_NAME`**), target block time, tip height/hash, and **`client_version`**. The payload includes **`rpc.not_available`** listing **chain-wide total stake** and **staking APY** as **not** provided on public RPC; use protocol metrics or indexers if you need them ([RPC-API-SPEC.md](RPC-API-SPEC.md) § **boing_getNetworkInfo**).
 - Call `boing_switchChain` when the user must be on a specific network.
 
 ---
@@ -21,7 +22,7 @@ Short checklist for web apps that want **Boing L1** behavior without assuming EV
 ## 3. Read state
 
 - Use JSON-RPC (`boing_getAccount`, `boing_getBalance`, blocks, proofs) via **`boing-sdk`** `createClient(url)`.
-- Do **not** assume `provider.getSigner()` from ethers works for native Boing accounts.
+- Do **not** assume generic “browser provider + `getSigner()`” helpers built for 20-byte accounts work for native Boing `AccountId`s.
 
 ---
 
@@ -31,16 +32,17 @@ Short checklist for web apps that want **Boing L1** behavior without assuming EV
   - **`boing_simulateTransaction`** with a valid signed tx hex from the wallet or SDK, **or**
   - Wallet **`boing_sendTransaction`** which signs and simulates internally ([BOING-EXPRESS-WALLET.md](BOING-EXPRESS-WALLET.md)).
 - Use simulation’s `suggested_access_list` and merge with `mergeAccessListWithSimulation` / `accessListFromSimulation` in `boing-sdk` when building txs yourself.
+- For **reference-style `ContractCall` calldata** (selector low byte + 32-byte words — Boing-defined, not Solidity ABI), `boing-sdk` exposes **`encodeBoingCallTyped`**, **`encodeBoingCallFromAbiArgs`**, and **`BoingReferenceCallDescriptors`** / **`encodeBoingCallFromDescriptor`** in `callAbi.ts` (same on-wire bytes as `referenceToken.ts`, `referenceNft.ts`, and `nativeAmm.ts` helpers).
 
 ### Native constant-product swap (Boing VM)
 
-For **chain 6913** swaps against the **in-ledger** constant-product pool (not EVM router contracts):
+For **chain 6913** swaps against the **in-ledger** constant-product pool (not a foreign-chain router/factory deployment):
 
-- **Accounts are 32-byte** Boing `AccountId`s (`0x` + 64 hex). Do not use `ethers.Contract` against these ids unless you have an explicit EVM compatibility layer.
-- **Pool id** is **not** fixed in the RPC layer — configure the deployed pool address in your app (see [RPC-API-SPEC.md](RPC-API-SPEC.md) § Native constant-product AMM). When the network publishes a canonical testnet pool, copy that hex into env / config.
+- **Accounts are 32-byte** Boing `AccountId`s (`0x` + 64 hex). Do not treat them as 20-byte contract addresses or feed them into tooling that assumes that shape.
+- **Pool id** is **not** fixed in the RPC layer — configure the deployed pool address in your app (see [RPC-API-SPEC.md](RPC-API-SPEC.md) § Native constant-product AMM). **Public testnet** canonical pool: **`0xffaa1290614441902ba813bf3bd8bf057624e0bd4f16160a9d32cd65d3f4d0c2`** ([TESTNET.md](TESTNET.md) §5.3). Optional: **`CANONICAL_BOING_TESTNET_NATIVE_CP_POOL_HEX`** from **`boing-sdk`**. Pool rotations: [OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md).
 - Build **`contract_call`** with **`calldata`** per [NATIVE-AMM-CALLDATA.md](NATIVE-AMM-CALLDATA.md) and an explicit **`access_list`** (`read` / `write`: signer + pool for the current MVP bytecode).
 - **Pre-flight:** either rely on **`boing_sendTransaction`** (wallet may simulate internally), or follow **boing.finance** / **`boing-sdk`** pattern: **`boing_signTransaction`** → **`boing_simulateTransaction`**; if **`access_list_covers_suggestion`** is `false`, merge **`suggested_access_list`** and **sign again** (users may see a second approval in the extension).
-- **Reserves:** read pool storage via **`boing_getContractStorage`** using keys from the native AMM spec, or your indexer once the pool emits logs.
+- **Reserves:** read pool storage via **`boing_getContractStorage`** using keys from the native AMM spec (`boing-sdk`: **`fetchNativeConstantProductReserves`**, **`NATIVE_CONSTANT_PRODUCT_RESERVE_A_KEY_HEX`**, **`NATIVE_CONSTANT_PRODUCT_RESERVE_B_KEY_HEX`**), or your indexer once the pool emits logs.
 - **Regression reference:** `cargo test -p boing-node --test native_amm_rpc_happy_path` (deploy → add liquidity → swap over JSON-RPC).
 - **Browser smoke:** [NATIVE-AMM-E2E-SMOKE.md](NATIVE-AMM-E2E-SMOKE.md) (Boing Express + boing.finance).
 
@@ -54,9 +56,15 @@ For **chain 6913** swaps against the **in-ledger** constant-product pool (not EV
 | Node / backend / tests | `boing-sdk`: `submitTransferWithSimulationRetry` / `submitContractCallWithSimulationRetry` / `submitDeployWithPurposeFlow`, or manual `signTransactionInput` → `submitTransaction(hex)` |
 | Hardware / external signer | Build bincode per [BOING-SIGNED-TRANSACTION-ENCODING.md](BOING-SIGNED-TRANSACTION-ENCODING.md), sign Ed25519 over `signableTransactionHash` |
 
-**Tutorial package (no ethers):** [examples/native-boing-tutorial](../examples/native-boing-tutorial/).
+**Tutorial package (SDK + node only):** [examples/native-boing-tutorial](../examples/native-boing-tutorial/).
 
 Contract deploys from dApps must use **purpose-bearing** deploy types (`contract_deploy_purpose` / `contract_deploy_meta`); bare `contract_deploy` is rejected from injection so QA declarations are explicit.
+
+**`contract_deploy_meta` convenience:** Boing Express treats **`purpose_category` as optional** when **`asset_name` and/or `asset_symbol`** are set — it defaults to **`token`**. You still need an explicit `purpose_category` for metadata-free deploys (use `contract_deploy_purpose`) or when the category must differ (e.g. tooling with a display name). Other wallets may require the field; set it explicitly for maximum compatibility.
+
+### Form parity with EVM deploy UIs
+
+To avoid asking end users for **raw bytecode**, pin **ops-approved** native programs (fungible + NFT) and only expose **name / symbol / supply** (and similar) in the main flow. Use **`boing-sdk`** **`buildContractDeployMetaTx`** and **`resolveReferenceFungibleTemplateBytecodeHex`** (embedded default; optional env override `BOING_REFERENCE_FUNGIBLE_TEMPLATE_BYTECODE_HEX`, `VITE_…`, `REACT_APP_…`). Full checklist: [BOING-CANONICAL-DEPLOY-ARTIFACTS.md](BOING-CANONICAL-DEPLOY-ARTIFACTS.md).
 
 ---
 
@@ -82,6 +90,7 @@ Contract deploys from dApps must use **purpose-bearing** deploy types (`contract
 
 ## References
 
+- [boing-sdk README](../boing-sdk/README.md) — RPC client, `callAbi.ts`, calldata helpers, submit flows  
 - [BOING-VM-CAPABILITY-PARITY-ROADMAP.md](BOING-VM-CAPABILITY-PARITY-ROADMAP.md) — Phase 1 tracks P / W / E  
 - [RPC-API-SPEC.md](RPC-API-SPEC.md)  
 - [QUALITY-ASSURANCE-NETWORK.md](QUALITY-ASSURANCE-NETWORK.md)  

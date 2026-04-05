@@ -33,7 +33,7 @@ import Layout from '../../../layouts/Layout.astro';
         <button type="button" class="auth-tab" role="tab" id="tab-account" aria-selected="false" aria-controls="panel-account" tabindex="-1">Enter account ID</button>
       </div>
       <div id="panel-wallet" role="tabpanel" aria-labelledby="tab-wallet" class="auth-panel">
-        <p class="auth-panel-desc">Connect your Boing wallet to fill your account ID below. You'll approve the connection in your wallet.</p>
+        <p class="auth-panel-desc">Connect your Boing wallet (<a href="https://boing.express" rel="noopener noreferrer" target="_blank">Boing Express</a> recommended) to fill your account ID below. You'll approve the connection in your wallet.</p>
         <p class="form-hint"><span id="connect-wallet-wrap"><button type="button" id="connect-wallet-btn" class="link-btn auth-cta">Connect wallet</button></span><span id="wallet-actions"></span></p>
       </div>
       <div id="panel-account" role="tabpanel" aria-labelledby="tab-account" class="auth-panel hidden">
@@ -119,7 +119,7 @@ import Layout from '../../../layouts/Layout.astro';
     function getProvider() {
       if (typeof window === 'undefined') return null;
       var w = window.BoingPortalWallet;
-      return (w && w.getProvider && w.getProvider()) || window.boing || window.ethereum || null;
+      return (w && w.getProvider && w.getProvider()) || window.boing || null;
     }
     function providerMethod(primary, fallback) {
       return function (provider, params) {
@@ -133,7 +133,8 @@ import Layout from '../../../layouts/Layout.astro';
     const requestAccounts = providerMethod('boing_requestAccounts', 'eth_requestAccounts');
     const signMessage = providerMethod('boing_signMessage', 'personal_sign');
     const getChainId = providerMethod('boing_chainId', 'eth_chainId');
-    const switchChain = providerMethod('boing_switchChain', 'wallet_switchEthereumChain');
+    const interop = window.BoingLegacyProviderInterop;
+    const switchChain = providerMethod('boing_switchChain', interop && interop.walletSwitchChainRpcMethod);
     function buildConnectMessage() {
       var origin = window.location.origin || '';
       var timestamp = new Date().toISOString();

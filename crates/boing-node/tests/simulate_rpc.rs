@@ -25,6 +25,7 @@ fn node_with_proposer(signing_key: &SigningKey, balance: u128) -> BoingNode {
             stake: 0,
         },
     });
+    let native_aggregates = state.compute_native_aggregates();
     BoingNode {
         chain,
         consensus,
@@ -40,6 +41,8 @@ fn node_with_proposer(signing_key: &SigningKey, balance: u128) -> BoingNode {
         qa_pool: boing_node::node::pending_qa_pool_default(),
         persistence: None,
         receipts: HashMap::new(),
+        native_aggregates,
+        head_broadcast: None,
     }
 }
 

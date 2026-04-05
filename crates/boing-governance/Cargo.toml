@@ -5,4 +5,5 @@ edition = "2021"
 description = "Phased governance with time locks for Boing blockchain"
 
 [dependencies]
+boing-telemetry = { path = "../boing-telemetry" }
 thiserror = "1"

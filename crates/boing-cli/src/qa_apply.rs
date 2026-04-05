@@ -10,10 +10,19 @@ pub async fn run(
     pool_path: &Path,
     operator_token: Option<&str>,
 ) -> anyhow::Result<()> {
-    let registry_json = std::fs::read_to_string(registry_path)
-        .map_err(|e| anyhow::anyhow!("read --registry: {}", e))?;
-    let pool_json =
-        std::fs::read_to_string(pool_path).map_err(|e| anyhow::anyhow!("read --pool: {}", e))?;
+    let registry_json = std::fs::read_to_string(registry_path).map_err(|e| {
+        boing_telemetry::component_warn(
+            "boing_cli::qa_apply",
+            "cli",
+            "read_registry_failed",
+            &e,
+        );
+        anyhow::anyhow!("read --registry: {}", e)
+    })?;
+    let pool_json = std::fs::read_to_string(pool_path).map_err(|e| {
+        boing_telemetry::component_warn("boing_cli::qa_apply", "cli", "read_pool_failed", &e);
+        anyhow::anyhow!("read --pool: {}", e)
+    })?;
 
     let body = json!({
         "jsonrpc": "2.0",
@@ -28,21 +37,51 @@ pub async fn run(
         req = req.header("X-Boing-Operator", t);
     }
 
-    let resp = req
-        .send()
-        .await
-        .map_err(|e| anyhow::anyhow!("Cannot connect to {}: {}. Is the node running?", rpc_url, e))?;
+    let resp = req.send().await.map_err(|e| {
+        boing_telemetry::component_warn(
+            "boing_cli::qa_apply",
+            "cli",
+            "rpc_connect_failed",
+            format!("{rpc_url}: {e}"),
+        );
+        anyhow::anyhow!("Cannot connect to {}: {}. Is the node running?", rpc_url, e)
+    })?;
 
     if !resp.status().is_success() {
-        anyhow::bail!("RPC returned {}: {}", resp.status(), resp.text().await?);
+        let status = resp.status();
+        let body_text = resp.text().await.unwrap_or_default();
+        boing_telemetry::component_warn(
+            "boing_cli::qa_apply",
+            "cli",
+            "rpc_http_error",
+            format!("{status} {body_text}"),
+        );
+        anyhow::bail!("RPC returned {}: {}", status, body_text);
     }
 
     let text = resp.text().await?;
-    let parsed: serde_json::Value = serde_json::from_str(&text)?;
+    let parsed: serde_json::Value = serde_json::from_str(&text).map_err(|e| {
+        boing_telemetry::component_warn(
+            "boing_cli::qa_apply",
+            "cli",
+            "rpc_json_parse_failed",
+            format!("{e}; body_len={}", text.len()),
+        );
+        anyhow::Error::from(e)
+    })?;
 
     if let Some(err) = parsed.get("error") {
         let code = err.get("code").and_then(|v| v.as_i64()).unwrap_or(0);
-        let msg = err.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error");
+        let msg = err
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown error");
+        boing_telemetry::component_warn(
+            "boing_cli::qa_apply",
+            "cli",
+            "rpc_jsonrpc_error",
+            format!("code={code} message={msg}"),
+        );
         anyhow::bail!("RPC error {}: {}", code, msg);
     }
 
@@ -54,6 +93,12 @@ pub async fn run(
     if ok {
         println!("✓ Applied QA policy on node (registry + pool config)");
     } else {
+        boing_telemetry::component_warn(
+            "boing_cli::qa_apply",
+            "cli",
+            "unexpected_rpc_result",
+            format!("body_len={}", text.len()),
+        );
         println!("Unexpected result; check node logs. Body: {}", text);
     }
 

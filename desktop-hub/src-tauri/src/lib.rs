@@ -1,3 +1,5 @@
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -9,15 +11,41 @@ mod single_instance_windows;
 
 #[tauri::command]
 async fn close_splash_and_show_main(app: tauri::AppHandle) -> Result<(), String> {
-    let splash = app
-        .get_webview_window("splashscreen")
-        .ok_or("splash window not found")?;
-    let main_win = app
-        .get_webview_window("main")
-        .ok_or("main window not found")?;
-    splash.close().map_err(|e| e.to_string())?;
-    main_win.show().map_err(|e| e.to_string())?;
-    main_win.set_focus().map_err(|e| e.to_string())?;
+    let splash = app.get_webview_window("splashscreen").ok_or_else(|| {
+        let msg = "splash window not found";
+        boing_telemetry::component_warn("boing_network_hub::commands", "hub", "splash_not_found", msg);
+        msg.to_string()
+    })?;
+    let main_win = app.get_webview_window("main").ok_or_else(|| {
+        let msg = "main window not found";
+        boing_telemetry::component_warn("boing_network_hub::commands", "hub", "main_window_not_found", msg);
+        msg.to_string()
+    })?;
+    splash.close().map_err(|e| {
+        let s = e.to_string();
+        boing_telemetry::component_warn(
+            "boing_network_hub::commands",
+            "hub",
+            "splash_close_failed",
+            &s,
+        );
+        s
+    })?;
+    main_win.show().map_err(|e| {
+        let s = e.to_string();
+        boing_telemetry::component_warn("boing_network_hub::commands", "hub", "main_show_failed", &s);
+        s
+    })?;
+    main_win.set_focus().map_err(|e| {
+        let s = e.to_string();
+        boing_telemetry::component_warn(
+            "boing_network_hub::commands",
+            "hub",
+            "main_focus_failed",
+            &s,
+        );
+        s
+    })?;
     Ok(())
 }
 
@@ -106,8 +134,20 @@ fn main_window_close_to_tray(window: &tauri::Window, event: &WindowEvent) {
     let _ = window.hide();
 }
 
+fn init_hub_tracing() {
+    let _ = tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .try_init();
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    init_hub_tracing();
+
     let mut builder = tauri::Builder::default();
 
     #[cfg(target_os = "windows")]
@@ -142,10 +182,26 @@ pub fn run() {
             }
 
             let handle = app.handle().clone();
-            setup_tray(&handle)?;
+            setup_tray(&handle).map_err(|e| {
+                boing_telemetry::component_error(
+                    "boing_network_hub",
+                    "hub",
+                    "setup_tray_failed",
+                    e.to_string(),
+                );
+                e
+            })?;
 
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error while running Boing Network Hub");
+        .unwrap_or_else(|e| {
+            boing_telemetry::component_error(
+                "boing_network_hub",
+                "hub",
+                "tauri_run_failed",
+                e.to_string(),
+            );
+            panic!("error while running Boing Network Hub: {e}");
+        });
 }

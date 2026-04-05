@@ -14,8 +14,8 @@ fn node_with_p2p(
     signing_key: &SigningKey,
     balance: u128,
     p2p_listen: &str,
-) -> (BoingNode, tokio::sync::mpsc::Receiver<boing_p2p::P2pEvent>) {
-    let (p2p, event_rx) = boing_p2p::P2pNode::new(p2p_listen, None).expect("P2P init");
+) -> (BoingNode, tokio::sync::mpsc::UnboundedReceiver<boing_p2p::P2pEvent>) {
+    let (p2p, event_rx) = boing_p2p::P2pNode::new(p2p_listen, None, 0).expect("P2P init");
     let proposer = AccountId(signing_key.verifying_key().to_bytes());
     let genesis = boing_node::chain::ChainState::genesis(proposer);
     let chain = boing_node::chain::ChainState::from_genesis(genesis.clone());
@@ -32,6 +32,7 @@ fn node_with_p2p(
         },
     });
 
+    let native_aggregates = state.compute_native_aggregates();
     let node = BoingNode {
         chain,
         consensus,
@@ -47,6 +48,8 @@ fn node_with_p2p(
         qa_pool: boing_node::node::pending_qa_pool_default(),
         persistence: None,
         receipts: HashMap::new(),
+        native_aggregates,
+        head_broadcast: None,
     };
     (node, event_rx)
 }

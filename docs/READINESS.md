@@ -35,7 +35,7 @@
 | **boing-node** | `boing-node --help` | Show options |
 | | `boing-node --validator --rpc-port 8545 --data-dir ./data` | Run as validator |
 | | `boing-node --rpc-port 8545 --data-dir ./data` | Run as full node |
-| | `boing-node --p2p_listen /ip4/0.0.0.0/tcp/4001 ...` | Enable P2P for testnet |
+| | `boing-node --p2p-listen /ip4/0.0.0.0/tcp/4001 ...` | Enable P2P for testnet |
 
 ### 1.4 Documentation
 
@@ -55,16 +55,18 @@ Complete these **before** running bootnodes. See [BOING-NETWORK-ESSENTIALS.md](B
 
 | # | Item | Pillar |
 |---|------|--------|
-| 1 | Enforce `pending_txs_per_sender` in mempool | Security |
-| 2 | Document security contacts in SECURITY-STANDARDS | Security |
-| 3 | Add "Scalability characteristics" (block time, TPS) to RUNBOOK | Scalability |
-| 4 | Add "Decentralization design" note to RUNBOOK | Decentralization |
-| 5 | [QUALITY-ASSURANCE-NETWORK.md](QUALITY-ASSURANCE-NETWORK.md) Appendix A (deployer checklist) | QA, Transparency |
-| 6 | [QUALITY-ASSURANCE-NETWORK.md](QUALITY-ASSURANCE-NETWORK.md) Appendix B (canonical malice definition) | QA, Transparency |
+| 1 | **`pending_txs_per_sender` enforced in mempool** | Security — **done:** `boing-node` applies **`RateLimitConfig::default_mainnet()`** (16) at startup; override **`--pending-txs-per-sender`**; dev profile via **`--dev-rate-limits`** or **`BOING_RATE_PROFILE=dev`** ([RUNBOOK.md](RUNBOOK.md) §2) |
+| 2 | Document security contacts in SECURITY-STANDARDS | Security — **done:** [SECURITY-STANDARDS.md](SECURITY-STANDARDS.md) § **5. Security Contacts** (GitHub Security Advisories + incident pointer) |
+| 3 | Add "Scalability characteristics" (block time, TPS) to RUNBOOK | Scalability — **done:** [RUNBOOK.md](RUNBOOK.md) § **6b. Scalability Characteristics** |
+| 4 | Add "Decentralization design" note to RUNBOOK | Decentralization — **done:** [RUNBOOK.md](RUNBOOK.md) § **6c. Decentralization Design** |
+| 5 | [QUALITY-ASSURANCE-NETWORK.md](QUALITY-ASSURANCE-NETWORK.md) Appendix A (deployer checklist) | QA, Transparency — **done:** Appendix **A** (deployer checklist) |
+| 6 | [QUALITY-ASSURANCE-NETWORK.md](QUALITY-ASSURANCE-NETWORK.md) Appendix B (canonical malice definition) | QA, Transparency — **done:** Appendix **B** (canonical malice) |
 
 ---
 
 ## 3. Launch-Blocking Checklist (Critical Path)
+
+**Operator go-live order** (RPC tunnel, verification script, faucet): [NETWORK-GO-LIVE-CHECKLIST.md](NETWORK-GO-LIVE-CHECKLIST.md). **Full ops map** (VibeMiner, website env, AMM **OPS-1**, monitoring): [TESTNET-OPS-RUNBOOK.md](TESTNET-OPS-RUNBOOK.md).
 
 **Why VibeMiner shows "no nodes":** Bootnodes and public RPC must be running. Until then, VibeMiner, terminal validators, and boing.observer cannot use the testnet.
 
@@ -122,6 +124,7 @@ cargo test
 
 - **Beta:** Iterate on RUNBOOK and docs from common questions.
 - **Incentivized testnet:** Use [TESTNET.md](TESTNET.md) Part 3 for full launch checklist, incentive design, and promotion.
+- **Engineering backlog (enhancements, optimizations, infra / CI):** [NEXT-STEPS-FUTURE-WORK.md](NEXT-STEPS-FUTURE-WORK.md) — pairs with [BUILD-ROADMAP.md](BUILD-ROADMAP.md) and [DEVELOPMENT-AND-ENHANCEMENTS.md](DEVELOPMENT-AND-ENHANCEMENTS.md).
 
 ---
 

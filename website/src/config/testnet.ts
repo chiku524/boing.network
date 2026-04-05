@@ -30,3 +30,11 @@ export const isTestnetLive =
   BOOTNODES.length > 0 &&
   !TESTNET_RPC_URL.includes('127.0.0.1') &&
   !TESTNET_RPC_URL.includes('localhost');
+
+/**
+ * Canonical **native constant-product AMM** pool `AccountId` on public testnet (chain **6913**).
+ * Keep in sync with [docs/RPC-API-SPEC.md](../../../docs/RPC-API-SPEC.md) § Native constant-product AMM,
+ * `boing-sdk` **`CANONICAL_BOING_TESTNET_NATIVE_CP_POOL_HEX`**, and **boing.finance** config.
+ */
+export const CANONICAL_NATIVE_CP_POOL_ACCOUNT_ID_HEX =
+  '0xffaa1290614441902ba813bf3bd8bf057624e0bd4f16160a9d32cd65d3f4d0c2' as const;

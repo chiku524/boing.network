@@ -34,6 +34,7 @@ fn node_with_accounts() -> BoingNode {
             stake: 0,
         },
     });
+    let native_aggregates = state.compute_native_aggregates();
     BoingNode {
         chain,
         consensus,
@@ -49,6 +50,8 @@ fn node_with_accounts() -> BoingNode {
         qa_pool: boing_node::node::pending_qa_pool_default(),
         persistence: None,
         receipts: HashMap::new(),
+        native_aggregates,
+        head_broadcast: None,
     }
 }
 

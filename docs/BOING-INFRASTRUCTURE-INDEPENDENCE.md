@@ -6,11 +6,12 @@ This document outlines what the Boing Network and Boing Express wallet **depend 
 
 ## 1. What “independence” already means
 
-- **Protocol / chain:** Boing does **not** depend on Ethereum, Solana, or any other chain for addresses, signing, or consensus. It uses its own:
+- **Protocol / chain:** Boing does **not** depend on another L1 for addresses, signing, or consensus. It uses its own:
   - **Addresses:** 32-byte Ed25519 public keys (64 hex chars).
   - **Signing:** Ed25519 + BLAKE3 (same as used in Rust node and wallet).
-  - **RPC:** Boing-specific JSON-RPC; no EVM ABI, no Solana SPL.
-- **Portal sign-in:** Ed25519-only; no `personal_sign` or other chain-specific methods.
+  - **RPC:** Boing-specific JSON-RPC; no foreign-chain transaction or ABI formats.
+  - **Execution:** Only the **Boing VM** (`boing-execution`). No embedded foreign bytecode engines — see [BOING-VM-INDEPENDENCE.md](BOING-VM-INDEPENDENCE.md).
+- **Portal sign-in:** Ed25519-only; no legacy wallet message methods as the source of truth (use `boing_signMessage` per portal docs).
 - So **at the protocol level**, Boing is already independent of other networks.
 
 The question below is about **code and operational** dependencies: libraries, runtimes, and hosting.
@@ -71,10 +72,10 @@ The question below is about **code and operational** dependencies: libraries, ru
   - Document “we can run the same build on our own infra.”
   - Add a **self-host** option: e.g. Dockerfile or runbook that serves the built site + API + DB. Then Boing is not *reliant* on Cloudflare; it’s just one deployment target.
 
-### 3.4 Other networks (EVM, Solana, etc.)
+### 3.4 Other networks (bridges, optional interop)
 
 - **Already done:** Portal and wallet are Ed25519/BLAKE3-only; no dependency on other chains for core flows.
-- **Optional:** If any docs or UI still mention “EVM/Solana compatibility,” treat that as optional or legacy; core Boing infrastructure does not rely on them.
+- **Optional:** If any docs or UI still imply “run foreign bytecode on Boing L1,” treat that as optional or legacy; core Boing infrastructure does not rely on it.
 
 ---
 

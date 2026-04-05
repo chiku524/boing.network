@@ -1,6 +1,7 @@
 //! Boing node — wires consensus, execution, state, and P2P together.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use boing_consensus::ConsensusEngine;
 use boing_execution::{BlockExecutor, TransactionScheduler, Vm};
@@ -10,12 +11,13 @@ use boing_primitives::{
 };
 use boing_qa::pool::{PendingQaQueue, PoolError, PoolResolution, QaPoolVote};
 use boing_qa::{QaPoolGovernanceConfig, RuleRegistry};
-use boing_state::StateStore;
-use tokio::sync::mpsc;
+use boing_state::{ChainNativeAggregates, StateStore};
+use tokio::sync::{broadcast, mpsc};
 
 use crate::block_producer::BlockProducer;
 use crate::block_validation::import_block;
 use crate::chain::ChainState;
+use crate::logging;
 use crate::dapp_registry::DappRegistry;
 use crate::intent_pool::IntentPool;
 use crate::mempool::{Mempool, MempoolError};
@@ -53,6 +55,10 @@ pub struct BoingNode {
     pub persistence: Option<Persistence>,
     /// Execution receipts by transaction id (`tx.id()`), for RPC.
     pub receipts: HashMap<Hash, ExecutionReceipt>,
+    /// Chain-wide sums over committed accounts; refreshed after state commits (see [`Self::refresh_native_aggregates`]).
+    pub native_aggregates: ChainNativeAggregates,
+    /// Optional broadcast of committed tip updates for WebSocket **`newHeads`** subscribers (`/ws`).
+    pub head_broadcast: Option<Arc<broadcast::Sender<serde_json::Value>>>,
 }
 
 /// Result of recording a vote and resolving the pool item when possible.
@@ -91,6 +97,7 @@ impl BoingNode {
                 stake: 0,
             },
         });
+        let native_aggregates = state.compute_native_aggregates();
 
         // Keep mempool, BlockExecutor, and Vm in sync: all use this registry for deploy QA.
         let qa_registry = RuleRegistry::new();
@@ -110,7 +117,28 @@ impl BoingNode {
             qa_pool: pending_qa_pool_default(),
             persistence: None,
             receipts: HashMap::new(),
+            native_aggregates,
+            head_broadcast: None,
         }
+    }
+
+    /// Notify WebSocket **`newHeads`** subscribers of the current committed tip (no-op if [`Self::head_broadcast`] is unset).
+    pub fn emit_head_subscriber_event(&self) {
+        let Some(tx) = &self.head_broadcast else {
+            return;
+        };
+        let height = self.chain.height();
+        let hash = self.chain.latest_hash();
+        let _ = tx.send(serde_json::json!({
+            "type": "newHead",
+            "height": height,
+            "hash": format!("0x{}", hex::encode(hash.0)),
+        }));
+    }
+
+    /// Recompute [`ChainNativeAggregates`] from committed `state` (O(account count); call after state commits).
+    pub fn refresh_native_aggregates(&mut self) {
+        self.native_aggregates = self.state.compute_native_aggregates();
     }
 
     /// Create a node with optional data directory for persistence.
@@ -156,6 +184,7 @@ impl BoingNode {
             }
         }
 
+        node.refresh_native_aggregates();
         Ok(node)
     }
 
@@ -176,10 +205,10 @@ impl BoingNode {
         self.apply_qa_policy_without_persist(registry.clone(), pool_config.clone());
         if let Some(ref p) = self.persistence {
             if let Err(e) = p.save_qa_registry(&registry) {
-                tracing::warn!("Failed to save qa_registry.json: {}", e);
+                logging::log_persistence_warn("save_qa_registry", &e);
             }
             if let Err(e) = p.save_qa_pool_config(&pool_config) {
-                tracing::warn!("Failed to save qa_pool_config.json: {}", e);
+                logging::log_persistence_warn("save_qa_pool_config", &e);
             }
         }
     }
@@ -190,13 +219,15 @@ impl BoingNode {
     pub fn with_p2p(
         p2p_listen: &str,
         data_dir: Option<impl AsRef<std::path::Path>>,
-    ) -> Result<(Self, mpsc::Receiver<P2pEvent>), boing_p2p::P2pError> {
+        max_connections_per_ip: u32,
+    ) -> Result<(Self, mpsc::UnboundedReceiver<P2pEvent>), boing_p2p::P2pError> {
         let mut node = Self::with_data_dir(data_dir)
             .map_err(|e| boing_p2p::P2pError::Network(e.to_string()))?;
         let chain = node.chain.clone();
         let (p2p, event_rx) = P2pNode::new(
             p2p_listen,
             Some(std::sync::Arc::new(ChainBlockProvider(chain))),
+            max_connections_per_ip,
         )?;
         node.p2p = p2p;
         Ok((node, event_rx))
@@ -209,16 +240,16 @@ impl BoingNode {
     ) {
         if let Some(ref p) = self.persistence {
             if let Err(e) = p.save_block(block) {
-                tracing::warn!("Persistence: failed to save block: {}", e);
+                logging::log_persistence_warn("save_block", &e);
             }
             if let Err(e) = p.save_receipts(block.header.height, receipts) {
-                tracing::warn!("Persistence: failed to save receipts: {}", e);
+                logging::log_persistence_warn("save_receipts", &e);
             }
             if let Err(e) = p.save_chain_meta(block.header.height, block.hash()) {
-                tracing::warn!("Persistence: failed to save chain meta: {}", e);
+                logging::log_persistence_warn("save_chain_meta", &e);
             }
             if let Err(e) = p.save_state(&self.state) {
-                tracing::warn!("Persistence: failed to save state: {}", e);
+                logging::log_persistence_warn("save_state", &e);
             }
         }
     }
@@ -247,6 +278,8 @@ impl BoingNode {
             self.receipts.insert(r.tx_id, r.clone());
         }
         self.persist_block_and_state(block, &receipts);
+        self.refresh_native_aggregates();
+        self.emit_head_subscriber_event();
         Ok(())
     }
 
@@ -331,6 +364,8 @@ impl BoingNode {
             self.persist_block_and_state(&block, &receipts);
             let _ = self.p2p.broadcast_block(&block);
         }
+        self.refresh_native_aggregates();
+        self.emit_head_subscriber_event();
         Some(hash)
     }
 }

@@ -1,8 +1,9 @@
 //! Boing VM — deterministic execution engine.
 
 use boing_primitives::{
-    create2_contract_address, nonce_derived_contract_address, AccountId, AccountState, ExecutionLog,
-    Transaction, TransactionPayload,
+    contract_deploy_init_body, contract_deploy_uses_init_code, create2_contract_address,
+    nonce_derived_contract_address, AccountId, AccountState, ExecutionLog, Transaction,
+    TransactionPayload,
 };
 use boing_qa::{check_contract_deploy_full_with_metadata, QaResult, RuleRegistry};
 use boing_state::StateStore;
@@ -237,9 +238,11 @@ impl Vm {
                 // Aligns with mempool: Unsure is not a hard reject. Community QA pool admits some Unsure
                 // txs; at execution we only enforce Allow vs Reject. Block validity / honest producers
                 // are the gate for whether an Unsure deploy was properly accepted off-chain.
-                tracing::debug!(
-                    target: "boing_execution::vm",
-                    "contract deploy QA Unsure at execution — proceeding with deploy"
+                boing_telemetry::component_debug(
+                    "boing_execution::vm",
+                    "execution",
+                    "deploy_qa_unsure_proceeding",
+                    "contract deploy QA Unsure at execution — proceeding with deploy",
                 );
             }
         }
@@ -263,11 +266,29 @@ impl Vm {
             id: contract_addr,
             state: boing_primitives::AccountState { balance: 0, nonce: 0, stake: 0 },
         });
-        state.set_contract_code(contract_addr, bytecode.to_vec());
+
+        let uses_init = contract_deploy_uses_init_code(bytecode);
+        let init_body = contract_deploy_init_body(bytecode);
+        let (gas_used, logs, stored_code) = if uses_init {
+            let mut interpreter = Interpreter::new(init_body.to_vec(), GAS_PER_CONTRACT_CALL);
+            let g_init = interpreter.run(tx.sender, contract_addr, &[], state)?;
+            let runtime = interpreter.return_data.take().unwrap_or_default();
+            let logs = std::mem::take(&mut interpreter.logs);
+            let gas = GAS_PER_CONTRACT_DEPLOY.saturating_add(g_init);
+            (gas, logs, runtime)
+        } else {
+            (
+                GAS_PER_CONTRACT_DEPLOY,
+                Vec::new(),
+                bytecode.to_vec(),
+            )
+        };
+
+        state.set_contract_code(contract_addr, stored_code);
         Ok(VmExecutionResult {
-            gas_used: GAS_PER_CONTRACT_DEPLOY,
+            gas_used,
             return_data: Vec::new(),
-            logs: Vec::new(),
+            logs,
         })
     }
 
@@ -306,7 +327,9 @@ impl Default for Vm {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use boing_primitives::{AccessList, Account, AccountState};
+    use boing_primitives::{
+        AccessList, Account, AccountState, CONTRACT_DEPLOY_INIT_CODE_MARKER,
+    };
     use ed25519_dalek::SigningKey;
     use rand::rngs::OsRng;
 
@@ -372,6 +395,45 @@ mod tests {
     }
 
     #[test]
+    fn deploy_init_code_emits_log_and_installs_returned_runtime() {
+        let vm = Vm::new();
+        let key = SigningKey::generate(&mut OsRng);
+        let sender = AccountId(key.verifying_key().to_bytes());
+        let mut state = StateStore::new();
+        state.insert(Account {
+            id: sender,
+            state: AccountState {
+                balance: 1_000_000,
+                nonce: 0,
+                stake: 0,
+            },
+        });
+        // Init: LOG0 (empty data), MSTORE zero word at 0, RETURN 1 byte → runtime STOP (0x00).
+        let init = vec![
+            0x60, 0x00, 0x60, 0x00, 0xa0, // LOG0
+            0x60, 0x00, 0x60, 0x00, 0x52, // MSTORE
+            0x60, 0x01, 0x60, 0x00, 0xf3, // RETURN offset 0 size 1
+        ];
+        let mut bytecode = vec![CONTRACT_DEPLOY_INIT_CODE_MARKER];
+        bytecode.extend(init);
+        let deploy = Transaction {
+            nonce: 0,
+            sender,
+            payload: TransactionPayload::ContractDeploy {
+                bytecode,
+                create2_salt: None,
+            },
+            access_list: AccessList::default(),
+        };
+        let out = vm.execute(&deploy, &mut state).unwrap();
+        assert_eq!(out.logs.len(), 1);
+        assert!(out.logs[0].topics.is_empty());
+        assert!(out.logs[0].data.is_empty());
+        let contract = nonce_derived_contract_address(&sender, 0);
+        assert_eq!(state.get_contract_code(&contract).unwrap().as_slice(), &[0x00]);
+    }
+
+    #[test]
     fn contract_call_smoke_emits_log_and_returns_caller() {
         let vm = Vm::new();
         let key = SigningKey::generate(&mut OsRng);
@@ -411,6 +473,91 @@ mod tests {
         assert_eq!(out2.return_data.as_slice(), sender.0.as_slice());
         assert_eq!(out2.logs.len(), 1);
         assert_eq!(out2.logs[0].data.as_slice(), b"ping");
+    }
+
+    #[test]
+    fn nested_call_opcode_merges_child_logs_and_caller_is_parent_contract() {
+        use crate::bytecode::Opcode;
+
+        let vm = Vm::new();
+        let key = SigningKey::generate(&mut OsRng);
+        let sender = AccountId(key.verifying_key().to_bytes());
+        let mut state = StateStore::new();
+        state.insert(Account {
+            id: sender,
+            state: AccountState {
+                balance: 1_000_000,
+                nonce: 0,
+                stake: 0,
+            },
+        });
+
+        let smoke_code = crate::reference_token::smoke_contract_bytecode();
+        let deploy_smoke = Transaction {
+            nonce: 0,
+            sender,
+            payload: TransactionPayload::ContractDeploy {
+                bytecode: smoke_code,
+                create2_salt: None,
+            },
+            access_list: AccessList::default(),
+        };
+        vm.execute(&deploy_smoke, &mut state).unwrap();
+        let smoke_addr = nonce_derived_contract_address(&sender, 0);
+
+        let mut ping_word = [0u8; 32];
+        ping_word[0..4].copy_from_slice(b"ping");
+        let mut router_code = Vec::new();
+        router_code.push(Opcode::Push32 as u8);
+        router_code.extend_from_slice(&ping_word);
+        router_code.extend([
+            Opcode::Push1 as u8,
+            0x00,
+            Opcode::MStore as u8,
+            Opcode::Push32 as u8,
+        ]);
+        router_code.extend_from_slice(&smoke_addr.0);
+        router_code.extend([
+            Opcode::Push1 as u8,
+            0x00,
+            Opcode::Push1 as u8,
+            0x04,
+            Opcode::Push1 as u8,
+            0x20,
+            Opcode::Push1 as u8,
+            0x20,
+            Opcode::Call as u8,
+            Opcode::Stop as u8,
+        ]);
+
+        let deploy_router = Transaction {
+            nonce: 1,
+            sender,
+            payload: TransactionPayload::ContractDeploy {
+                bytecode: router_code,
+                create2_salt: None,
+            },
+            access_list: AccessList::default(),
+        };
+        vm.execute(&deploy_router, &mut state).unwrap();
+        let router_addr = nonce_derived_contract_address(&sender, 1);
+
+        let call = Transaction {
+            nonce: 2,
+            sender,
+            payload: TransactionPayload::ContractCall {
+                contract: router_addr,
+                calldata: Vec::new(),
+            },
+            access_list: AccessList::default(),
+        };
+        let out = vm.execute(&call, &mut state).unwrap();
+        assert_eq!(out.logs.len(), 1);
+        assert_eq!(out.logs[0].data.as_slice(), b"ping");
+
+        let smoke_caller_key = [1u8; 32];
+        let stored = state.get_contract_storage(&smoke_addr, &smoke_caller_key);
+        assert_eq!(stored, router_addr.0);
     }
 
     #[test]
@@ -513,6 +660,10 @@ pub enum VmError {
     DeploymentAddressInUse,
     #[error("Division by zero")]
     DivisionByZero,
+    #[error("Contract call depth limit exceeded")]
+    CallDepthExceeded,
+    #[error("CALL input or output buffer exceeds protocol limit")]
+    CallBufferTooLarge,
     #[error("QA rejected: {rule_id} — {message}")]
     QaRejected { rule_id: String, message: String },
 }

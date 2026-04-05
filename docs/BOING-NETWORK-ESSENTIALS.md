@@ -28,7 +28,7 @@ The Boing blockchain prioritizes, in order:
 ## Design Philosophy
 
 - **Authentic** — Our own architecture, not a fork or framework.
-- **Independent** — Zero reliance on Solana, Cosmos, Ethereum, or other chains.
+- **Independent** — Core protocol does not depend on another L1 for consensus, execution, or identity.
 - **Optimal** — Adopt the best ideas from the ecosystem when they are demonstrably superior.
 - **Unique** — A distinct identity and technical story.
 - **Decentralized** — Absolute decentralization as a foundational requirement.
@@ -53,7 +53,7 @@ When trade-offs arise, the network applies this order:
 | **Signatures** | Ed25519 |
 | **Consensus** | PoS + HotStuff BFT |
 | **State** | Sparse Merkle tree (Verkle target) |
-| **Execution** | Custom VM (stack-based; opcodes inspired by EVM, simplified) |
+| **Execution** | **Boing VM** (stack-based; defined in `TECHNICAL-SPECIFICATION.md` §7; [BOING-VM-INDEPENDENCE.md](BOING-VM-INDEPENDENCE.md)) |
 | **Networking** | libp2p (TCP, Noise, gossipsub, request-response) |
 | **Governance** | Phased (proposal → cooling → execution); time-locked |
 

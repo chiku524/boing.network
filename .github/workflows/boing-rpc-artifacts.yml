@@ -1,0 +1,32 @@
+# Publishes machine-readable RPC artifacts from the embedded developer schema (OpenAPI + method names).
+name: boing-rpc-artifacts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - crates/boing-node/schemas/developer_api.json
+      - .github/workflows/boing-rpc-artifacts.yml
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract OpenAPI and method name list
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const root = path.join('crates', 'boing-node', 'schemas', 'developer_api.json');
+          const d = JSON.parse(fs.readFileSync(root, 'utf8'));
+          fs.writeFileSync('boing-node-openapi.json', JSON.stringify(d.openapi, null, 2));
+          const names = (d.method_catalog?.methods ?? []).map((m) => m.name);
+          fs.writeFileSync('boing-rpc-method-names.json', JSON.stringify(names, null, 2));
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: boing-rpc-machine-readable
+          path: |
+            boing-node-openapi.json
+            boing-rpc-method-names.json

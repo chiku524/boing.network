@@ -1,0 +1,53 @@
+name: native-boing-playwright-public-smoke
+
+# Headless load of BOING_E2E_SWAP_URL (default boing.finance/swap). No extension; unattended.
+# Does not run on every PR — avoids failing merges on transient site or CDN issues.
+# See docs/PLAYWRIGHT-E2E-CI-OPS.md § D.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 16 * * 1"
+  push:
+    branches: [main]
+    paths:
+      - "examples/native-boing-playwright/tests/public-swap-page-smoke.spec.ts"
+      - "examples/native-boing-playwright/playwright.config.ts"
+      - "examples/native-boing-playwright/package.json"
+      - "examples/native-boing-playwright/package-lock.json"
+      - ".github/workflows/native-boing-playwright-public-smoke.yml"
+
+jobs:
+  public-swap-smoke:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/native-boing-playwright
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: examples/native-boing-playwright/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Run public swap page smoke
+        run: npm run test:e2e:public-smoke
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-public-smoke-report
+          path: |
+            examples/native-boing-playwright/playwright-report
+            examples/native-boing-playwright/test-results

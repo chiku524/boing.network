@@ -6,9 +6,12 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node -e \"console.log('boing-sdk: TypeScript compiled to dist/ (ok)')\"",
     "dev": "tsc --watch",
     "test": "vitest run",
+    "verify": "node scripts/verify.mjs",
+    "embed-fungible-hex": "node scripts/embed-reference-fungible-template-hex.mjs",
+    "probe-rpc": "node scripts/probe-rpc.mjs",
     "prepare": "npm run build"
   },
   "keywords": [

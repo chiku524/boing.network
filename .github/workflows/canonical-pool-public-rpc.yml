@@ -1,0 +1,42 @@
+# Smoke-test the published native CP pool against public testnet JSON-RPC.
+# No Rust/SDK install — runs scripts/check-canonical-native-amm-pool.mjs (fetch + boing_getContractStorage).
+
+name: Canonical pool (public RPC)
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Daily 14:00 UTC — lightweight health signal for integrators’ default pool + RPC
+    - cron: "0 14 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/check-canonical-native-amm-pool.mjs"
+      - ".github/workflows/canonical-pool-public-rpc.yml"
+  pull_request:
+    paths:
+      - "scripts/check-canonical-native-amm-pool.mjs"
+      - ".github/workflows/canonical-pool-public-rpc.yml"
+
+concurrency:
+  group: canonical-pool-public-rpc-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-canonical-pool:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Canonical pool storage read (strict reserves)
+        run: node scripts/check-canonical-native-amm-pool.mjs
+        env:
+          BOING_RPC_URL: https://testnet-rpc.boing.network/
+          BOING_REQUIRE_NONZERO_RESERVE: "1"

@@ -1,7 +1,7 @@
 //! Boing VM bytecode — minimal stack-based instruction set.
 //!
-//! The Boing VM is its own ISA. Some opcode **bytes** match EVM mnemonics for familiarity only;
-//! semantics are defined here and in protocol docs.
+//! The Boing VM is its own ISA. Opcode **bytes** and **semantics** are Boing-defined (`docs/TECHNICAL-SPECIFICATION.md` §7, `docs/BOING-VM-INDEPENDENCE.md`).
+//! Any overlap with other instruction sets is incidental and does **not** imply compatibility.
 
 /// Single-byte opcodes.
 #[repr(u8)]
@@ -39,6 +39,12 @@ pub enum Opcode {
     Xor = 0x18,
     /// Bitwise NOT (0x19)
     Not = 0x19,
+    /// Shift left (0x1b). Pops `shift`, then `value` (stack top = `shift`). Effective count = unsigned `shift` word mod 256 (big-endian low byte `shift[31]`). Push `(value << count) mod 2^256`.
+    Shl = 0x1b,
+    /// Logical shift right (0x1c). Pops `shift`, then `value`. Same effective count as [`Shl`](Opcode::Shl). Unsigned `value >> count`.
+    Shr = 0x1c,
+    /// Arithmetic shift right (0x1d). Pops `shift`, then `value`. Signed two's-complement 256-bit SAR; same effective count as [`Shl`](Opcode::Shl).
+    Sar = 0x1d,
     /// Duplicate top stack word (0x80) — Boing VM `DUP1`-style (one slot).
     Dup1 = 0x80,
     /// Push this contract's `AccountId` as a 32-byte word (0x30).
@@ -73,6 +79,8 @@ pub enum Opcode {
     JumpI = 0x57,
     /// Return memory slice (0xf3)
     Return = 0xf3,
+    /// Nested contract call (0xf1). Pops `ret_size`, `ret_offset`, `args_size`, `args_offset`, `target` (32-byte account id, stack top = `ret_size`). Runs callee with **caller** = current contract and **address** = `target`; merges callee logs; copies return data into caller memory (zero-pad). Pushes **`1`** on success. Uses remaining gas budget (minus `CALL` base). **`None` / empty code** → success, empty return. Errors from callee **propagate** (no partial snapshot rollback).
+    Call = 0xf1,
 }
 
 impl Opcode {
@@ -94,6 +102,9 @@ impl Opcode {
             0x17 => Some(Self::Or),
             0x18 => Some(Self::Xor),
             0x19 => Some(Self::Not),
+            0x1b => Some(Self::Shl),
+            0x1c => Some(Self::Shr),
+            0x1d => Some(Self::Sar),
             0x30 => Some(Self::Address),
             0x33 => Some(Self::Caller),
             0x80 => Some(Self::Dup1),
@@ -110,6 +121,7 @@ impl Opcode {
             0x57 => Some(Self::JumpI),
             0x60 => Some(Self::Push1),
             0x7f => Some(Self::Push32),
+            0xf1 => Some(Self::Call),
             0xf3 => Some(Self::Return),
             _ => None,
         }
@@ -132,12 +144,14 @@ pub mod gas {
     pub const MUL: u64 = 5;
     pub const DIV: u64 = 5;
     pub const MOD: u64 = 5;
-    /// EVM-aligned moderate step cost for modular reduce.
+    /// Moderate step cost for modular reduce (`AddMod` / `MulMod`).
     pub const ADDMOD: u64 = 8;
     pub const MULMOD: u64 = 8;
     pub const CMP: u64 = 3;
     pub const ISZERO: u64 = 3;
     pub const BITWISE: u64 = 3;
+    /// Same tier as bitwise ops (EIP-145 shift instructions).
+    pub const SHIFT: u64 = 3;
     pub const MLOAD: u64 = 3;
     pub const MSTORE: u64 = 3;
     pub const SLOAD: u64 = 100;
@@ -146,10 +160,12 @@ pub mod gas {
     pub const JUMP: u64 = 8;
     pub const JUMPI: u64 = 10;
     pub const RETURN: u64 = 0;
+    /// Base gas before nested execution; child uses remaining `gas_limit - gas_used`.
+    pub const CALL: u64 = 700;
     pub const DUP1: u64 = 3;
     pub const ADDRESS: u64 = 2;
     pub const CALLER: u64 = 2;
-    /// Base gas per log plus linear components (approximates EVM scaling).
+    /// Base gas per log plus linear components (topic count and payload bytes).
     pub const LOG_BASE: u64 = 100;
     pub const LOG_PER_TOPIC: u64 = 375;
     pub const LOG_PER_DATA_BYTE: u64 = 8;

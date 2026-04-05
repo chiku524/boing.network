@@ -6,16 +6,41 @@ use std::cmp::Ordering;
 
 use boing_primitives::{
     AccountId, ExecutionLog, MAX_EXECUTION_LOG_DATA_BYTES, MAX_EXECUTION_LOGS_PER_TX,
-    MAX_EXECUTION_LOG_TOPICS,
+    MAX_EXECUTION_LOG_TOPICS, MAX_RECEIPT_RETURN_DATA_BYTES,
 };
 use boing_state::StateStore;
-use num_bigint::BigUint;
+use num_bigint::{BigInt, BigUint, Sign};
 
 use super::bytecode::{gas, Opcode};
 use super::vm::VmError;
 
+/// Maximum nested [`Opcode::Call`] depth (root frame = 0).
+pub const MAX_CALL_DEPTH: u8 = 64;
+
 fn u256_be_to_biguint(w: &[u8; 32]) -> BigUint {
     BigUint::from_bytes_be(w)
+}
+
+/// Effective shift count for `Shl` / `Shr` / `Sar`: unsigned shift word modulo 256 (see `TECHNICAL-SPECIFICATION.md` §7.2).
+#[inline]
+fn effective_shift_count(w: &[u8; 32]) -> u32 {
+    w[31] as u32
+}
+
+fn signed_bigint_to_i256_word(i: &BigInt) -> [u8; 32] {
+    let mut bytes = i.to_signed_bytes_be();
+    if bytes.is_empty() {
+        return [0u8; 32];
+    }
+    let neg = matches!(i.sign(), Sign::Minus);
+    let fill: u8 = if neg { 0xff } else { 0x00 };
+    if bytes.len() > 32 {
+        bytes = bytes[bytes.len() - 32..].to_vec();
+    }
+    let mut out = [fill; 32];
+    let start = 32usize.saturating_sub(bytes.len());
+    out[start..].copy_from_slice(&bytes);
+    out
 }
 
 fn biguint_rem_to_u256_be(rem: BigUint) -> [u8; 32] {
@@ -26,6 +51,21 @@ fn biguint_rem_to_u256_be(rem: BigUint) -> [u8; 32] {
     }
     let len = bytes.len().min(32);
     out[32 - len..].copy_from_slice(&bytes[bytes.len() - len..]);
+    out
+}
+
+/// Low **256** bits of a nonnegative integer as a big-endian EVM-style word (product mod **2²⁵⁶**).
+fn biguint_low_u256_be(v: BigUint) -> [u8; 32] {
+    let bytes = v.to_bytes_be();
+    let mut out = [0u8; 32];
+    if bytes.is_empty() {
+        return out;
+    }
+    if bytes.len() <= 32 {
+        out[32 - bytes.len()..].copy_from_slice(&bytes);
+    } else {
+        out.copy_from_slice(&bytes[bytes.len() - 32..]);
+    }
     out
 }
 
@@ -44,10 +84,12 @@ pub struct Interpreter {
     contract_id: AccountId,
 }
 
-/// Storage interface for SLOAD/SSTORE.
+/// Storage interface for SLOAD/SSTORE and nested [`Opcode::Call`].
 pub trait StorageAccess {
     fn sload(&self, contract: AccountId, key: [u8; 32]) -> [u8; 32];
     fn sstore(&mut self, contract: AccountId, key: [u8; 32], value: [u8; 32]);
+    /// Contract bytecode at `contract`. `None` or empty → `CALL` succeeds with empty return (no execution).
+    fn get_contract_code(&self, contract: AccountId) -> Option<Vec<u8>>;
 }
 
 impl Interpreter {
@@ -150,24 +192,10 @@ impl Interpreter {
         out
     }
 
+    /// **256×256 → 256** multiplication (low limb; same as **MulMod**’s product width before reduce).
     fn mul_u256(a: &[u8; 32], b: &[u8; 32]) -> [u8; 32] {
-        let a64 = Self::u256_to_u64(a);
-        let b64 = Self::u256_to_u64(b);
-        Self::u64_to_u256(a64.saturating_mul(b64))
-    }
-
-    fn u256_to_u64(v: &[u8; 32]) -> u64 {
-        let mut n: u64 = 0;
-        for (i, &b) in v.iter().rev().take(8).enumerate() {
-            n |= (b as u64) << (i * 8);
-        }
-        n
-    }
-
-    fn u64_to_u256(n: u64) -> [u8; 32] {
-        let mut out = [0u8; 32];
-        out[24..32].copy_from_slice(&n.to_be_bytes());
-        out
+        let prod = u256_be_to_biguint(a) * u256_be_to_biguint(b);
+        biguint_low_u256_be(prod)
     }
 
     fn word_one() -> [u8; 32] {
@@ -220,13 +248,27 @@ impl Interpreter {
     }
 
     /// Execute until STOP or RETURN. Returns gas used.
-    /// `caller_id` is the transaction signer; `contract_id` is the code account (this contract).
+    ///
+    /// **Top-level contract call:** `caller_id` is `tx.sender`. **Nested [`Opcode::Call`]:** `caller_id` is
+    /// the contract that issued `CALL` so [`Opcode::Caller`] in the callee matches that account (e.g. pool
+    /// calling a reference-token contract).
     pub fn run<S: StorageAccess>(
         &mut self,
         caller_id: AccountId,
         contract_id: AccountId,
         calldata: &[u8],
         storage: &mut S,
+    ) -> Result<u64, VmError> {
+        self.run_nested(caller_id, contract_id, calldata, storage, 0)
+    }
+
+    fn run_nested<S: StorageAccess>(
+        &mut self,
+        caller_id: AccountId,
+        contract_id: AccountId,
+        calldata: &[u8],
+        storage: &mut S,
+        call_depth: u8,
     ) -> Result<u64, VmError> {
         self.caller_id = caller_id;
         self.contract_id = contract_id;
@@ -395,6 +437,33 @@ impl Interpreter {
                     }
                     self.push(out);
                 }
+                Opcode::Shl => {
+                    self.spend_gas(gas::SHIFT)?;
+                    let shift_w = self.pop()?;
+                    let value = self.pop()?;
+                    let s = effective_shift_count(&shift_w);
+                    let bu = u256_be_to_biguint(&value);
+                    let m = BigUint::from(1u8) << 256u32;
+                    let out = biguint_rem_to_u256_be((bu << s) % m);
+                    self.push(out);
+                }
+                Opcode::Shr => {
+                    self.spend_gas(gas::SHIFT)?;
+                    let shift_w = self.pop()?;
+                    let value = self.pop()?;
+                    let s = effective_shift_count(&shift_w);
+                    let bu = u256_be_to_biguint(&value);
+                    self.push(biguint_rem_to_u256_be(bu >> s));
+                }
+                Opcode::Sar => {
+                    self.spend_gas(gas::SHIFT)?;
+                    let shift_w = self.pop()?;
+                    let value = self.pop()?;
+                    let s = effective_shift_count(&shift_w);
+                    let i = BigInt::from_signed_bytes_be(&value[..]);
+                    let shifted = i >> (s as u32);
+                    self.push(signed_bigint_to_i256_word(&shifted));
+                }
                 Opcode::MLoad => {
                     self.spend_gas(gas::MLOAD)?;
                     let offset = Self::u256_to_usize(&self.pop()?);
@@ -457,6 +526,56 @@ impl Interpreter {
                         self.pc = dest;
                     }
                 }
+                Opcode::Call => {
+                    if call_depth >= MAX_CALL_DEPTH {
+                        return Err(VmError::CallDepthExceeded);
+                    }
+                    self.spend_gas(gas::CALL)?;
+                    let ret_size = Self::u256_to_usize(&self.pop()?);
+                    let ret_offset = Self::u256_to_usize(&self.pop()?);
+                    let args_size = Self::u256_to_usize(&self.pop()?);
+                    let args_offset = Self::u256_to_usize(&self.pop()?);
+                    let target_word = self.pop()?;
+                    if args_size > MAX_RECEIPT_RETURN_DATA_BYTES
+                        || ret_size > MAX_RECEIPT_RETURN_DATA_BYTES
+                    {
+                        return Err(VmError::CallBufferTooLarge);
+                    }
+                    self.ensure_memory(args_offset, args_size);
+                    self.ensure_memory(ret_offset, ret_size);
+                    let calldata_slice = &self.memory[args_offset..args_offset + args_size];
+                    let target = AccountId(target_word);
+                    let child_code = match storage.get_contract_code(target) {
+                        Some(c) if !c.is_empty() => c,
+                        _ => {
+                            self.memory[ret_offset..ret_offset + ret_size].fill(0);
+                            self.push(Self::word_one());
+                            continue;
+                        }
+                    };
+                    let remaining = self.gas_limit.saturating_sub(self.gas_used);
+                    if remaining == 0 {
+                        return Err(VmError::OutOfGas);
+                    }
+                    let child_caller = self.contract_id;
+                    let mut child = Interpreter::new(child_code, remaining);
+                    child.run_nested(
+                        child_caller,
+                        target,
+                        calldata_slice,
+                        storage,
+                        call_depth.saturating_add(1),
+                    )?;
+                    self.gas_used = self.gas_used.saturating_add(child.gas_used);
+                    Self::merge_child_logs(&mut self.logs, &child)?;
+                    let ret = child.return_data.unwrap_or_default();
+                    let n = ret.len().min(ret_size);
+                    self.memory[ret_offset..ret_offset + n].copy_from_slice(&ret[..n]);
+                    if n < ret_size {
+                        self.memory[ret_offset + n..ret_offset + ret_size].fill(0);
+                    }
+                    self.push(Self::word_one());
+                }
                 Opcode::Return => {
                     self.spend_gas(gas::RETURN)?;
                     let offset = Self::u256_to_usize(&self.pop()?);
@@ -473,6 +592,23 @@ impl Interpreter {
 
         Ok(self.gas_used)
     }
+
+    /// Append child logs without re-charging log gas (already accounted in `child.gas_used`).
+    fn merge_child_logs(parent: &mut Vec<ExecutionLog>, child: &Interpreter) -> Result<(), VmError> {
+        if parent.len() + child.logs.len() > MAX_EXECUTION_LOGS_PER_TX {
+            return Err(VmError::InvalidLog("too many logs"));
+        }
+        for log in &child.logs {
+            if log.topics.len() > MAX_EXECUTION_LOG_TOPICS {
+                return Err(VmError::InvalidLog("too many topics"));
+            }
+            if log.data.len() > MAX_EXECUTION_LOG_DATA_BYTES {
+                return Err(VmError::InvalidLog("log data too large"));
+            }
+        }
+        parent.extend(child.logs.iter().cloned());
+        Ok(())
+    }
 }
 
 impl StorageAccess for StateStore {
@@ -486,6 +622,10 @@ impl StorageAccess for StateStore {
     fn sstore(&mut self, contract: AccountId, key: [u8; 32], value: [u8; 32]) {
         self.contract_storage.insert((contract, key), value);
     }
+
+    fn get_contract_code(&self, contract: AccountId) -> Option<Vec<u8>> {
+        self.get_contract_code(&contract).cloned()
+    }
 }
 
 #[cfg(test)]
@@ -493,6 +633,20 @@ mod tests {
     use super::*;
 
     use crate::vm::VmError;
+
+    #[test]
+    fn bigint_sar_neg8_two_complement_word() {
+        let mut neg8 = [0xffu8; 32];
+        neg8[31] = 0xf8;
+        let i = BigInt::from_signed_bytes_be(&neg8);
+        assert_eq!(i, BigInt::from(-8));
+        let shifted = i >> 2u32;
+        assert_eq!(shifted, BigInt::from(-2), "got {:?}", shifted);
+        let w = signed_bigint_to_i256_word(&shifted);
+        let mut exp = [0xffu8; 32];
+        exp[31] = 0xfe;
+        assert_eq!(w, exp);
+    }
 
     #[test]
     fn test_interpreter_lt_and_iszero() {
@@ -526,6 +680,69 @@ mod tests {
         assert_eq!(it.stack.len(), 2);
         assert_eq!(it.stack[0][31], 2);
         assert_eq!(it.stack[1][31], 1);
+    }
+
+    #[test]
+    fn test_interpreter_mul_small() {
+        let mut state = StateStore::new();
+        let contract = AccountId([1u8; 32]);
+        state.insert(boing_primitives::Account {
+            id: contract,
+            state: boing_primitives::AccountState::default(),
+        });
+        // 6 * 7 = 42 (stack top = 7 = b, next = 6 = a)
+        let code = vec![0x60, 6, 0x60, 7, 0x03, 0x00];
+        let mut it = Interpreter::new(code, 1_000_000);
+        it.run(contract, contract, &[], &mut state).unwrap();
+        assert_eq!(it.stack.len(), 1);
+        assert_eq!(it.stack[0][31], 42);
+    }
+
+    #[test]
+    fn test_interpreter_mul_exceeds_u64_product() {
+        let mut state = StateStore::new();
+        let contract = AccountId([1u8; 32]);
+        state.insert(boing_primitives::Account {
+            id: contract,
+            state: boing_primitives::AccountState::default(),
+        });
+        // (2^63) * 16 = 2^67 — old u64×u64 Mul would saturate wrong; full Mul keeps low 256 bits.
+        let mut a = [0u8; 32];
+        a[24..32].copy_from_slice(&(1u64 << 63).to_be_bytes());
+        let mut b = [0u8; 32];
+        b[31] = 16;
+        let mut code = vec![0x7f];
+        code.extend_from_slice(&a);
+        code.push(0x7f);
+        code.extend_from_slice(&b);
+        code.extend([0x03, 0x00]); // MUL
+        let mut it = Interpreter::new(code, 1_000_000);
+        it.run(contract, contract, &[], &mut state).unwrap();
+        let mut want = [0u8; 32];
+        want[16..32].copy_from_slice(&(1u128 << 67).to_be_bytes());
+        assert_eq!(it.stack[0], want);
+    }
+
+    #[test]
+    fn test_interpreter_mul_wraps_at_256_bits() {
+        let mut state = StateStore::new();
+        let contract = AccountId([1u8; 32]);
+        state.insert(boing_primitives::Account {
+            id: contract,
+            state: boing_primitives::AccountState::default(),
+        });
+        let mut two_pow_255 = [0u8; 32];
+        two_pow_255[0] = 0x80; // 2^255 in BE
+        let mut two = [0u8; 32];
+        two[31] = 2;
+        let mut code = vec![0x7f];
+        code.extend_from_slice(&two_pow_255);
+        code.push(0x7f);
+        code.extend_from_slice(&two);
+        code.extend([0x03, 0x00]);
+        let mut it = Interpreter::new(code, 1_000_000);
+        it.run(contract, contract, &[], &mut state).unwrap();
+        assert_eq!(it.stack[0], [0u8; 32], "2^255 * 2 = 2^256 ≡ 0 (mod 2^256)");
     }
 
     #[test]
@@ -567,6 +784,40 @@ mod tests {
         it.run(contract, contract, &[], &mut state).unwrap();
         assert_eq!(it.stack.len(), 1);
         assert_eq!(it.stack[0][31], 2);
+    }
+
+    #[test]
+    fn test_interpreter_shl_shr_sar_smoke() {
+        let mut state = StateStore::new();
+        let contract = AccountId([1u8; 32]);
+        state.insert(boing_primitives::Account {
+            id: contract,
+            state: boing_primitives::AccountState::default(),
+        });
+        // value=1, shift=3 (PUSH1 3 as shift word) -> SHL -> 8
+        let code = vec![0x60, 1, 0x60, 3, 0x1b, 0x00];
+        let mut it = Interpreter::new(code, 1_000_000);
+        it.run(contract, contract, &[], &mut state).unwrap();
+        assert_eq!(it.stack[0][31], 8);
+
+        // SHR: 16 >> 2 = 4
+        let code2 = vec![0x60, 16, 0x60, 2, 0x1c, 0x00];
+        let mut it2 = Interpreter::new(code2, 1_000_000);
+        it2.run(contract, contract, &[], &mut state).unwrap();
+        assert_eq!(it2.stack[0][31], 4);
+
+        // SAR: -8 (i256) >> 2 = -2 → two's complement word
+        let mut neg8 = [0xffu8; 32];
+        neg8[31] = 0xf8;
+        let mut code3 = Vec::new();
+        code3.push(0x7f);
+        code3.extend_from_slice(&neg8);
+        code3.extend([0x60, 2, 0x1d, 0x00]);
+        let mut it3 = Interpreter::new(code3, 1_000_000);
+        it3.run(contract, contract, &[], &mut state).unwrap();
+        let mut neg2 = [0xffu8; 32];
+        neg2[31] = 0xfe;
+        assert_eq!(it3.stack[0], neg2);
     }
 
     #[test]

@@ -2,7 +2,6 @@
 
 use std::time::Duration;
 use tokio::time::interval;
-use tracing::info;
 
 /// Simple cron expression: "every N seconds" or "at height % N == 0".
 /// Extended: supports "every first block of hour" via block-height modulo.
@@ -72,7 +71,14 @@ impl Scheduler {
             interval.tick().await;
             elapsed += 1;
             if self.schedule.should_run(block_height, elapsed) {
-                info!("Scheduler tick: block={} elapsed={}", block_height, elapsed);
+                tracing::info!(
+                    target = "boing_automation::scheduler",
+                    boing_component = "automation",
+                    component_event = "scheduler_tick",
+                    block_height = block_height,
+                    elapsed_secs = elapsed,
+                    "Scheduler tick"
+                );
                 on_tick(block_height, elapsed);
             }
         }

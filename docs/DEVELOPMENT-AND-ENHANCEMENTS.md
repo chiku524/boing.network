@@ -120,7 +120,7 @@
 
 | Recommendation | Description | Priority |
 |----------------|-------------|----------|
-| **EVM & Solana support** | Detail how Boing SDK and automation work across boing.finance ecosystems | High |
+| **Multi-network product surfaces** | Detail how Boing SDK and automation work across boing.finance and bridged networks | High |
 | **Cross-chain SDK helpers** | Asset transfers, remote contract calls, event listening across chains | High |
 | **Bridge standards** | IBC-style or custom; trust-minimized design | Medium |
 
@@ -297,15 +297,15 @@ This section tracks **overall network** enhancements (not limited to one pillar)
 |------|------|---------------------|
 | **Resilience** | Re-insert txs on failure | P2P connection management, formal verification (BUILD-ROADMAP §4.3) |
 | **Protocol QA** | boing-qa crate stub, RPC spec | Node integration, community pool, governance of rules (BUILD-ROADMAP §4.6) |
-| **Developer experience** | — | CLI auto-completion, TS/JS SDK, guides (this doc §1.1; BUILD-ROADMAP §5.5) |
+| **Developer experience** | Official **`boing-sdk`** (TypeScript), tutorial scripts, RPC probes | CLI auto-completion; IDE extensions; guides and API reference depth (this doc §1.1; BUILD-ROADMAP §5.5; [NEXT-STEPS-FUTURE-WORK.md](NEXT-STEPS-FUTURE-WORK.md)) |
 | **Decentralization & P2P** | — | DHT, bootnode rotation, peer scoring (BUILD-ROADMAP §2.2) |
 | **Automation & UX** | — | Conditional triggers, automation SDK (this doc §1.2; BUILD-ROADMAP §5.7) |
 | **Security** | — | Bug bounty, post-quantum path, audit (BUILD-ROADMAP §4.3) |
 
 ## Priority overview
 
-- **High impact next:** boing-qa node integration; CLI auto-completion and TS/JS SDK; DHT and peer scoring.
-- **Ongoing:** [BUILD-ROADMAP.md](BUILD-ROADMAP.md) and this document for phased tasks.
+- **High impact next:** boing-qa node integration maturity; CLI auto-completion; **`boing-sdk`** depth (RPC integration CI, indexer helpers — [NEXT-STEPS-FUTURE-WORK.md](NEXT-STEPS-FUTURE-WORK.md)); DHT and peer scoring.
+- **Ongoing:** [BUILD-ROADMAP.md](BUILD-ROADMAP.md) and this document for phased tasks; near-term backlog routing in [NEXT-STEPS-FUTURE-WORK.md](NEXT-STEPS-FUTURE-WORK.md).
 
 ---
 
@@ -329,6 +329,7 @@ This section tracks **overall network** enhancements (not limited to one pillar)
 
 # Cross-References
 
+- **NEXT-STEPS-FUTURE-WORK.md** — Consolidated engineering backlog: where to file infra / CI upgrades, indexer and native AMM follow-ups, and optional small PR slices alongside this vision doc
 - **BOING-NETWORK-ESSENTIALS.md** — Six pillars, design philosophy, priorities, tech stack
 - **QUALITY-ASSURANCE-NETWORK.md** — Protocol QA (sixth pillar); automation and community pool
 - **BUILD-ROADMAP.md** — Phase 5.5 (Developer Experience), 5.6 (Success-Based dApp Incentives), 5.7 (Decentralized Automation)

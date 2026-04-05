@@ -2,7 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import Icon from '../../components/Icon.astro';
 import CopyButton from '../../components/CopyButton.astro';
-import { TESTNET_RPC_URL, BOOTNODES, isTestnetLive } from '../../config/testnet';
+import { TESTNET_RPC_URL, BOOTNODES, isTestnetLive, CANONICAL_NATIVE_CP_POOL_ACCOUNT_ID_HEX } from '../../config/testnet';
 ---
 
 <Layout
@@ -57,7 +57,7 @@ import { TESTNET_RPC_URL, BOOTNODES, isTestnetLive } from '../../config/testnet'
       <ol>
         <li>Build: <code>cargo build --release</code></li>
         <li>Run a single node (validator): <code>./target/release/boing-node --validator --rpc-port 8545</code></li>
-        <li>Or join the testnet (when bootnodes are live): <code>--p2p_listen /ip4/0.0.0.0/tcp/4001 --bootnodes &lt;BOOTNODE_LIST&gt;</code></li>
+        <li>Or join the testnet (when bootnodes are live): <code>--p2p-listen /ip4/0.0.0.0/tcp/4001 --bootnodes &lt;BOOTNODE_LIST&gt;</code></li>
         <li>Get testnet BOING from the <a href="/faucet">faucet</a>.</li>
       </ol>
     </section>
@@ -67,7 +67,7 @@ import { TESTNET_RPC_URL, BOOTNODES, isTestnetLive } from '../../config/testnet'
       <p>Brief summary. For the full guide, see <a href="/single-vs-multi">Single node vs multi-node</a>.</p>
       <ul>
         <li><strong>Single node</strong> — Run without P2P. Good for local dev. No bootnodes needed.</li>
-        <li><strong>Multi-node testnet</strong> — Run with <code>--p2p_listen</code> and <code>--bootnodes</code> to join the public testnet.</li>
+        <li><strong>Multi-node testnet</strong> — Run with <code>--p2p-listen</code> and <code>--bootnodes</code> to join the public testnet.</li>
       </ul>
     </section>
 
@@ -90,6 +90,24 @@ import { TESTNET_RPC_URL, BOOTNODES, isTestnetLive } from '../../config/testnet'
       ) : (
         <p>Once the testnet is live, the official RPC URL and bootnode list will appear here. Until then, use <code>http://127.0.0.1:8545</code> for local testing and run a <a href="/single-vs-multi">local multi-node</a> setup.</p>
       )}
+    </section>
+
+    <section class="section" id="native-amm-pool">
+      <h2>Native AMM pool (chain 6913)</h2>
+      <p>
+        Integrators and <a href="https://boing.finance" target="_blank" rel="noopener noreferrer">boing.finance</a> use this
+        <strong>canonical constant-product pool</strong> account id on public testnet. Full RPC and storage layout:
+        <a href="https://github.com/chiku524/boing.network/blob/main/docs/RPC-API-SPEC.md#native-constant-product-amm-chain-6913--integration-note" target="_blank" rel="noopener noreferrer">RPC-API-SPEC (GitHub)</a>
+        · <a href="/pdfs/RPC-API-SPEC.pdf" target="_blank" rel="noopener">RPC-API-SPEC (PDF)</a>.
+      </p>
+      <p><strong>Pool <code>AccountId</code> (copy for SDK / env):</strong></p>
+      <div class="copy-wrapper rpc-copy" data-copy-value={CANONICAL_NATIVE_CP_POOL_ACCOUNT_ID_HEX}>
+        <code class="rpc-url-display pool-id-display">{CANONICAL_NATIVE_CP_POOL_ACCOUNT_ID_HEX}</code>
+        <CopyButton label="Copy pool id" copiedLabel="Copied!" />
+      </div>
+      <p class="muted small-print">
+        Ops smoke (optional): <code>npm run check-canonical-pool</code> from the <a href="https://github.com/chiku524/boing.network" target="_blank" rel="noopener noreferrer">boing.network</a> repo root — verifies <code>boing_getContractStorage</code> against this pool on <code>BOING_RPC_URL</code>.
+      </p>
     </section>
 
     <section class="section" id="bootnodes">
@@ -225,6 +243,11 @@ import { TESTNET_RPC_URL, BOOTNODES, isTestnetLive } from '../../config/testnet'
     background: rgba(0,0,0,0.25);
     border-radius: 6px;
   }
+  .rpc-copy .pool-id-display {
+    word-break: break-all;
+    max-width: min(100%, 42rem);
+  }
+  .small-print { font-size: 0.85rem; margin-top: 0.5rem; }
   @media (max-width: 640px) {
     .testnet-content { padding-bottom: 2rem; }
     .dedicated-cards { margin: 1.5rem 0; gap: 0.75rem; }

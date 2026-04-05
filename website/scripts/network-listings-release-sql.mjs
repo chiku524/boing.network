@@ -11,6 +11,7 @@
  * OAuth hits Authentication error [10000] on D1 import.
  *
  * Requires a *published* GitHub release for that tag (drafts return 404 on public download URLs).
+ * Release tagging workflow: docs/TESTNET.md §9.
  * Uses node:https instead of fetch() to avoid a Windows libuv crash (UV_HANDLE_CLOSING)
  * seen with Undici after failed or successful requests in some shells.
  */

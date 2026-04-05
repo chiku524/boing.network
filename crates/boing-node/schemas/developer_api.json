@@ -1,0 +1,474 @@
+{
+  "schema_version": 1,
+  "method_catalog": {
+    "description": "Per-method JSON Schema hints for params (JSON-RPC params array) and result. Use boing_getRpcMethodCatalog / boing_getRpcOpenApi for machine-readable discovery.",
+    "methods": [
+      {
+        "name": "boing_health",
+        "summary": "Liveness, version, optional chain metadata, committed head height, RPC surface hints (batch/body/logs limits, WS cap, rate limit, ready peers), and cumulative rpc_metrics.",
+        "params": { "type": "array", "maxItems": 0 },
+        "result": {
+          "type": "object",
+          "required": ["ok", "client_version", "chain_id", "chain_name", "head_height", "rpc_surface", "rpc_metrics"],
+          "properties": {
+            "ok": { "type": "boolean" },
+            "client_version": { "type": "string" },
+            "chain_id": { "type": ["integer", "null"] },
+            "chain_name": { "type": ["string", "null"] },
+            "head_height": { "type": "integer", "minimum": 0 },
+            "rpc_surface": {
+              "type": "object",
+              "required": [
+                "jsonrpc_batch_max",
+                "websocket_max_connections",
+                "http_rate_limit_requests_per_sec",
+                "ready_min_peers",
+                "http_max_body_megabytes",
+                "get_logs_max_block_range",
+                "get_logs_max_results",
+                "max_log_topic_filters"
+              ],
+              "properties": {
+                "jsonrpc_batch_max": { "type": "integer", "minimum": 1 },
+                "websocket_max_connections": { "type": "integer", "minimum": 0 },
+                "http_rate_limit_requests_per_sec": { "type": "integer", "minimum": 0 },
+                "ready_min_peers": { "type": ["integer", "null"], "description": "Set when BOING_RPC_READY_MIN_PEERS > 0" },
+                "http_max_body_megabytes": { "type": "integer", "minimum": 1 },
+                "get_logs_max_block_range": { "type": "integer", "minimum": 1 },
+                "get_logs_max_results": { "type": "integer", "minimum": 1 },
+                "max_log_topic_filters": { "type": "integer", "minimum": 1 }
+              }
+            },
+            "rpc_metrics": {
+              "type": "object",
+              "description": "Monotonic counters since process start (best-effort diagnostics).",
+              "required": [
+                "rate_limited_total",
+                "json_parse_errors_total",
+                "batch_too_large_total",
+                "method_not_found_total",
+                "websocket_cap_rejects_total"
+              ],
+              "properties": {
+                "rate_limited_total": { "type": "integer", "minimum": 0 },
+                "json_parse_errors_total": { "type": "integer", "minimum": 0 },
+                "batch_too_large_total": { "type": "integer", "minimum": 0 },
+                "method_not_found_total": { "type": "integer", "minimum": 0 },
+                "websocket_cap_rejects_total": { "type": "integer", "minimum": 0 }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "boing_chainHeight",
+        "summary": "Latest committed block height (u64).",
+        "params": { "type": "array", "maxItems": 0 },
+        "result": { "type": "integer", "minimum": 0 }
+      },
+      {
+        "name": "boing_clientVersion",
+        "summary": "Node build id string.",
+        "params": { "type": "array", "maxItems": 0 },
+        "result": { "type": "string" }
+      },
+      {
+        "name": "boing_getSyncState",
+        "summary": "Committed tip: head/finalized height and latest block hash.",
+        "params": { "type": "array", "maxItems": 0 },
+        "result": { "type": "object" }
+      },
+      {
+        "name": "boing_getNetworkInfo",
+        "summary": "Chain metadata, tip, consensus, native aggregates, developer hints.",
+        "params": { "type": "array", "maxItems": 0 },
+        "result": { "type": "object" }
+      },
+      {
+        "name": "boing_rpcSupportedMethods",
+        "summary": "Sorted list of implemented boing_* method names.",
+        "params": { "type": "array", "maxItems": 0 },
+        "result": { "type": "array", "items": { "type": "string" } }
+      },
+      {
+        "name": "boing_getRpcMethodCatalog",
+        "summary": "Embedded JSON Schema method catalog for codegen and docs.",
+        "params": { "type": "array", "maxItems": 0 },
+        "result": { "type": "object" }
+      },
+      {
+        "name": "boing_getRpcOpenApi",
+        "summary": "Minimal OpenAPI 3.1 document for POST / JSON-RPC, GET /ws, GET /live, GET /ready.",
+        "params": { "type": "array", "maxItems": 0 },
+        "result": { "type": "object" }
+      },
+      {
+        "name": "boing_getBalance",
+        "summary": "Native balance for 32-byte account id (hex).",
+        "params": {
+          "type": "array",
+          "prefixItems": [{ "type": "string", "description": "0x + 64 hex chars" }],
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "result": { "type": "object", "properties": { "balance": { "type": "string" } } }
+      },
+      {
+        "name": "boing_getAccount",
+        "summary": "Account balance, nonce, stake (u128 as decimal strings).",
+        "params": {
+          "type": "array",
+          "prefixItems": [{ "type": "string" }],
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "result": { "type": "object" }
+      },
+      {
+        "name": "boing_getBlockByHeight",
+        "summary": "Block at height; null if missing. Second arg requests receipts.",
+        "params": { "type": "array", "minItems": 1, "maxItems": 2 },
+        "result": {}
+      },
+      {
+        "name": "boing_getBlockByHash",
+        "summary": "Block by 32-byte header hash hex.",
+        "params": { "type": "array", "minItems": 1, "maxItems": 2 },
+        "result": {}
+      },
+      {
+        "name": "boing_getTransactionReceipt",
+        "summary": "Receipt by tx id hex; null if unknown.",
+        "params": {
+          "type": "array",
+          "prefixItems": [{ "type": "string" }],
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "result": {}
+      },
+      {
+        "name": "boing_getLogs",
+        "summary": "Event logs with block range and optional address/topics filters.",
+        "params": { "type": "array", "minItems": 1, "maxItems": 1 },
+        "result": { "type": "array" }
+      },
+      {
+        "name": "boing_simulateTransaction",
+        "summary": "Dry-run execution; returns gas, logs, state diffs.",
+        "params": {
+          "type": "array",
+          "prefixItems": [{ "type": "string", "description": "hex signed tx" }],
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "result": { "type": "object" }
+      },
+      {
+        "name": "boing_submitTransaction",
+        "summary": "Submit signed transaction (hex).",
+        "params": {
+          "type": "array",
+          "prefixItems": [{ "type": "string" }],
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "result": { "type": "object" }
+      },
+      {
+        "name": "boing_submitIntent",
+        "summary": "Submit signed intent.",
+        "params": { "type": "array", "minItems": 1, "maxItems": 1 },
+        "result": { "type": "object" }
+      },
+      {
+        "name": "boing_faucetRequest",
+        "summary": "Testnet faucet (when enabled).",
+        "params": { "type": "array" },
+        "result": { "type": "object" }
+      },
+      {
+        "name": "boing_getAccountProof",
+        "summary": "State Merkle proof for an account.",
+        "params": { "type": "array", "minItems": 1, "maxItems": 1 },
+        "result": { "type": "object" }
+      },
+      {
+        "name": "boing_verifyAccountProof",
+        "summary": "Verify an account proof.",
+        "params": { "type": "array", "minItems": 1, "maxItems": 1 },
+        "result": { "type": "object" }
+      },
+      {
+        "name": "boing_getContractStorage",
+        "summary": "Single 32-byte storage slot for a contract.",
+        "params": { "type": "array", "minItems": 1 },
+        "result": { "type": "object" }
+      },
+      {
+        "name": "boing_qaCheck",
+        "summary": "Run QA checks on contract bytecode/metadata.",
+        "params": { "type": "array", "minItems": 1 },
+        "result": { "type": "object" }
+      },
+      {
+        "name": "boing_getQaRegistry",
+        "summary": "Serialized QA rule registry.",
+        "params": { "type": "array", "maxItems": 0 },
+        "result": { "type": "object" }
+      },
+      {
+        "name": "boing_qaPoolList",
+        "summary": "Pending QA pool items.",
+        "params": { "type": "array", "maxItems": 0 },
+        "result": { "type": "object" }
+      },
+      {
+        "name": "boing_qaPoolConfig",
+        "summary": "QA pool governance config.",
+        "params": { "type": "array", "maxItems": 0 },
+        "result": { "type": "object" }
+      },
+      {
+        "name": "boing_qaPoolVote",
+        "summary": "Vote on a QA pool item (operator auth may apply).",
+        "params": { "type": "array", "minItems": 1 },
+        "result": { "type": "object" }
+      },
+      {
+        "name": "boing_operatorApplyQaPolicy",
+        "summary": "Replace QA registry and pool config (operator token).",
+        "params": { "type": "array", "minItems": 1 },
+        "result": { "type": "object" }
+      },
+      {
+        "name": "boing_registerDappMetrics",
+        "summary": "Register dApp metrics endpoint.",
+        "params": { "type": "array", "minItems": 1 },
+        "result": { "type": "object" }
+      }
+    ]
+  },
+  "openapi": {
+    "openapi": "3.1.0",
+    "info": {
+      "title": "Boing Node HTTP + WebSocket",
+      "version": "1.0.0",
+      "description": "JSON-RPC 2.0 over HTTP POST /. Push notifications: WebSocket GET /ws with subscribe handshake (see boing_getNetworkInfo.developer.websocket)."
+    },
+    "servers": [{ "url": "http://localhost:8545", "description": "Example; set host and port per node." }],
+    "paths": {
+      "/": {
+        "get": {
+          "operationId": "httpRootHint",
+          "summary": "Not JSON-RPC (use POST)",
+          "description": "Returns **405** with **`Allow: GET, HEAD, POST, OPTIONS`** and a short plain-text hint (for `curl` without `-X POST` and browser visits).",
+          "responses": {
+            "405": {
+              "description": "Use **POST /** with JSON-RPC body. Response is plain text; header **Allow** lists methods."
+            }
+          }
+        },
+        "head": {
+          "operationId": "httpRootHead",
+          "summary": "HEAD / (no body)",
+          "description": "Same status and **Allow** as **GET /** (**405**).",
+          "responses": {
+            "405": { "description": "Same as GET /." }
+          }
+        },
+        "options": {
+          "operationId": "httpRootOptions",
+          "summary": "CORS preflight / Allow discovery",
+          "description": "Handler returns **204** with **`Allow: GET, HEAD, POST, OPTIONS`**. The **CORS** middleware may answer **OPTIONS** first with **200** (preflight); both include allowed methods.",
+          "responses": {
+            "200": { "description": "CORS preflight response (may be empty body)." },
+            "204": { "description": "Direct **OPTIONS** when CORS passes through; **Allow** lists methods." }
+          }
+        },
+        "post": {
+          "operationId": "jsonRpc",
+          "summary": "JSON-RPC 2.0 (single object or batch array)",
+          "description": "Body is either one **JsonRpcRequest** object or a **JSON array** of objects (batch). Batch responses are a JSON array of **JsonRpcResponse** in the same order (entries without `id` are notifications and omitted). Max batch length: **BOING_RPC_MAX_BATCH** (default 32, cap 256). One HTTP POST consumes **one** global rate-limit token when rate limiting is enabled.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    { "$ref": "#/components/schemas/JsonRpcRequest" },
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/JsonRpcRequest" }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Single JSON-RPC response **or** JSON array of responses (batch). Inspect `error` when present.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "oneOf": [
+                      { "$ref": "#/components/schemas/JsonRpcResponse" },
+                      {
+                        "type": "array",
+                        "items": { "$ref": "#/components/schemas/JsonRpcResponse" }
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "204": { "description": "No JSON body: single notification, or batch where **every** request is a notification (JSON-RPC 2.0)." },
+            "413": {
+              "description": "JSON body larger than **BOING_RPC_MAX_BODY_MB** (default 8 MiB). Response is **application/json** with **`code: payload_too_large`**, **`message`**, and **`request_id`** when known."
+            },
+            "429": {
+              "description": "HTTP 429 when global JSON-RPC rate limit applies. Body includes JSON-RPC error **-32016** and optional **`boing_http`** object (**`code: rate_limited`**, **`message`**, **`request_id`**). Header **Retry-After: 1** (seconds) hints backoff. Responses include **x-request-id** (echoed from request or generated)."
+            }
+          },
+          "parameters": [
+            {
+              "name": "X-Request-Id",
+              "in": "header",
+              "required": false,
+              "schema": { "type": "string" },
+              "description": "Optional correlation id; echoed on the response when present, otherwise a UUID is assigned."
+            }
+          ]
+        }
+      },
+      "/ws": {
+        "get": {
+          "operationId": "websocketSubscribe",
+          "summary": "WebSocket (Upgrade) for newHeads",
+          "description": "After upgrade: send one text frame `{\"type\":\"subscribe\",\"channel\":\"newHeads\"}`; server replies `subscribed` then streams `newHead` JSON objects on each committed block. Optional cap: **BOING_RPC_WS_MAX_CONNECTIONS** (0 = unlimited); when exceeded, handshake returns **503**.",
+          "responses": {
+            "101": { "description": "Switching Protocols" },
+            "503": { "description": "WebSocket connection limit reached; **application/json** with **`code`**, **`message`**, **`request_id`**." }
+          }
+        }
+      },
+      "/openapi.json": {
+        "get": {
+          "operationId": "httpOpenApiJson",
+          "summary": "OpenAPI 3.1 JSON (same document as boing_getRpcOpenApi)",
+          "responses": { "200": { "description": "OpenAPI object (**application/json**)" } }
+        }
+      },
+      "/.well-known/boing-rpc": {
+        "get": {
+          "operationId": "httpWellKnownBoingRpc",
+          "summary": "Machine-readable RPC discovery (paths to OpenAPI, probes, JSON-RPC)",
+          "responses": { "200": { "description": "JSON object with **schema_version** and path hints" } }
+        }
+      },
+      "/live": {
+        "get": {
+          "operationId": "httpLive",
+          "summary": "Liveness probe (plain text or JSON)",
+          "description": "Default **text/plain** `ok\\n`. With **`Accept: application/json`** or **`GET /live.json`**, returns **`{ \"ok\": true }`**.",
+          "responses": { "200": { "description": "`ok` or JSON **ok**" } }
+        },
+        "head": {
+          "operationId": "httpLiveHead",
+          "summary": "HEAD /live",
+          "responses": { "200": { "description": "Empty body" } }
+        }
+      },
+      "/live.json": {
+        "get": {
+          "operationId": "httpLiveJson",
+          "summary": "Liveness JSON alias",
+          "responses": { "200": { "description": "**{ \"ok\": true }**" } }
+        },
+        "head": {
+          "operationId": "httpLiveJsonHead",
+          "summary": "HEAD /live.json",
+          "responses": { "200": { "description": "Empty body" } }
+        }
+      },
+      "/ready": {
+        "get": {
+          "operationId": "httpReady",
+          "summary": "Readiness probe (plain text or JSON)",
+          "description": "Acquires state read lock. If **BOING_RPC_READY_MIN_PEERS** is set (>0), also requires at least that many P2P peers. JSON mode: **Accept: application/json** or **GET /ready.json**; **503** includes **Retry-After: 5** (seconds).",
+          "responses": {
+            "200": { "description": "Body contains `ready` or JSON **ready: true**" },
+            "503": { "description": "Peer count below **BOING_RPC_READY_MIN_PEERS** (when configured); JSON body explains **reason**" }
+          }
+        },
+        "head": {
+          "operationId": "httpReadyHead",
+          "summary": "HEAD /ready",
+          "responses": {
+            "200": { "description": "Empty body when ready" },
+            "503": { "description": "Not ready (peer gate)" }
+          }
+        }
+      },
+      "/ready.json": {
+        "get": {
+          "operationId": "httpReadyJson",
+          "summary": "Readiness JSON alias",
+          "responses": {
+            "200": { "description": "**{ \"ready\": true }**" },
+            "503": { "description": "JSON **ready: false** with peer counts" }
+          }
+        },
+        "head": {
+          "operationId": "httpReadyJsonHead",
+          "summary": "HEAD /ready.json",
+          "responses": {
+            "200": { "description": "Empty body when ready" },
+            "503": { "description": "Not ready" }
+          }
+        }
+      }
+    },
+    "components": {
+      "schemas": {
+        "JsonRpcRequest": {
+          "type": "object",
+          "required": ["method"],
+          "properties": {
+            "jsonrpc": { "type": "string", "const": "2.0" },
+            "method": { "type": "string", "description": "e.g. boing_chainHeight" },
+            "params": { "description": "Method-specific; usually a JSON array" },
+            "id": { "description": "Omitted for notifications (no HTTP JSON body for single notification)." }
+          }
+        },
+        "JsonRpcResponse": {
+          "type": "object",
+          "required": ["jsonrpc", "id"],
+          "properties": {
+            "jsonrpc": { "type": "string", "const": "2.0" },
+            "id": {},
+            "result": {},
+            "error": {
+              "type": "object",
+              "properties": {
+                "code": { "type": "integer" },
+                "message": { "type": "string" },
+                "data": {}
+              }
+            },
+            "boing_http": {
+              "description": "Optional HTTP-level envelope (e.g. **429** rate limit correlation).",
+              "type": "object",
+              "properties": {
+                "code": { "type": "string" },
+                "message": { "type": "string" },
+                "request_id": { "type": ["string", "null"] }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

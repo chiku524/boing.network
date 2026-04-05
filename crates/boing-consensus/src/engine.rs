@@ -98,6 +98,12 @@ impl ConsensusEngine {
         })?;
         if block.hash() != block_hash {
             if self.votes.contains_key(&validator) {
+                boing_telemetry::component_warn(
+                    "boing_consensus::engine",
+                    "consensus",
+                    "equivocation",
+                    format!("validator={validator:?} round={}", self.round),
+                );
                 return Err(ConsensusError::Equivocation { validator, round: self.round });
             }
             return Err(ConsensusError::InvalidBlock("Vote for wrong block hash".into()));

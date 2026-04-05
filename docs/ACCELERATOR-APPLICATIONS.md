@@ -15,7 +15,7 @@
 
 ### Ecosystem
 
-**My own network (Boing.Network)** — optional to add: Ethereum (via boing.finance cross-chain).
+**My own network (Boing.Network)** — optional to add: bridged liquidity and routing (via boing.finance).
 
 ### Elevator pitch (75 words or less)
 
@@ -31,7 +31,7 @@ Boing introduces protocol-enforced quality assurance: the first L1 where only de
 
 ### Competition & advantage (200 words max)
 
-Existing L1s (Ethereum, Solana, Polygon, Cosmos-based chains, etc.) generally permit any bytecode deployment. Quality assurance, when it exists, is application- or contract-layer—not protocol-enforced. No major L1 today filters deployments at consensus or execution layers. Boing’s advantage is protocol QA: only assets meeting defined rules reach the chain. This is not a dApp feature; it is infrastructure. We reduce congestion and scam risk at the source. No other L1 enforces deployment standards at the protocol layer. We add 100% transparency (open specs, auditable tokenomics), a custom stack (Rust, HotStuff BFT, libp2p), and sustainable tokenomics (floor-triggered waves, no cliffs). We are independent of other chains—our own architecture, not a fork. Ecosystem integration via boing.finance provides cross-chain DeFi coordination. Developer tooling (CLI, SDK) and success-based dApp incentives are built in. We are uniquely positioned to serve users and protocols seeking a scam-resistant, congestion-aware L1.
+Existing L1s generally permit any bytecode deployment. Quality assurance, when it exists, is application- or contract-layer—not protocol-enforced. No major L1 today filters deployments at consensus or execution layers. Boing’s advantage is protocol QA: only assets meeting defined rules reach the chain. This is not a dApp feature; it is infrastructure. We reduce congestion and scam risk at the source. No other L1 enforces deployment standards at the protocol layer. We add 100% transparency (open specs, auditable tokenomics), a custom stack (Rust, HotStuff BFT, libp2p), and sustainable tokenomics (floor-triggered waves, no cliffs). We are independent of other chains—our own architecture, not a fork. Ecosystem integration via boing.finance provides cross-chain DeFi coordination. Developer tooling (CLI, SDK) and success-based dApp incentives are built in. We are uniquely positioned to serve users and protocols seeking a scam-resistant, congestion-aware L1.
 
 ### Target market & size (200 words max)
 

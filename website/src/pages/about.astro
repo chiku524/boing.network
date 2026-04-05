@@ -17,7 +17,7 @@ import Icon from '../components/Icon.astro';
       <h2><Icon name="shield" size={22} class="section-icon" /> Design Philosophy</h2>
       <ul>
         <li><strong>Authentic</strong> — Our own architecture, not a fork or framework</li>
-        <li><strong>Independent</strong> — Zero reliance on Solana, Cosmos, Ethereum, or other chains</li>
+        <li><strong>Independent</strong> — Core protocol does not depend on another L1 for consensus, execution, or identity</li>
         <li><strong>Optimal</strong> — Adopt the best ideas from the ecosystem when they are demonstrably superior</li>
         <li><strong>Unique</strong> — A distinct identity and technical story</li>
         <li><strong>Decentralized</strong> — Absolute decentralization as a foundational requirement</li>
@@ -47,7 +47,7 @@ import Icon from '../components/Icon.astro';
 
     <section class="about-section section-reveal delay-4">
       <h2><Icon name="node" size={22} class="section-icon" /> Tech Stack at a Glance</h2>
-      <p>Rust · BLAKE3 (hashing) · Ed25519 (signatures) · PoS + HotStuff BFT (consensus) · Sparse Merkle tree (Verkle target) · Custom VM (stack-based, EVM-inspired opcodes) · libp2p (networking) · Phased governance (time-locked). Node binary: <code>boing-node</code>; CLI: <code>boing</code> (init, dev, deploy). RPC port 8545. See <a href="/docs">Documentation</a> for full detail.</p>
+      <p>Rust · BLAKE3 (hashing) · Ed25519 (signatures) · PoS + HotStuff BFT (consensus) · Sparse Merkle tree (Verkle target) · Custom Boing VM (stack machine; Boing-defined opcodes and gas) · libp2p (networking) · Phased governance (time-locked). Node binary: <code>boing-node</code>; CLI: <code>boing</code> (init, dev, deploy). RPC port 8545. See <a href="/docs">Documentation</a> for full detail.</p>
     </section>
 
     <section class="about-section section-reveal delay-5">

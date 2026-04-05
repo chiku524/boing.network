@@ -100,12 +100,12 @@ async fn main() -> anyhow::Result<()> {
 
     let cli = Cli::parse();
 
-    match cli.command {
-        Commands::Init { name, output } => init::run(name, output)?,
-        Commands::Dev { port } => dev::run(port).await?,
-        Commands::Deploy { path } => deploy::run(&cli.rpc_url, &path).await?,
+    let result = match cli.command {
+        Commands::Init { name, output } => init::run(name, output),
+        Commands::Dev { port } => dev::run(port).await,
+        Commands::Deploy { path } => deploy::run(&cli.rpc_url, &path).await,
         Commands::Metrics(MetricsCommands::Register { contract, owner }) => {
-            metrics_register::run(&cli.rpc_url, &contract, &owner).await?;
+            metrics_register::run(&cli.rpc_url, &contract, &owner).await
         }
         Commands::Qa(QaCommands::Apply {
             registry,
@@ -115,7 +115,7 @@ async fn main() -> anyhow::Result<()> {
             let token = operator_token
                 .or_else(|| std::env::var("BOING_OPERATOR_RPC_TOKEN").ok())
                 .filter(|s| !s.trim().is_empty());
-            qa_apply::run(&cli.rpc_url, &registry, &pool, token.as_deref()).await?;
+            qa_apply::run(&cli.rpc_url, &registry, &pool, token.as_deref()).await
         }
         Commands::Completions { shell } => {
             clap_complete::generate(
@@ -124,8 +124,13 @@ async fn main() -> anyhow::Result<()> {
                 "boing",
                 &mut std::io::stdout(),
             );
+            Ok(())
         }
+    };
+
+    if let Err(ref e) = result {
+        boing_telemetry::component_error("boing_cli", "cli", "command_failed", e);
     }
 
-    Ok(())
+    result
 }

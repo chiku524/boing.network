@@ -4,9 +4,9 @@ Use this after code changes to the wallet, RPC, or dApp. It complements the node
 
 ## Preconditions
 
-1. **Pool id:** Non-zero `nativeConstantProductPool` for chain **6913** — set `REACT_APP_BOING_NATIVE_AMM_POOL` for local/production boing.finance builds, or the committed placeholder until ops publishes a long-lived testnet pool (see [NATIVE-AMM-INTEGRATION-CHECKLIST.md](NATIVE-AMM-INTEGRATION-CHECKLIST.md)).
-2. **Boing Express:** Unpacked or store build with a wallet that has testnet BOING (faucet on [boing.network/faucet](https://boing.network/faucet)).
-3. **RPC:** `https://testnet-rpc.boing.network` reachable from the browser (CORS allows boing.finance origins).
+1. **Pool id:** Non-zero `nativeConstantProductPool` for chain **6913** — default public testnet pool **`0xffaa1290614441902ba813bf3bd8bf057624e0bd4f16160a9d32cd65d3f4d0c2`** ([RPC-API-SPEC.md](RPC-API-SPEC.md) § Native constant-product AMM, [OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md) § Published). Set **`CANONICAL_BOING_TESTNET_NATIVE_CP_POOL_HEX`** in **`frontend/src/config/boingCanonicalTestnetPool.js`** and/or **`REACT_APP_BOING_NATIVE_AMM_POOL`**, or `import { CANONICAL_BOING_TESTNET_NATIVE_CP_POOL_HEX } from 'boing-sdk'`. **Your own validator/full node + public RPC:** deploy a pool first, then point the dApp + wallet at your RPC and pool id ([DEVNET-OPERATOR-NATIVE-AMM.md](DEVNET-OPERATOR-NATIVE-AMM.md)).
+2. **Boing Express:** Unpacked or store build with a wallet that has testnet BOING (faucet on [boing.network/faucet](https://boing.network/faucet)), or devnet BOING on your chain.
+3. **RPC:** Default smoke assumes `https://testnet-rpc.boing.network` is reachable from the browser (CORS allows boing.finance origins). For a **private** RPC, use local builds of Express + boing.finance with your URL ([THREE-CODEBASE-ALIGNMENT.md](THREE-CODEBASE-ALIGNMENT.md) §2).
 
 ## Happy path — one swap
 
@@ -23,9 +23,11 @@ Use this after code changes to the wallet, RPC, or dApp. It complements the node
 1. Expand **Add liquidity (reserve A + B)**.
 2. Enter two positive integers; submit **Add liquidity via Boing Express** and complete signing.
 
-## Automated extension E2E (future)
+## Automated extension E2E (optional)
 
-CI-friendly runs need Chrome with `--load-extension=…` and scripted unlock (password + approvals). Until then, this manual script satisfies checklist **A4.3**. Optional local automation: Playwright with `BOING_EXPRESS_EXTENSION_PATH` and stored session is tracked as a follow-up.
+In-repo Playwright harness (headed **Chromium**, loads unpacked extension): [examples/native-boing-playwright/README.md](../examples/native-boing-playwright/README.md). Set **`BOING_EXPRESS_EXTENSION_PATH`**, run **`npm install`** and **`npx playwright install chromium`** in that folder, then **`npm run test:e2e`**. After the window opens, **unlock Boing Express** and **connect** on testnet **6913** within the panel timeout (default **120s**). Without the env var, the suite **skips** (exit **0**) so CI can still validate the harness.
+
+Full unattended CI still needs a safe unlock strategy (not committed here); this satisfies checklist **A4.3** as **optional local / release regression** automation alongside the manual steps above.
 
 ## References
 

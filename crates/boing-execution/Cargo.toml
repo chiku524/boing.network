@@ -6,6 +6,7 @@ description = "VM and parallel transaction execution for Boing blockchain"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
+num-bigint = "0.4"
 proptest = "1"
 boing-primitives = { path = "../boing-primitives" }
 boing-state = { path = "../boing-state" }
@@ -20,10 +21,15 @@ harness = false
 name = "dump_native_amm_pool"
 path = "examples/dump_native_amm_pool.rs"
 
+[[example]]
+name = "dump_reference_token_artifacts"
+path = "examples/dump_reference_token_artifacts.rs"
+
 [dependencies]
 boing-primitives = { path = "../boing-primitives" }
 boing-state = { path = "../boing-state" }
 boing-qa = { path = "../boing-qa" }
+boing-telemetry = { path = "../boing-telemetry" }
 num-bigint = "0.4"
 tracing = "0.1"
 async-trait = "0.1"

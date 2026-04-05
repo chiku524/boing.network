@@ -1,6 +1,6 @@
 //! Block production — build blocks from mempool and consensus.
 
-use tracing::{info, warn};
+use tracing::info;
 
 use boing_consensus::ConsensusEngine;
 use boing_execution::BlockExecutor;
@@ -62,7 +62,12 @@ impl BlockProducer {
         let receipts = match executor.execute_block(height, &txs, state) {
             Ok((_gas, r)) => r,
             Err(e) => {
-                warn!("Block execution failed: {}", e);
+                boing_telemetry::component_warn(
+                    "boing_node::block_producer",
+                    "block_producer",
+                    "block_execution_failed",
+                    e,
+                );
                 state.revert(checkpoint);
                 mempool.reinsert(signed_txs);
                 return None;
@@ -109,7 +114,12 @@ impl BlockProducer {
         match consensus.propose_and_commit(block.clone()) {
             Ok(hash) => {
                 if let Err(e) = chain.append(block) {
-                    warn!("Failed to append block to chain: {}", e);
+                    boing_telemetry::component_warn(
+                        "boing_node::block_producer",
+                        "block_producer",
+                        "chain_append_failed",
+                        e,
+                    );
                     state.revert(checkpoint);
                     mempool.reinsert(signed_txs);
                     return None;
@@ -118,7 +128,12 @@ impl BlockProducer {
                 Some((hash, receipts))
             }
             Err(e) => {
-                warn!("Consensus failed: {}", e);
+                boing_telemetry::component_warn(
+                    "boing_node::block_producer",
+                    "block_producer",
+                    "consensus_failed",
+                    e,
+                );
                 state.revert(checkpoint);
                 mempool.reinsert(signed_txs);
                 None

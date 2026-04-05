@@ -81,9 +81,9 @@ fn is_valid_opcode(b: u8) -> bool {
     matches!(
         b,
         0x00 | 0x01 | 0x02 | 0x03 | 0x04 | 0x06 | 0x08 | 0x09 | 0x10 | 0x11 | 0x14 | 0x15 | 0x16 | 0x17
-            | 0x18 | 0x19
+            | 0x18 | 0x19 | 0x1b | 0x1c | 0x1d
             | 0x30 | 0x33 | 0x80 | 0xa0 | 0xa1 | 0xa2 | 0xa3 | 0xa4 | 0x51
-            | 0x52 | 0x54 | 0x55 | 0x56 | 0x57 | 0xf3
+            | 0x52 | 0x54 | 0x55 | 0x56 | 0x57 | 0xf1 | 0xf3
     ) || (0x60..=0x7f).contains(&b)
 }
 
@@ -311,10 +311,18 @@ pub fn check_contract_deploy_with_blocklist(
     max_bytecode_size: usize,
     blocklist_hashes: &[[u8; 32]],
 ) -> QaResult {
+    use boing_primitives::{contract_deploy_init_body, contract_deploy_uses_init_code};
+
     if bytecode.is_empty() {
         return QaResult::Reject(QaReject::new(
             RuleId(RuleId::MALFORMED_BYTECODE.to_string()),
             "Bytecode must not be empty".to_string(),
+        ));
+    }
+    if contract_deploy_uses_init_code(bytecode) && contract_deploy_init_body(bytecode).is_empty() {
+        return QaResult::Reject(QaReject::new(
+            RuleId(RuleId::MALFORMED_BYTECODE.to_string()),
+            "Init-code marker present but no init bytecode after prefix".to_string(),
         ));
     }
     if bytecode.len() > max_bytecode_size {
@@ -328,7 +336,8 @@ pub fn check_contract_deploy_with_blocklist(
         ));
     }
 
-    if let Err((offset, invalid_opcode, reason)) = check_well_formed(bytecode) {
+    let wellformed = contract_deploy_init_body(bytecode);
+    if let Err((offset, invalid_opcode, reason)) = check_well_formed(wellformed) {
         let rule_id = if invalid_opcode {
             RuleId(RuleId::INVALID_OPCODE.to_string())
         } else {
@@ -503,6 +512,26 @@ pub fn rule_registry_from_json(bytes: &[u8]) -> Result<RuleRegistry, serde_json:
 #[cfg(test)]
 mod tests {
     use super::*;
+    use boing_primitives::CONTRACT_DEPLOY_INIT_CODE_MARKER;
+
+    #[test]
+    fn reject_init_marker_without_body() {
+        let r = check_contract_deploy(
+            &[CONTRACT_DEPLOY_INIT_CODE_MARKER],
+            None,
+            None,
+            DEFAULT_MAX_BYTECODE_SIZE,
+        );
+        assert!(matches!(r, QaResult::Reject(ref rej) if rej.rule_id.0 == RuleId::MALFORMED_BYTECODE));
+    }
+
+    #[test]
+    fn allow_init_marker_with_valid_body() {
+        let mut b = vec![CONTRACT_DEPLOY_INIT_CODE_MARKER];
+        b.push(0x00); // STOP-only init → empty runtime
+        let r = check_contract_deploy(&b, None, None, DEFAULT_MAX_BYTECODE_SIZE);
+        assert!(matches!(r, QaResult::Allow));
+    }
 
     #[test]
     fn reject_empty_bytecode() {

@@ -142,6 +142,8 @@ impl PendingQaQueue {
     pub fn set_governance_config(&self, config: QaPoolGovernanceConfig) {
         tracing::info!(
             target: "boing_qa::pool",
+            boing_component = "qa_pool",
+            component_event = "governance_config_updated",
             max_pending = config.max_pending_items,
             admin_count = config.administrator_accounts().len(),
             dev_open = config.dev_open_voting,
@@ -185,6 +187,8 @@ impl PendingQaQueue {
         inner.items.insert(item.tx_hash, item);
         tracing::debug!(
             target: "boing_qa::pool",
+            boing_component = "qa_pool",
+            component_event = "enqueue_unsure_deploy",
             pending = inner.items.len(),
             "QA pool enqueue (Unsure deploy)"
         );
@@ -255,6 +259,8 @@ impl PendingQaQueue {
             };
             tracing::info!(
                 target: "boing_qa::pool",
+                boing_component = "qa_pool",
+                component_event = "resolved_allow",
                 tx_hash = %hex::encode(item.tx_hash.0),
                 "QA pool resolved Allow"
             );
@@ -264,6 +270,8 @@ impl PendingQaQueue {
             let _ = inner.items.remove(&tx_hash);
             tracing::info!(
                 target: "boing_qa::pool",
+                boing_component = "qa_pool",
+                component_event = "resolved_reject",
                 tx_hash = %hex::encode(tx_hash.0),
                 "QA pool resolved Reject"
             );

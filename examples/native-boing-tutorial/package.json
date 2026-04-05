@@ -7,7 +7,20 @@
   "scripts": {
     "transfer": "node scripts/transfer.mjs",
     "contract-call": "node scripts/contract-call.mjs",
-    "deploy-minimal": "node scripts/deploy-minimal.mjs"
+    "deploy-minimal": "node scripts/deploy-minimal.mjs",
+    "fetch-logs-range": "node scripts/fetch-logs-range.mjs",
+    "fetch-blocks-range": "node scripts/fetch-blocks-range.mjs",
+    "indexer-chain-tips": "node scripts/indexer-chain-tips.mjs",
+    "indexer-ingest-tick": "node scripts/indexer-ingest-tick.mjs",
+    "fetch-native-amm-reserves": "node scripts/fetch-native-amm-reserves.mjs",
+    "fetch-native-amm-logs": "node scripts/fetch-native-amm-logs.mjs",
+    "deploy-native-amm-pool": "node scripts/deploy-native-amm-pool.mjs",
+    "check-testnet-rpc": "node scripts/check-testnet-rpc.mjs",
+    "preflight-rpc": "node scripts/preflight-rpc.mjs",
+    "native-amm-print-contract-call-tx": "node scripts/native-amm-print-contract-call-tx.mjs",
+    "native-amm-submit-contract-call": "node scripts/native-amm-submit-contract-call.mjs",
+    "observer-chain-tip-poll": "node scripts/observer-chain-tip-poll.mjs",
+    "probe-rpc": "node ../../boing-sdk/scripts/probe-rpc.mjs"
   },
   "dependencies": {
     "boing-sdk": "file:../../boing-sdk"

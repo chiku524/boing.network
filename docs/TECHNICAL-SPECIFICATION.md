@@ -39,7 +39,7 @@ Boing Network is an **L1 blockchain** built from first principles in Rust. It us
 | **Signatures** | Ed25519 (64-byte) |
 | **Consensus** | PoS + HotStuff BFT |
 | **State** | Sparse Merkle tree (Verkle target) |
-| **Execution** | Custom VM (stack-based; opcodes inspired by EVM, simplified) |
+| **Execution** | **Boing VM** (stack-based; ISA defined in §7 — independent of other chain VMs) |
 | **Networking** | libp2p (TCP, Noise, gossipsub, request-response) |
 | **Governance** | Phased (proposal → cooling → execution); time-locked |
 
@@ -146,7 +146,9 @@ TransactionPayload = enum {
 }
 ```
 
-**CREATE2-style deploy:** When `create2_salt` is `Some(salt)`, the new contract’s `AccountId` is `create2_contract_address` in `boing_primitives`: `BLAKE3("boing.create2.v1\0" || deployer || salt || BLAKE3(bytecode))`. When `create2_salt` is `None`, the address is the legacy nonce hash `nonce_derived_contract_address(sender, tx.nonce)` using the **transaction nonce before this deploy is applied**. If the target address already has an account or stored bytecode, execution fails with `DeploymentAddressInUse` and the sender nonce is **not** incremented.
+**Salt-derived deploy (`create2_salt` / `create2_contract_address`):** When `create2_salt` is `Some(salt)`, the new contract’s `AccountId` is `create2_contract_address` in `boing_primitives`: `BLAKE3("boing.create2.v1\0" || deployer || salt || BLAKE3(bytecode))`. When `create2_salt` is `None`, the address is the legacy nonce hash `nonce_derived_contract_address(sender, tx.nonce)` using the **transaction nonce before this deploy is applied**. If the target address already has an account or stored bytecode, execution fails with `DeploymentAddressInUse` and the sender nonce is **not** incremented.
+
+**Deploy init code (optional, `CONTRACT_DEPLOY_INIT_CODE_MARKER` = `0xFD`):** If the first byte of `bytecode` is `0xFD`, the remainder is **init code**: the node runs it once with `CALLER` = deployer and `ADDRESS` = the new contract account (before runtime code is installed). `LOG0`–`LOG4` during that run are included on the deploy transaction’s execution receipt. The slice supplied to `RETURN` becomes the **runtime bytecode** stored for the contract (empty if execution stops via `STOP` without `RETURN`). Gas for the deploy is the fixed deploy base plus metered init gas (same per-op schedule as `ContractCall`, subject to the deploy/init gas limit). Payloads **without** the `0xFD` prefix keep legacy behavior: the full `bytecode` vector is stored as contract code and no VM execution runs at deploy. The marker byte is **not** a valid VM opcode; QA and static walks apply to the bytes **after** the prefix. The **full** payload (including `0xFD` when present) is hashed for salt-derived address derivation and mempool blocklist checks.
 
 **Bincode:** Adding `create2_salt` changes the serialized shape of deploy payloads versus older clients; wallets must match `boing-primitives` serde layout.
 
@@ -266,7 +268,7 @@ Submit: `hex(bincode(SignedTransaction))` to `boing_submitTransaction([hex_signe
 ### 7.1 VM Model
 
 - **Type:** Stack-based, deterministic
-- **ISA:** The **Boing VM** is its own instruction set. Some opcode **bytes** mirror EVM mnemonics for familiarity; semantics are defined here and in `boing-execution`.
+- **ISA:** The **Boing VM** is its own instruction set. Opcode bytes and semantics are **Boing-defined** here and in `boing-execution` (see [BOING-VM-INDEPENDENCE.md](BOING-VM-INDEPENDENCE.md)).
 - **Implementation:** `boing-execution` crate
 
 ### 7.2 Opcodes
@@ -276,7 +278,7 @@ Submit: `hex(bincode(SignedTransaction))` to `boing_submitTransaction([hex_signe
 | **Stop** | `0x00` | 0 | Halt execution |
 | **Add** | `0x01` | 3 | Add top two stack values |
 | **Sub** | `0x02` | 3 | Subtract |
-| **Mul** | `0x03` | 5 | Multiply |
+| **Mul** | `0x03` | 5 | Pop `b`, `a` (stack top = `b`). Push `(a × b) mod 2^256` using full **256×256** operands (low **256** bits of the product; same width as **MulMod** before reduce). |
 | **Div** | `0x04` | 5 | Unsigned division (256-bit); divisor zero → VM fault |
 | **Mod** | `0x06` | 5 | Unsigned remainder; divisor zero → VM fault |
 | **AddMod** | `0x08` | 8 | Pop `n`, `b`, `a` (stack top = `n`). Push `(a + b) mod n` using full-width addition before reduce. If `n = 0`, push `0` (no fault). |
@@ -289,8 +291,12 @@ Submit: `hex(bincode(SignedTransaction))` to `boing_submitTransaction([hex_signe
 | **Or** | `0x17` | 3 | Bitwise OR |
 | **Xor** | `0x18` | 3 | Bitwise XOR |
 | **Not** | `0x19` | 3 | Bitwise NOT |
+| **Shl** | `0x1b` | 3 | Shift left: pop `shift`, pop `value` (stack top = `shift` word). Effective shift = unsigned `shift` mod 256 (big-endian low byte `shift[31]`). Push `(value << k) mod 2^256`. |
+| **Shr** | `0x1c` | 3 | Logical shift right: same stack order and effective `k`; unsigned `value >> k`. |
+| **Sar** | `0x1d` | 3 | Arithmetic shift right: same stack order and `k`; signed two’s-complement 256-bit; sign-extending fill. |
 | **Address** | `0x30` | 2 | Push this contract’s `AccountId` (32-byte word) |
-| **Caller** | `0x33` | 2 | Push the transaction signer’s `AccountId` (32-byte word) |
+| **Caller** | `0x33` | 2 | Push the **immediate caller** `AccountId` (32-byte word): at **top-level** execution this is the transaction signer (`tx.sender`); after a nested **`Call`**, it is the **contract that performed `Call`** (the previous frame’s `Address`). |
+| **Call** | `0xf1` | 700 + callee gas | Nested contract call. Pops `ret_size`, `ret_offset`, `args_size`, `args_offset`, `target` (stack top = `ret_size`). Copies `memory[args_offset..args_offset+args_size)` as calldata. Callee runs with `caller_id` = current contract and `contract_id` = `target`. Merges callee logs into the current receipt. Writes return data to caller memory (zero-pad to `ret_size`). Pushes `1` on success. **`target` has no code** → success, empty return, `1` pushed. `args_size` / `ret_size` must not exceed **24 KiB** each. Max **64** nested depth. Callee **faults** (`OutOfGas`, `InvalidBytecode`, …) **propagate** and abort the whole transaction (no callee-state rollback). Remaining gas after the **700** base is the callee’s `gas_limit`. |
 | **Dup1** | `0x80` | 3 | Duplicate top stack word |
 | **Log0** | `0xa0` | dynamic | Pop `offset`, `size`; append log with empty topics and `memory[offset..size)` as data (bounds + per-tx limits apply) |
 | **Log1** | `0xa1` | dynamic | Pop `offset`, `size`, one topic (32-byte words); same as Log0 with one indexed topic |
@@ -308,6 +314,8 @@ Submit: `hex(bincode(SignedTransaction))` to `boing_submitTransaction([hex_signe
 | **…** | … | 3 | … |
 | **Push32** | `0x7f` | 3 | Push 32-byte immediate |
 | **Return** | `0xf3` | 0 | Return memory slice |
+
+**`Call` stack layout:** Stack top is popped first: `ret_size`, `ret_offset`, `args_size`, `args_offset`, then `target` (32-byte word, big-endian `AccountId`).
 
 **PUSH encoding:** For `0x60`..`0x7f`, immediate length = `byte - 0x5f` (PUSH1 = 1 byte, PUSH32 = 32 bytes).
 
@@ -449,6 +457,19 @@ Use `boing_qaCheck([hex_bytecode]` or `boing_qaCheck([hex_bytecode, purpose_cate
 - Bootstrap lists
 - **Target:** DHT (Kademlia) + gossip-first overlay; bootnode rotation (see [DECENTRALIZATION-AND-NETWORKING.md](DECENTRALIZATION-AND-NETWORKING.md))
 
+### 12.3 Gossip topics (blocks and transactions)
+
+| Topic | Payload | Notes |
+|-------|---------|--------|
+| `boing/blocks` | `bincode(Block)` | Block fan-out; peers still sync via request/response (`/boing/block-sync/1`) if gossip is slow. |
+| `boing/transactions` | `bincode(SignedTransaction)` | After a successful **`boing_submitTransaction`** / **`boing_faucetRequest`**, the node gossips the **signed** tx; peers verify the Ed25519 signature and run the same mempool + QA admission as RPC. |
+
+**Mesh sizing:** libp2p gossipsub uses default mesh parameters (see upstream `mesh_n` / `mesh_n_low`). Very small graphs (e.g. two TCP peers) may not form a reliable topic mesh; production testnets should run **enough interconnected peers** or tune gossipsub in `boing-p2p`. Regression: `cargo test -p boing-node --test p2p_tx_gossip_rpc` (four-node full mesh).
+
+**P2P → node delivery:** `boing-p2p` forwards gossip to `boing-node` over an **unbounded** async channel so the swarm task never **awaits** on a full bounded queue (which could stall connections and propagation).
+
+**Limits:** Optional cap on simultaneous connections **per remote IP** (`RateLimitConfig.connections_per_ip`, CLI **`--max-connections-per-ip`**) — see [RUNBOOK.md](RUNBOOK.md) §8.1.
+
 ---
 
 ## 13. Implementation Crates
@@ -478,9 +499,12 @@ Use `boing_qaCheck([hex_bytecode]` or `boing_qaCheck([hex_bytecode, purpose_cate
 | [RPC-API-SPEC.md](RPC-API-SPEC.md) | Complete RPC method specs and examples |
 | [QUALITY-ASSURANCE-NETWORK.md](QUALITY-ASSURANCE-NETWORK.md) | QA design, automation, community pool; Appendix A: deployer checklist |
 | [BOING-EXPRESS-WALLET.md](BOING-EXPRESS-WALLET.md) | Wallet integration, signing spec |
-| [RUNBOOK.md](RUNBOOK.md) | Node operation, monitoring, incidents |
+| [RUNBOOK.md](RUNBOOK.md) | Node operation, P2P gossip / per-IP limits (§8.1), monitoring, incidents |
+| [TESTNET-RPC-INFRA.md](TESTNET-RPC-INFRA.md) | Testnet ops + public RPC + infra routing and env matrix |
+| [DECENTRALIZATION-AND-NETWORKING.md](DECENTRALIZATION-AND-NETWORKING.md) | P2P strategy, discovery roadmap, WebRTC signaling |
 | [SECURITY-STANDARDS.md](SECURITY-STANDARDS.md) | Security requirements and practices |
-| [EXECUTION-PARITY-TASK-LIST.md](EXECUTION-PARITY-TASK-LIST.md) | Actionable tasks for VM, receipts, RPC finality, token standards (EVM/Solana-inspired, pillar-aligned) |
+| [EXECUTION-PARITY-TASK-LIST.md](EXECUTION-PARITY-TASK-LIST.md) | Actionable tasks for VM, receipts, RPC finality, token standards (pillar-aligned) |
+| [BOING-VM-INDEPENDENCE.md](BOING-VM-INDEPENDENCE.md) | Boing VM only — no foreign chain bytecode runtimes |
 
 ---
 

@@ -112,6 +112,7 @@ Boing exposes a small JSON list for node runners (used alongside `@vibeminer/sha
 | **`official_bootnodes`** | Multiaddr strings; comma-join for `--bootnodes`. |
 | **`cli_long_flags`** | Always **`kebab-case`** (`--p2p-listen`, not `--p2p_listen`). |
 | **`docs`** | URLs to this file and [PRE-VIBEMINER-NODE-COMMANDS.md](PRE-VIBEMINER-NODE-COMMANDS.md). |
+| **`ecosystem`** | Canonical **`wallet_url`** (boing.express), **`explorer_url`** (boing.observer), **`website_url`**, and GitHub links for [BOING-EXPRESS-WALLET.md](BOING-EXPRESS-WALLET.md), [BOING-OBSERVER-AND-EXPRESS.md](BOING-OBSERVER-AND-EXPRESS.md), [THREE-CODEBASE-ALIGNMENT.md](THREE-CODEBASE-ALIGNMENT.md). Clients may surface these for “Get wallet” / “View explorer” without hard-coding domains. |
 
 **Maintainer sync:** Step-by-step checklist for the **VibeMiner** desktop repo is in **§6** below.
 
@@ -152,6 +153,15 @@ Share the onboarding flow (or a draft) and we'll integrate it into the docs and 
 
 No separate miner binary; no custom daemon protocol—just the node binary and JSON-RPC. For launch dependencies (bootnodes, public RPC), see [READINESS.md](READINESS.md) §3.
 
+### 5.1 Native constant-product AMM pool — what VibeMiner does and does not do
+
+| Role | What happens |
+|------|----------------|
+| **VibeMiner** | Starts **`boing-node`** with P2P + **`--faucet-enable`** + JSON-RPC (default **8545**). It does **not** have a “deploy pool” button. Pool creation is a normal **contract deploy** + **`boing_submitTransaction`** flow. |
+| **Operators / devs** | Use **Boing Express** + **boing-sdk** (or tutorial scripts) against **`http://127.0.0.1:8545`** on the same machine as the VibeMiner node, or against **public** testnet RPC. Follow [NATIVE-AMM-CALLDATA.md](NATIVE-AMM-CALLDATA.md) (CREATE2 salt + bytecode) and **`boing_qaCheck`** before submit. |
+| **Publishing the canonical pool id** | **Current testnet:** **`0xffaa1290614441902ba813bf3bd8bf057624e0bd4f16160a9d32cd65d3f4d0c2`** — [RPC-API-SPEC.md](RPC-API-SPEC.md), [TESTNET.md](TESTNET.md) §5.3, **boing.finance** / **`boing-sdk`** mirror. VibeMiner does **not** store the pool id. **Future** rotations: [OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md) ([TESTNET-RPC-INFRA.md](TESTNET-RPC-INFRA.md) §2–3). |
+| **Binary version** | VibeMiner only runs whatever is in the downloaded zip. If **`boing_submitTransaction`** / native AMM execution fails on an old build, **tag a new `boing-node` release** and complete **§6** so desktops pull the new zips (same as for new JSON-RPC methods). |
+
 ---
 
 ## 6. VibeMiner app maintainers — configuration sync checklist
@@ -162,7 +172,7 @@ Use this when shipping a **VibeMiner** release so the desktop app matches **boin
 2. **Static `networks.ts` / presets** — zip URLs and SHA-256 for Windows / Linux / macOS should match the **`networks[]`** rows (or the GitHub release assets for that tag). Re-fetch **`/api/networks`** after Boing bumps the tag.
 3. **Command templates** — use **kebab-case** flags only (`--p2p-listen`, `--data-dir`, `--rpc-port`, `--bootnodes`, `--faucet-enable`, `--validator`). Underscore forms are **rejected** by current `boing-node` (clap).
 4. **Bootnodes + RPC** — align with **`meta.official_bootnodes`** and **`meta.public_testnet_rpc_url`** (also [website/src/config/testnet.ts](../website/src/config/testnet.ts) / `PUBLIC_BOOTNODES` / `PUBLIC_TESTNET_RPC_URL` at site build time).
-5. **Tunnel preset** — default tunnel name and `cloudflared` flow: [CLOUDFLARED-TUNNEL-ALIGNMENT.md](CLOUDFLARED-TUNNEL-ALIGNMENT.md) (e.g. **`boing-testnet-rpc`**).
+5. **Tunnel preset** — default tunnel name and `cloudflared` flow: [INFRASTRUCTURE-SETUP.md](INFRASTRUCTURE-SETUP.md) § **Cloudflare tunnel vs Pages-only DNS (HTTP 405)** (e.g. **`boing-testnet-rpc`**).
 6. **Post-ship smoke** — from [examples/native-boing-tutorial](../examples/native-boing-tutorial): **`npm run preflight-rpc`** with public **`BOING_RPC_URL`** ([PRE-VIBEMINER-NODE-COMMANDS.md](PRE-VIBEMINER-NODE-COMMANDS.md)).
 
 **Source of truth order:** live **`/api/networks`** → GitHub release assets → this repo’s **`networks.js`** constant **`BOING_TESTNET_DOWNLOAD_TAG`**.

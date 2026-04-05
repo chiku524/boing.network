@@ -18,3 +18,8 @@ bincode = "1.3"
 thiserror = "1"
 hex = "0.4"
 rand = "0.8"
+
+[dev-dependencies]
+boing-telemetry = { path = "../boing-telemetry" }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

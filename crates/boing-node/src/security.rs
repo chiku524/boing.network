@@ -11,7 +11,7 @@ pub struct RateLimitConfig {
     pub requests_per_sec: u32,
     /// Max connections per IP (0 = disabled).
     pub connections_per_ip: u32,
-    /// Max pending transactions per sender in mempool.
+    /// Max distinct pending nonces per sender in the mempool (applied at `boing-node` startup; HTTP RPC uses the same `RateLimitConfig` instance).
     pub pending_txs_per_sender: u32,
 }
 

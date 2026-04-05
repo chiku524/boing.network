@@ -1,0 +1,17 @@
+{
+  "name": "native-boing-playwright",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Optional headed Playwright smoke: Boing Express + boing.finance native AMM panel (manual unlock window).",
+  "scripts": {
+    "test:e2e": "playwright test --project=extension",
+    "test:e2e:public-smoke": "playwright test --project=public",
+    "test:e2e:all": "playwright test",
+    "test:e2e:headed": "playwright test --project=extension --headed",
+    "test:e2e:debug": "playwright test --project=extension --debug",
+    "install:browsers": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

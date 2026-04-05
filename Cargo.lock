@@ -409,6 +409,7 @@ checksum = "edca88bc138befd0323b20752846e6587272d3b03b0343c8ea28a6f819e6e71f"
 dependencies = [
  "async-trait",
  "axum-core",
+ "base64 0.22.1",
  "bytes",
  "futures-util",
  "http",
@@ -427,8 +428,10 @@ dependencies = [
  "serde_json",
  "serde_path_to_error",
  "serde_urlencoded",
+ "sha1",
  "sync_wrapper",
  "tokio",
+ "tokio-tungstenite",
  "tower 0.5.3",
  "tower-layer",
  "tower-service",
@@ -589,6 +592,7 @@ version = "0.1.0"
 dependencies = [
  "boing-primitives",
  "boing-state",
+ "boing-telemetry",
  "ed25519-dalek",
  "rand 0.8.5",
  "serde",
@@ -603,6 +607,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bincode",
+ "boing-telemetry",
  "clap",
  "clap_complete",
  "dirs 5.0.1",
@@ -623,6 +628,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "boing-primitives",
+ "boing-telemetry",
  "thiserror 1.0.69",
  "tokio",
  "tracing",
@@ -636,6 +642,7 @@ dependencies = [
  "boing-primitives",
  "boing-qa",
  "boing-state",
+ "boing-telemetry",
  "criterion",
  "ed25519-dalek",
  "num-bigint",
@@ -650,13 +657,15 @@ dependencies = [
 name = "boing-governance"
 version = "0.1.0"
 dependencies = [
+ "boing-telemetry",
  "thiserror 1.0.69",
 ]
 
 [[package]]
 name = "boing-network-hub"
-version = "0.1.23"
+version = "0.1.24"
 dependencies = [
+ "boing-telemetry",
  "serde_json",
  "tauri",
  "tauri-build",
@@ -664,6 +673,8 @@ dependencies = [
  "tauri-plugin-shell",
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
+ "tracing",
+ "tracing-subscriber",
  "windows-sys 0.60.2",
 ]
 
@@ -680,9 +691,11 @@ dependencies = [
  "boing-primitives",
  "boing-qa",
  "boing-state",
+ "boing-telemetry",
  "boing-tokenomics",
  "clap",
  "ed25519-dalek",
+ "futures-util",
  "governor",
  "hex",
  "http-body-util",
@@ -704,7 +717,9 @@ dependencies = [
  "async-trait",
  "bincode",
  "boing-primitives",
+ "boing-telemetry",
  "libp2p",
+ "libp2p-core",
  "libp2p-swarm",
  "serde",
  "thiserror 1.0.69",
@@ -718,12 +733,15 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "blake3",
+ "boing-telemetry",
  "ed25519-dalek",
  "hex",
  "rand 0.8.5",
  "serde",
  "sha2",
  "thiserror 1.0.69",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -733,6 +751,7 @@ dependencies = [
  "bincode",
  "blake3",
  "boing-primitives",
+ "boing-telemetry",
  "ed25519-dalek",
  "hex",
  "rand 0.8.5",
@@ -747,8 +766,16 @@ name = "boing-state"
 version = "0.1.0"
 dependencies = [
  "boing-primitives",
+ "boing-telemetry",
  "serde",
  "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
+name = "boing-telemetry"
+version = "0.1.0"
+dependencies = [
  "tracing",
 ]
 
@@ -5933,6 +5960,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha1"
+version = "0.10.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3bf829a2d51ab4a5ddf1352d8470c140cadc8301b2ae1789db023f01cedd6ba"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "digest",
+]
+
+[[package]]
 name = "sha2"
 version = "0.10.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6894,6 +6932,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-tungstenite"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edc5f74e248dc973e0dbb7b74c7e0d6fcc301c694ff50049504004ef4d0cdcd9"
+dependencies = [
+ "futures-util",
+ "log",
+ "tokio",
+ "tungstenite",
+]
+
+[[package]]
 name = "tokio-util"
 version = "0.7.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7056,6 +7106,8 @@ dependencies = [
  "pin-project-lite",
  "tower-layer",
  "tower-service",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -7177,6 +7229,24 @@ name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
+
+[[package]]
+name = "tungstenite"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18e5b8366ee7a95b16d32197d0b2604b43a0be89dc5fac9f8e96ccafbaedda8a"
+dependencies = [
+ "byteorder",
+ "bytes",
+ "data-encoding",
+ "http",
+ "httparse",
+ "log",
+ "rand 0.8.5",
+ "sha1",
+ "thiserror 1.0.69",
+ "utf-8",
+]
 
 [[package]]
 name = "typeid"

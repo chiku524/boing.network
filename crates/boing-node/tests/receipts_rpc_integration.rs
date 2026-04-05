@@ -11,7 +11,7 @@ use boing_node::rpc::rpc_router;
 use boing_node::security::RateLimitConfig;
 use boing_primitives::{
     nonce_derived_contract_address, AccessList, Account, AccountId, AccountState,
-    SignedTransaction, Transaction, TransactionPayload,
+    SignedTransaction, Transaction, TransactionPayload, CONTRACT_DEPLOY_INIT_CODE_MARKER,
 };
 use boing_state::StateStore;
 use ed25519_dalek::SigningKey;
@@ -37,6 +37,7 @@ fn node_with_proposer_key(signing_key: &SigningKey, balance: u128) -> boing_node
         },
     });
 
+    let native_aggregates = state.compute_native_aggregates();
     boing_node::node::BoingNode {
         chain,
         consensus,
@@ -52,6 +53,8 @@ fn node_with_proposer_key(signing_key: &SigningKey, balance: u128) -> boing_node
         qa_pool: boing_node::node::pending_qa_pool_default(),
         persistence: None,
         receipts: HashMap::new(),
+        native_aggregates,
+        head_broadcast: None,
     }
 }
 
@@ -96,7 +99,7 @@ async fn rpc_receipts_deploy_call_and_simulate_failure() {
     let signing_key = SigningKey::generate(&mut OsRng);
     let proposer = AccountId(signing_key.verifying_key().to_bytes());
     let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 1_000_000)));
-    let mut app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None);
+    let mut app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
 
     let deploy_tx = Transaction {
         nonce: 0,
@@ -222,7 +225,7 @@ async fn rpc_receipts_deploy_call_and_simulate_failure() {
 async fn rpc_get_sync_state_matches_chain_height() {
     let signing_key = SigningKey::generate(&mut OsRng);
     let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 1_000_000)));
-    let mut app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None);
+    let mut app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
 
     let sync_v = rpc_call(&mut app, "boing_getSyncState", serde_json::json!([])).await;
     let sync = sync_v.get("result").expect("result").as_object().unwrap();
@@ -243,6 +246,511 @@ async fn rpc_get_sync_state_matches_chain_height() {
 }
 
 #[tokio::test]
+async fn rpc_get_network_info_shape() {
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 1_000_000)));
+    let mut app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
+
+    let v = rpc_call(&mut app, "boing_getNetworkInfo", serde_json::json!([])).await;
+    let info = v.get("result").expect("result").as_object().unwrap();
+    assert_eq!(info.get("head_height"), info.get("finalized_height"));
+    assert!(info.get("target_block_time_secs").is_some());
+    let consensus = info
+        .get("consensus")
+        .and_then(|x| x.as_object())
+        .expect("consensus");
+    assert_eq!(consensus.get("model"), Some(&serde_json::json!("hotstuff_bft")));
+    assert_eq!(consensus.get("validator_count"), Some(&serde_json::json!(1)));
+    let rpc = info.get("rpc").and_then(|x| x.as_object()).expect("rpc");
+    let na = rpc
+        .get("not_available")
+        .and_then(|x| x.as_array())
+        .expect("not_available");
+    let tags: Vec<&str> = na.iter().filter_map(|x| x.as_str()).collect();
+    assert!(
+        !tags.contains(&"chain_wide_total_stake"),
+        "chain-wide stake sum is exposed under chain_native.total_stake"
+    );
+    assert!(tags.contains(&"staking_apy"));
+    let cn = info
+        .get("chain_native")
+        .and_then(|x| x.as_object())
+        .expect("chain_native");
+    assert_eq!(cn.get("account_count"), Some(&serde_json::json!(1)));
+    assert_eq!(cn.get("total_balance"), Some(&serde_json::json!("1000000")));
+    assert_eq!(cn.get("total_stake"), Some(&serde_json::json!("0")));
+    assert_eq!(cn.get("total_native_held"), Some(&serde_json::json!("1000000")));
+    assert_eq!(cn.get("as_of_height"), Some(&serde_json::json!(0)));
+    let dev = info
+        .get("developer")
+        .and_then(|x| x.as_object())
+        .expect("developer");
+    assert_eq!(dev.get("sdk_npm_package"), Some(&serde_json::json!("boing-sdk")));
+    assert_eq!(
+        dev.get("websocket")
+            .and_then(|w| w.get("path"))
+            .and_then(|x| x.as_str()),
+        Some("/ws")
+    );
+    let disc = dev
+        .get("api_discovery_methods")
+        .and_then(|x| x.as_array())
+        .expect("api_discovery_methods");
+    let disc_names: Vec<&str> = disc.iter().filter_map(|x| x.as_str()).collect();
+    assert!(disc_names.contains(&"boing_getRpcMethodCatalog"));
+    let http = dev.get("http").and_then(|x| x.as_object()).expect("developer.http");
+    assert_eq!(
+        http.get("live_path").and_then(|x| x.as_str()),
+        Some("/live")
+    );
+    assert_eq!(
+        http.get("ready_path").and_then(|x| x.as_str()),
+        Some("/ready")
+    );
+    assert_eq!(
+        http.get("supports_jsonrpc_batch"),
+        Some(&serde_json::json!(true))
+    );
+    assert_eq!(
+        http.get("jsonrpc_batch_max_env").and_then(|x| x.as_str()),
+        Some("BOING_RPC_MAX_BATCH")
+    );
+    assert_eq!(
+        http.get("request_id_header").and_then(|x| x.as_str()),
+        Some("x-request-id")
+    );
+    assert_eq!(
+        http.get("openapi_http_path").and_then(|x| x.as_str()),
+        Some("/openapi.json")
+    );
+    assert!(info.get("rpc_surface").is_some());
+    assert!(info.get("end_user").is_some());
+}
+
+#[tokio::test]
+async fn http_get_root_is_method_not_allowed_with_allow_post() {
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 1_000_000)));
+    let app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
+
+    let req = Request::builder()
+        .uri("/")
+        .body(Body::empty())
+        .unwrap();
+    let res = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(res.status(), StatusCode::METHOD_NOT_ALLOWED);
+    assert_eq!(
+        res.headers()
+            .get(axum::http::header::ALLOW)
+            .and_then(|v| v.to_str().ok()),
+        Some("GET, HEAD, POST, OPTIONS")
+    );
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let s = std::str::from_utf8(&bytes).unwrap();
+    assert!(s.contains("POST /") && s.contains("JSON-RPC"));
+}
+
+#[tokio::test]
+async fn http_options_root_lists_post_or_cors_methods() {
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 1_000_000)));
+    let app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
+
+    let req = Request::builder()
+        .method("OPTIONS")
+        .uri("/")
+        .body(Body::empty())
+        .unwrap();
+    let res = app.clone().oneshot(req).await.unwrap();
+    assert!(
+        matches!(res.status(), StatusCode::NO_CONTENT | StatusCode::OK),
+        "unexpected status {}",
+        res.status()
+    );
+    let allow = res
+        .headers()
+        .get(axum::http::header::ALLOW)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    let acm = res
+        .headers()
+        .get(axum::http::header::ACCESS_CONTROL_ALLOW_METHODS)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    assert!(
+        allow.contains("POST")
+            || acm.to_ascii_uppercase().contains("POST"),
+        "expected POST in Allow or Access-Control-Allow-Methods: allow={allow:?} acm={acm:?}"
+    );
+}
+
+#[tokio::test]
+async fn rpc_post_propagates_x_request_id() {
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 1_000_000)));
+    let app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
+
+    let body = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "boing_chainHeight",
+        "params": [],
+    });
+    let req = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("content-type", "application/json")
+        .header("x-request-id", "integration-test-req-id")
+        .body(Body::from(body.to_string()))
+        .unwrap();
+    let res = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let rid = res
+        .headers()
+        .get("x-request-id")
+        .and_then(|v| v.to_str().ok())
+        .expect("x-request-id");
+    assert_eq!(rid, "integration-test-req-id");
+}
+
+#[tokio::test]
+async fn rpc_post_generates_x_request_id_when_absent() {
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 1_000_000)));
+    let app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
+
+    let body = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "boing_chainHeight",
+        "params": [],
+    });
+    let req = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("content-type", "application/json")
+        .body(Body::from(body.to_string()))
+        .unwrap();
+    let res = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let rid = res
+        .headers()
+        .get("x-request-id")
+        .and_then(|v| v.to_str().ok())
+        .expect("x-request-id");
+    assert!(rid.len() >= 32, "expected uuid hex: {rid}");
+}
+
+#[tokio::test]
+async fn http_live_and_ready_plain_get() {
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 1_000_000)));
+    let app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
+
+    for path in ["/live", "/ready"] {
+        let req = Request::builder()
+            .uri(path)
+            .body(Body::empty())
+            .unwrap();
+        let res = app.clone().oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let bytes = res.into_body().collect().await.unwrap().to_bytes();
+        let s = std::str::from_utf8(&bytes).unwrap();
+        assert!(s.contains("ok") || s.contains("ready"));
+    }
+}
+
+#[tokio::test]
+async fn rpc_jsonrpc_batch_returns_array() {
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 1_000_000)));
+    let app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
+
+    let batch = serde_json::json!([
+        {"jsonrpc":"2.0","id":1,"method":"boing_chainHeight","params":[]},
+        {"jsonrpc":"2.0","id":2,"method":"boing_clientVersion","params":[]},
+    ]);
+    let req = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("content-type", "application/json")
+        .body(Body::from(batch.to_string()))
+        .unwrap();
+    let res = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let arr: Vec<serde_json::Value> = serde_json::from_slice(&bytes).expect("batch json");
+    assert_eq!(arr.len(), 2);
+    assert_eq!(arr[0].get("id"), Some(&serde_json::json!(1)));
+    assert_eq!(arr[0].get("result"), Some(&serde_json::json!(0)));
+    assert_eq!(arr[1].get("id"), Some(&serde_json::json!(2)));
+    assert!(arr[1]
+        .get("result")
+        .and_then(|x| x.as_str())
+        .is_some_and(|s| s.starts_with("boing-node/")));
+}
+
+#[tokio::test]
+async fn rpc_jsonrpc_batch_invalid_element_errors() {
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 1_000_000)));
+    let app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
+
+    let batch = serde_json::json!([
+        1,
+        {"jsonrpc":"2.0","id":2,"method":"boing_chainHeight","params":[]},
+    ]);
+    let req = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("content-type", "application/json")
+        .body(Body::from(batch.to_string()))
+        .unwrap();
+    let res = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let arr: Vec<serde_json::Value> = serde_json::from_slice(&bytes).expect("batch json");
+    assert_eq!(arr.len(), 2);
+    assert_eq!(
+        arr[0].pointer("/error/code"),
+        Some(&serde_json::json!(-32600))
+    );
+    assert_eq!(arr[1].get("result"), Some(&serde_json::json!(0)));
+}
+
+#[tokio::test]
+async fn rpc_jsonrpc_batch_notifications_only_returns_204() {
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 1_000_000)));
+    let app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
+
+    let batch = serde_json::json!([
+        {"jsonrpc": "2.0", "method": "boing_chainHeight", "params": []},
+    ]);
+    let req = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("content-type", "application/json")
+        .body(Body::from(batch.to_string()))
+        .unwrap();
+    let res = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(res.status(), StatusCode::NO_CONTENT);
+}
+
+#[tokio::test]
+async fn rpc_jsonrpc_notification_returns_204() {
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 1_000_000)));
+    let app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
+
+    let body = serde_json::json!({
+        "jsonrpc": "2.0",
+        "method": "boing_chainHeight",
+        "params": []
+    });
+    let req = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("content-type", "application/json")
+        .body(Body::from(body.to_string()))
+        .unwrap();
+    let res = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(res.status(), StatusCode::NO_CONTENT);
+}
+
+#[tokio::test]
+async fn rpc_client_version_and_supported_methods() {
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 1_000_000)));
+    let mut app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
+
+    let cv = rpc_call(&mut app, "boing_clientVersion", serde_json::json!([])).await;
+    let ver = cv.get("result").and_then(|x| x.as_str()).expect("clientVersion");
+    assert!(ver.starts_with("boing-node/"));
+
+    let sm = rpc_call(
+        &mut app,
+        "boing_rpcSupportedMethods",
+        serde_json::json!([]),
+    )
+    .await;
+    let arr = sm
+        .get("result")
+        .and_then(|x| x.as_array())
+        .expect("supported methods");
+    let names: Vec<&str> = arr.iter().filter_map(|v| v.as_str()).collect();
+    assert!(names.contains(&"boing_getSyncState"));
+    assert!(names.contains(&"boing_getNetworkInfo"));
+    assert!(names.contains(&"boing_getLogs"));
+    assert!(names.contains(&"boing_getTransactionReceipt"));
+    assert!(names.contains(&"boing_clientVersion"));
+    assert!(names.contains(&"boing_rpcSupportedMethods"));
+    assert!(names.contains(&"boing_health"));
+    assert!(names.contains(&"boing_getRpcMethodCatalog"));
+    assert!(names.contains(&"boing_getRpcOpenApi"));
+}
+
+#[tokio::test]
+async fn rpc_unknown_method_includes_data() {
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 1_000_000)));
+    let mut app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
+
+    let v = rpc_call(
+        &mut app,
+        "boing_methodDoesNotExist",
+        serde_json::json!([]),
+    )
+    .await;
+    let err = v.get("error").expect("error");
+    assert_eq!(err.get("code"), Some(&serde_json::json!(-32601)));
+    let data = err.get("data").expect("data");
+    assert_eq!(
+        data.get("method").and_then(|x| x.as_str()),
+        Some("boing_methodDoesNotExist")
+    );
+}
+
+#[tokio::test]
+async fn rpc_catalog_and_openapi_embedded() {
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 1_000_000)));
+    let mut app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
+
+    let cat = rpc_call(
+        &mut app,
+        "boing_getRpcMethodCatalog",
+        serde_json::json!([]),
+    )
+    .await;
+    let c = cat.get("result").expect("result").as_object().unwrap();
+    let m = c.get("methods").and_then(|x| x.as_array()).expect("methods");
+    assert!(m.len() >= 10, "embedded catalog should list many methods");
+
+    let oa = rpc_call(&mut app, "boing_getRpcOpenApi", serde_json::json!([])).await;
+    let root = oa.get("result").expect("result").as_object().unwrap();
+    assert_eq!(root.get("openapi").and_then(|x| x.as_str()), Some("3.1.0"));
+    let paths = root.get("paths").and_then(|x| x.as_object()).expect("paths");
+    assert!(paths.contains_key("/"));
+    let root_path = paths.get("/").and_then(|x| x.as_object()).expect("paths./");
+    assert!(root_path.contains_key("get"));
+    assert!(root_path.contains_key("head"));
+    assert!(root_path.contains_key("post"));
+    assert!(root_path.contains_key("options"));
+    assert!(paths.contains_key("/ws"));
+    assert!(paths.contains_key("/live"));
+    assert!(paths.contains_key("/ready"));
+    assert!(paths.contains_key("/openapi.json"));
+    assert!(paths.contains_key("/.well-known/boing-rpc"));
+}
+
+#[tokio::test]
+async fn rpc_health_shape() {
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 1_000_000)));
+    let mut app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
+
+    let v = rpc_call(&mut app, "boing_health", serde_json::json!([])).await;
+    let h = v.get("result").expect("result").as_object().unwrap();
+    assert_eq!(h.get("ok"), Some(&serde_json::json!(true)));
+    assert!(h
+        .get("client_version")
+        .and_then(|x| x.as_str())
+        .is_some_and(|s| s.starts_with("boing-node/")));
+    assert_eq!(h.get("head_height"), Some(&serde_json::json!(0)));
+    assert!(h.get("chain_id").is_some());
+    assert!(h.get("chain_name").is_some());
+    let surf = h.get("rpc_surface").and_then(|x| x.as_object()).expect("rpc_surface");
+    assert_eq!(
+        surf.get("http_rate_limit_requests_per_sec"),
+        Some(&serde_json::json!(0))
+    );
+    assert!(surf.get("jsonrpc_batch_max").and_then(|x| x.as_u64()).is_some());
+    assert_eq!(
+        surf.get("websocket_max_connections"),
+        Some(&serde_json::json!(0))
+    );
+    assert!(surf.get("ready_min_peers").is_some());
+    assert!(surf
+        .get("http_max_body_megabytes")
+        .and_then(|x| x.as_u64())
+        .is_some());
+    assert_eq!(
+        surf.get("get_logs_max_block_range"),
+        Some(&serde_json::json!(128))
+    );
+    let m = h.get("rpc_metrics").and_then(|x| x.as_object()).expect("rpc_metrics");
+    assert!(m.contains_key("rate_limited_total"));
+    assert!(m.contains_key("method_not_found_total"));
+}
+
+#[tokio::test]
+async fn http_live_ready_json_and_discovery_get() {
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 1_000_000)));
+    let app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
+
+    let live = Request::builder()
+        .uri("/live.json")
+        .body(Body::empty())
+        .unwrap();
+    let res = app.clone().oneshot(live).await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(v.get("ok"), Some(&serde_json::json!(true)));
+
+    let wk = Request::builder()
+        .uri("/.well-known/boing-rpc")
+        .body(Body::empty())
+        .unwrap();
+    let res = app.clone().oneshot(wk).await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let doc: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(doc.get("schema_version"), Some(&serde_json::json!(1)));
+    assert_eq!(
+        doc.get("openapi_url").and_then(|x| x.as_str()),
+        Some("/openapi.json")
+    );
+
+    let oa = Request::builder()
+        .uri("/openapi.json")
+        .body(Body::empty())
+        .unwrap();
+    let res = app.clone().oneshot(oa).await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let open: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(open.get("openapi").and_then(|x| x.as_str()), Some("3.1.0"));
+}
+
+#[tokio::test]
+async fn http_head_root_and_live() {
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 1_000_000)));
+    let app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
+
+    let req = Request::builder()
+        .method("HEAD")
+        .uri("/")
+        .body(Body::empty())
+        .unwrap();
+    let res = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(res.status(), StatusCode::METHOD_NOT_ALLOWED);
+    let allow = res.headers().get("allow").and_then(|v| v.to_str().ok());
+    assert!(allow.is_some_and(|s| s.contains("HEAD")));
+
+    let req = Request::builder()
+        .method("HEAD")
+        .uri("/live")
+        .body(Body::empty())
+        .unwrap();
+    let res = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+}
+
+#[tokio::test]
 async fn rpc_simulate_includes_access_list_hints_and_contract_storage_rpc() {
     let signing_key = SigningKey::generate(&mut OsRng);
     let proposer = AccountId(signing_key.verifying_key().to_bytes());
@@ -255,7 +763,7 @@ async fn rpc_simulate_includes_access_list_hints_and_contract_storage_rpc() {
             state: AccountState::default(),
         });
     }
-    let mut app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None);
+    let mut app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
 
     let tx = Transaction {
         nonce: 0,
@@ -315,7 +823,7 @@ async fn rpc_get_logs_bounded_filters() {
     let signing_key = SigningKey::generate(&mut OsRng);
     let proposer = AccountId(signing_key.verifying_key().to_bytes());
     let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 1_000_000)));
-    let mut app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None);
+    let mut app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
 
     // Deploy stores bytecode; constructor execution does not run the interpreter on this VM.
     let deploy_tx = Transaction {
@@ -455,4 +963,77 @@ async fn rpc_get_logs_bounded_filters() {
             .and_then(|c| c.as_i64()),
         Some(-32602)
     );
+}
+
+#[tokio::test]
+async fn rpc_receipt_init_deploy_includes_logs() {
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let proposer = AccountId(signing_key.verifying_key().to_bytes());
+    let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 1_000_000)));
+    let mut app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
+
+    let mut bytecode = vec![CONTRACT_DEPLOY_INIT_CODE_MARKER];
+    bytecode.extend([
+        0x60, 0x00, 0x60, 0x00, 0xa0, // LOG0 empty
+        0x60, 0x00, 0x60, 0x00, 0x52, // MSTORE
+        0x60, 0x01, 0x60, 0x00, 0xf3, // RETURN 1 byte runtime (STOP)
+    ]);
+
+    let deploy_tx = Transaction {
+        nonce: 0,
+        sender: proposer,
+        payload: TransactionPayload::ContractDeploy {
+            bytecode,
+            create2_salt: None,
+        },
+        access_list: AccessList::default(),
+    };
+    let signed_deploy = SignedTransaction::new(deploy_tx, &signing_key);
+    let deploy_id = signed_deploy.tx.id();
+    let hex_deploy = format!(
+        "0x{}",
+        hex::encode(bincode::serialize(&signed_deploy).unwrap())
+    );
+
+    let v = rpc_call(
+        &mut app,
+        "boing_submitTransaction",
+        serde_json::json!([hex_deploy]),
+    )
+    .await;
+    assert!(v.get("error").is_none(), "{v:?}");
+    {
+        let mut n = node.write().await;
+        n.produce_block_if_ready().expect("block with init deploy");
+    }
+
+    let rec_v = rpc_call(
+        &mut app,
+        "boing_getTransactionReceipt",
+        serde_json::json!([format!("0x{}", hex::encode(deploy_id.0))]),
+    )
+    .await;
+    let rec = rec_v.get("result").expect("result");
+    assert_eq!(rec.get("success"), Some(&serde_json::json!(true)));
+    let logs = rec.get("logs").and_then(|x| x.as_array()).expect("logs array");
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].get("topics"), Some(&serde_json::json!([])));
+    assert_eq!(logs[0].get("data"), Some(&serde_json::json!("0x")));
+
+    let contract = nonce_derived_contract_address(&proposer, 0);
+    let addr_hex = format!("0x{}", hex::encode(contract.0));
+    let height = rec.get("block_height").and_then(|h| h.as_u64()).expect("height");
+    let gl = rpc_call(
+        &mut app,
+        "boing_getLogs",
+        serde_json::json!([{
+            "fromBlock": height,
+            "toBlock": height,
+            "address": addr_hex,
+        }]),
+    )
+    .await;
+    let rows = gl.get("result").and_then(|x| x.as_array()).expect("log rows");
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].get("address"), Some(&serde_json::json!(addr_hex)));
 }

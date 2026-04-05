@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ops": [
+    { "caller": true },
+    { "dup1": true },
+    {
+      "push32": "0101010101010101010101010101010101010101010101010101010101010101"
+    },
+    { "sstore": true },
+    { "push1": 4 },
+    { "push1": 0 },
+    { "log0": true },
+    { "caller": true },
+    { "push1": 32 },
+    { "mstore": true },
+    { "push1": 32 },
+    { "push1": 32 },
+    { "return": true },
+    { "stop": true }
+  ]
+}

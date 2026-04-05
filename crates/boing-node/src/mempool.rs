@@ -185,6 +185,11 @@ impl Mempool {
         self.inner.lock().unwrap().len
     }
 
+    /// Whether a pending transaction with this id ([`Transaction::id`] on the signed payload) is in the pool.
+    pub fn contains_tx_id(&self, tx_id: &Hash) -> bool {
+        self.inner.lock().unwrap().by_id.contains_key(tx_id)
+    }
+
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }

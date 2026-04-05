@@ -2,7 +2,8 @@
  * Boing JSON-RPC client — typed methods for all node RPCs.
  */
 
-import { BoingRpcError } from './errors.js';
+import { BoingRpcError, isRetriableBoingRpcError } from './errors.js';
+import { parseRetryAfterMs } from './retryAfter.js';
 import type {
   AccountBalance,
   AccountProof,
@@ -21,15 +22,33 @@ import type {
   SubmitIntentResult,
   SubmitTransactionResult,
   SyncState,
+  NetworkInfo,
+  BoingHealth,
+  RpcMethodCatalog,
+  RpcOpenApiDocument,
+  BoingRpcPreflightResult,
   ContractStorageWord,
   VerifyProofResult,
   OperatorApplyQaPolicyResult,
   QaRegistryResult,
+  JsonRpcBatchResponseItem,
 } from './types.js';
 import { ensureHex, validateHex32 } from './hex.js';
 
 const DEFAULT_RPC_ID = 1;
 const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_RETRY_BASE_MS = 250;
+
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function generateClientRequestId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `boing-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
 
 export interface BoingClientConfig {
   baseUrl: string;
@@ -39,6 +58,17 @@ export interface BoingClientConfig {
   timeoutMs?: number;
   /** Merged into every JSON-RPC request (e.g. `{ 'X-Boing-Operator': token }`). */
   extraHeaders?: Record<string, string>;
+  /**
+   * Extra attempts after the first failure for transient errors (HTTP 429/502/503/504, RPC -32016,
+   * timeouts, network). Default **0** (no retries).
+   */
+  maxRetries?: number;
+  /** Backoff base in ms before each retry: wait `retryBaseDelayMs * 2^attempt`. Default 250. */
+  retryBaseDelayMs?: number;
+  /**
+   * When true, sends **`X-Request-Id`** on each HTTP call (fresh UUID per request). Nodes echo it for log correlation.
+   */
+  generateRequestId?: boolean;
 }
 
 /**
@@ -50,6 +80,9 @@ export class BoingClient {
   private readonly fetchImpl: typeof fetch;
   private readonly timeoutMs: number;
   private readonly extraHeaders: Record<string, string>;
+  private readonly maxRetries: number;
+  private readonly retryBaseDelayMs: number;
+  private readonly generateRequestId: boolean;
   private id = DEFAULT_RPC_ID;
 
   constructor(config: string | BoingClientConfig) {
@@ -58,15 +91,34 @@ export class BoingClient {
       this.fetchImpl = globalThis.fetch;
       this.timeoutMs = DEFAULT_TIMEOUT_MS;
       this.extraHeaders = {};
+      this.maxRetries = 0;
+      this.retryBaseDelayMs = DEFAULT_RETRY_BASE_MS;
+      this.generateRequestId = false;
     } else {
       this.baseUrl = config.baseUrl.replace(/\/$/, '');
       this.fetchImpl = config.fetch ?? globalThis.fetch;
       this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
       this.extraHeaders = { ...(config.extraHeaders ?? {}) };
+      this.maxRetries = Math.max(0, config.maxRetries ?? 0);
+      this.retryBaseDelayMs = Math.max(0, config.retryBaseDelayMs ?? DEFAULT_RETRY_BASE_MS);
+      this.generateRequestId = config.generateRequestId === true;
     }
   }
 
-  private async request<T>(method: string, params: unknown[] = []): Promise<T> {
+  /** Normalized RPC origin (no trailing slash). */
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  private rpcExtraHeaders(): Record<string, string> {
+    const h: Record<string, string> = { ...this.extraHeaders };
+    if (this.generateRequestId) {
+      h['X-Request-Id'] = generateClientRequestId();
+    }
+    return h;
+  }
+
+  private async requestOnce<T>(method: string, params: unknown[] = []): Promise<T> {
     const body = {
       jsonrpc: '2.0',
       id: this.id++,
@@ -80,7 +132,7 @@ export class BoingClient {
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        ...this.extraHeaders,
+        ...this.rpcExtraHeaders(),
       };
       const res = await this.fetchImpl(this.baseUrl, {
         method: 'POST',
@@ -89,12 +141,41 @@ export class BoingClient {
         signal: controller?.signal,
       });
       if (!res.ok) {
-        throw new BoingRpcError(
-          -32000,
-          `HTTP ${res.status}: ${res.statusText}`,
-          undefined,
-          method
-        );
+        const retryAfterMs = parseRetryAfterMs(res.headers.get('retry-after'));
+        let detail = (res.statusText ?? '').trim();
+        let bodyText = '';
+        try {
+          bodyText = (await res.text()).trim().slice(0, 400);
+          if (bodyText.length > 0) {
+            detail = detail.length > 0 ? `${detail} — ${bodyText}` : bodyText;
+          }
+        } catch {
+          /* ignore body read errors */
+        }
+        let msg =
+          detail.length > 0 ? `HTTP ${res.status}: ${detail}` : `HTTP ${res.status}`;
+        if (res.status === 413) {
+          msg = `HTTP 413: JSON-RPC body exceeds this node limit (operators can raise BOING_RPC_MAX_BODY_MB). ${msg}`;
+        }
+        if (res.status === 429 && bodyText.length > 0) {
+          try {
+            const j = JSON.parse(bodyText) as {
+              error?: { code: number; message: string; data?: unknown };
+            };
+            if (j.error != null) {
+              throw new BoingRpcError(
+                j.error.code,
+                j.error.message,
+                j.error.data,
+                method,
+                retryAfterMs,
+              );
+            }
+          } catch (e) {
+            if (e instanceof BoingRpcError) throw e;
+          }
+        }
+        throw new BoingRpcError(-32000, msg, undefined, method, retryAfterMs);
       }
       const json = (await res.json()) as {
         jsonrpc?: string;
@@ -140,9 +221,319 @@ export class BoingClient {
     }
   }
 
+  private async request<T>(method: string, params: unknown[] = []): Promise<T> {
+    let lastErr: unknown;
+    const attempts = 1 + this.maxRetries;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      try {
+        return await this.requestOnce<T>(method, params);
+      } catch (e) {
+        lastErr = e;
+        if (attempt >= attempts - 1 || !isRetriableBoingRpcError(e)) {
+          throw e;
+        }
+        const backoff = this.retryBaseDelayMs * Math.pow(2, attempt);
+        const ra = e instanceof BoingRpcError ? e.retryAfterMs : undefined;
+        const delay = ra != null && ra > 0 ? Math.max(backoff, ra) : backoff;
+        if (delay > 0) await sleepMs(delay);
+      }
+    }
+    throw lastErr;
+  }
+
+  private async requestBatchOnce(
+    calls: ReadonlyArray<{ method: string; params?: unknown[] }>,
+  ): Promise<JsonRpcBatchResponseItem[]> {
+    const BATCH = 'jsonrpc.batch';
+    const batchBody = calls.map((c) => ({
+      jsonrpc: '2.0' as const,
+      id: this.id++,
+      method: c.method,
+      params: c.params ?? [],
+    }));
+    const controller = this.timeoutMs > 0 ? new AbortController() : null;
+    const timeoutId = controller
+      ? setTimeout(() => controller.abort(), this.timeoutMs)
+      : null;
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...this.rpcExtraHeaders(),
+      };
+      const res = await this.fetchImpl(this.baseUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(batchBody),
+        signal: controller?.signal,
+      });
+      if (!res.ok) {
+        const retryAfterMs = parseRetryAfterMs(res.headers.get('retry-after'));
+        let detail = (res.statusText ?? '').trim();
+        let bodyText = '';
+        try {
+          bodyText = (await res.text()).trim().slice(0, 400);
+          if (bodyText.length > 0) {
+            detail = detail.length > 0 ? `${detail} — ${bodyText}` : bodyText;
+          }
+        } catch {
+          /* ignore body read errors */
+        }
+        const msg =
+          detail.length > 0 ? `HTTP ${res.status}: ${detail}` : `HTTP ${res.status}`;
+        if (res.status === 429 && bodyText.length > 0) {
+          try {
+            const j = JSON.parse(bodyText) as {
+              error?: { code: number; message: string; data?: unknown };
+            };
+            if (j.error != null) {
+              throw new BoingRpcError(
+                j.error.code,
+                j.error.message,
+                j.error.data,
+                BATCH,
+                retryAfterMs,
+              );
+            }
+          } catch (e) {
+            if (e instanceof BoingRpcError) throw e;
+          }
+        }
+        throw new BoingRpcError(-32000, msg, undefined, BATCH, retryAfterMs);
+      }
+      const json: unknown = await res.json();
+      if (!Array.isArray(json)) {
+        throw new BoingRpcError(
+          -32000,
+          'Invalid RPC response: expected JSON array for batch',
+          undefined,
+          BATCH,
+        );
+      }
+      return json as JsonRpcBatchResponseItem[];
+    } catch (err) {
+      if (err instanceof BoingRpcError) throw err;
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw new BoingRpcError(
+          -32000,
+          `Request timed out after ${this.timeoutMs}ms`,
+          undefined,
+          BATCH,
+        );
+      }
+      throw new BoingRpcError(
+        -32000,
+        err instanceof Error ? err.message : String(err),
+        undefined,
+        BATCH,
+      );
+    } finally {
+      if (timeoutId != null) clearTimeout(timeoutId);
+    }
+  }
+
+  /**
+   * POST a JSON-RPC **batch** (JSON array of requests). Assigns monotonic numeric `id`s; returns the response array in order.
+   */
+  async requestBatch(
+    calls: ReadonlyArray<{ method: string; params?: unknown[] }>,
+  ): Promise<JsonRpcBatchResponseItem[]> {
+    let lastErr: unknown;
+    const attempts = 1 + this.maxRetries;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      try {
+        return await this.requestBatchOnce(calls);
+      } catch (e) {
+        lastErr = e;
+        if (attempt >= attempts - 1 || !isRetriableBoingRpcError(e)) {
+          throw e;
+        }
+        const backoff = this.retryBaseDelayMs * Math.pow(2, attempt);
+        const ra = e instanceof BoingRpcError ? e.retryAfterMs : undefined;
+        const delay = ra != null && ra > 0 ? Math.max(backoff, ra) : backoff;
+        if (delay > 0) await sleepMs(delay);
+      }
+    }
+    throw lastErr;
+  }
+
+  /**
+   * `GET {baseUrl}/live` — process is up (no chain read; for orchestrator liveness).
+   * Uses the same `extraHeaders` as JSON-RPC (e.g. auth in front of the node).
+   */
+  async checkHttpLive(): Promise<boolean> {
+    try {
+      const res = await this.fetchImpl(`${this.baseUrl}/live`, {
+        method: 'GET',
+        headers: this.rpcExtraHeaders(),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * `GET {baseUrl}/ready` — node can serve RPC (read lock on state). Returns false on **503** when
+   * the node enforces **`BOING_RPC_READY_MIN_PEERS`** and peer count is too low.
+   */
+  async checkHttpReady(): Promise<boolean> {
+    try {
+      const res = await this.fetchImpl(`${this.baseUrl}/ready`, {
+        method: 'GET',
+        headers: this.rpcExtraHeaders(),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * One round-trip sanity check for dashboards and CI: `health`, supported method count,
+   * optional catalog size, whether OpenAPI JSON is exposed, plain HTTP `/live` + `/ready`,
+   * and a small JSON-RPC **batch** probe (`jsonrpcBatchOk`).
+   */
+  async preflightRpc(): Promise<BoingRpcPreflightResult> {
+    const [
+      health,
+      supported,
+      httpLiveOk,
+      httpReadyOk,
+      httpOpenApiJsonOk,
+      wellKnownBoingRpcOk,
+      httpLiveJsonOk,
+    ] = await Promise.all([
+      this.health(),
+      this.rpcSupportedMethods(),
+      this.checkHttpLive(),
+      this.checkHttpReady(),
+      this.checkHttpOpenApiJson(),
+      this.checkWellKnownBoingRpc(),
+      this.checkHttpLiveJson(),
+    ]);
+    let catalogMethodCount: number | null = null;
+    try {
+      const cat = await this.getRpcMethodCatalog();
+      catalogMethodCount = cat.methods?.length ?? 0;
+    } catch {
+      catalogMethodCount = null;
+    }
+    let openApiPresent = false;
+    try {
+      const oa = await this.getRpcOpenApi();
+      openApiPresent = typeof oa === 'object' && oa !== null && 'openapi' in oa;
+    } catch {
+      openApiPresent = false;
+    }
+    let jsonrpcBatchOk = false;
+    try {
+      const batch = await this.requestBatch([
+        { method: 'boing_chainHeight', params: [] },
+        { method: 'boing_clientVersion', params: [] },
+      ]);
+      jsonrpcBatchOk =
+        batch.length === 2 &&
+        batch[0]?.error == null &&
+        batch[1]?.error == null &&
+        typeof batch[0]?.result === 'number' &&
+        typeof batch[1]?.result === 'string';
+    } catch {
+      jsonrpcBatchOk = false;
+    }
+    return {
+      health,
+      supportedMethodCount: supported.length,
+      catalogMethodCount,
+      openApiPresent,
+      httpLiveOk,
+      httpReadyOk,
+      jsonrpcBatchOk,
+      httpOpenApiJsonOk,
+      wellKnownBoingRpcOk,
+      httpLiveJsonOk,
+    };
+  }
+
+  /** `GET {baseUrl}/openapi.json` — same document as `boing_getRpcOpenApi` when the node exposes it. */
+  async checkHttpOpenApiJson(): Promise<boolean> {
+    try {
+      const res = await this.fetchImpl(`${this.baseUrl}/openapi.json`, {
+        method: 'GET',
+        headers: this.rpcExtraHeaders(),
+      });
+      if (!res.ok) return false;
+      const ct = res.headers.get('content-type') ?? '';
+      if (!ct.includes('application/json')) return false;
+      const j: unknown = await res.json();
+      return typeof j === 'object' && j !== null && 'openapi' in j;
+    } catch {
+      return false;
+    }
+  }
+
+  /** `GET {baseUrl}/.well-known/boing-rpc` — path hints for HTTP discovery. */
+  async checkWellKnownBoingRpc(): Promise<boolean> {
+    try {
+      const res = await this.fetchImpl(`${this.baseUrl}/.well-known/boing-rpc`, {
+        method: 'GET',
+        headers: this.rpcExtraHeaders(),
+      });
+      if (!res.ok) return false;
+      const j: unknown = await res.json();
+      return typeof j === 'object' && j !== null && 'schema_version' in j;
+    } catch {
+      return false;
+    }
+  }
+
+  /** `GET {baseUrl}/live.json` — JSON liveness probe. */
+  async checkHttpLiveJson(): Promise<boolean> {
+    try {
+      const res = await this.fetchImpl(`${this.baseUrl}/live.json`, {
+        method: 'GET',
+        headers: this.rpcExtraHeaders(),
+      });
+      if (!res.ok) return false;
+      const j: unknown = await res.json();
+      return typeof j === 'object' && j !== null && (j as { ok?: boolean }).ok === true;
+    } catch {
+      return false;
+    }
+  }
+
   /** Current chain height (tip block number). */
   async chainHeight(): Promise<number> {
     return this.request<number>('boing_chainHeight', []);
+  }
+
+  /** Build identity string for this node (e.g. `boing-node/0.1.0`). Params: `[]`. */
+  async clientVersion(): Promise<string> {
+    return this.request<string>('boing_clientVersion', []);
+  }
+
+  /**
+   * Alphabetically sorted `boing_*` method names implemented by this binary (discovery). Params: `[]`.
+   */
+  async rpcSupportedMethods(): Promise<string[]> {
+    return this.request<string[]>('boing_rpcSupportedMethods', []);
+  }
+
+  /** Embedded JSON Schema-style catalog for codegen (params `[]`). See `boing_getNetworkInfo.developer`. */
+  async getRpcMethodCatalog(): Promise<RpcMethodCatalog> {
+    return this.request<RpcMethodCatalog>('boing_getRpcMethodCatalog', []);
+  }
+
+  /** Minimal OpenAPI 3.1 document for `POST /` JSON-RPC and `GET /ws` (params `[]`). */
+  async getRpcOpenApi(): Promise<RpcOpenApiDocument> {
+    return this.request<RpcOpenApiDocument>('boing_getRpcOpenApi', []);
+  }
+
+  /**
+   * Liveness and build identity (params `[]`). Prefer this over `boing_chainHeight` for load balancers:
+   * includes `client_version`, optional `chain_id` / `chain_name` from node env, and `head_height`.
+   */
+  async health(): Promise<BoingHealth> {
+    return this.request<BoingHealth>('boing_health', []);
   }
 
   /**
@@ -151,6 +542,15 @@ export class BoingClient {
    */
   async getSyncState(): Promise<SyncState> {
     return this.request<SyncState>('boing_getSyncState', []);
+  }
+
+  /**
+   * Network + tip snapshot for dApps (params `[]`). Includes `chain_native` (sums over committed accounts) and
+   * `rpc.not_available` for capabilities this surface does not expose (e.g. staking APY).
+   * See RPC-API-SPEC.md — `chain_id` / `chain_name` require node env `BOING_CHAIN_ID` / `BOING_CHAIN_NAME`.
+   */
+  async getNetworkInfo(): Promise<NetworkInfo> {
+    return this.request<NetworkInfo>('boing_getNetworkInfo', []);
   }
 
   /** Get spendable balance for an account. Params: 32-byte account ID (hex). */

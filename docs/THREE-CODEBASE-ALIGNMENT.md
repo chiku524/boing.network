@@ -60,7 +60,19 @@ For wallet connection and dApp integration (e.g. portal sign-in, chain switching
 | **Mainnet** | `0x1b02` (6914) | `boing-mainnet` |
 
 - **boing.express** exposes these via `boing_chainId` and `boing_switchChain`; the portal and any dApp should use the same values when checking or requesting a network switch.
+- **Discovery:** There is no `boing_chainId` JSON-RPC on the node today; chain ID is **not** read from block headers. Operators document the ID for forked networks; **Boing Express** shows the configured hex + decimal on the wallet dashboard. See [DEVNET-OPERATOR-NATIVE-AMM.md](DEVNET-OPERATOR-NATIVE-AMM.md) §1.
 - **boing.observer** does not currently implement wallet connect; when it does, it should use the same chain IDs and the same Boing provider/auth contract as the portal (see [BOING-EXPRESS-WALLET.md](BOING-EXPRESS-WALLET.md) Part 3).
+
+### 3.1 Native constant-product pool (testnet, **boing.finance**)
+
+| Item | Value |
+|------|--------|
+| **Chain** | **6913** (testnet) |
+| **Canonical pool `AccountId`** | `0xffaa1290614441902ba813bf3bd8bf057624e0bd4f16160a9d32cd65d3f4d0c2` |
+
+- **Docs:** [RPC-API-SPEC.md](RPC-API-SPEC.md) § Native constant-product AMM, [TESTNET.md](TESTNET.md) §5.3.
+- **boing.finance:** `boingCanonicalTestnetPool.js` / `contracts.js` (6913) / env — must match; redeploy after changes.
+- **boing-sdk (optional):** `CANONICAL_BOING_TESTNET_NATIVE_CP_POOL_HEX` — mirror for TS apps; bump when the canonical on-chain pool changes.
 
 ---
 
@@ -97,7 +109,7 @@ Use this to avoid drift after deployments.
 
 ## 7. Infrastructure and deployment
 
-- **RPC:** Single public testnet RPC at `https://testnet-rpc.boing.network/` (e.g. via Cloudflare Tunnel from a node with `--faucet-enable`). All three apps depend on it for testnet.
+- **RPC:** Single public testnet RPC at `https://testnet-rpc.boing.network/` (e.g. via Cloudflare Tunnel from a node with `--faucet-enable`). All three apps depend on it for testnet. **Smoke from this repo:** `examples/native-boing-tutorial` **`npm run preflight-rpc`** with **`BOING_RPC_URL`** (no keys) — [PRE-VIBEMINER-NODE-COMMANDS.md](PRE-VIBEMINER-NODE-COMMANDS.md), [NETWORK-GO-LIVE-CHECKLIST.md](NETWORK-GO-LIVE-CHECKLIST.md). **VibeMiner (desktop):** sync from **`GET https://boing.network/api/networks`** **`meta`** (download tag, bootnodes, chain id, optional **`ecosystem`** URLs for wallet/explorer/docs) — [VIBEMINER-INTEGRATION.md](VIBEMINER-INTEGRATION.md) §6.
 - **Portal (sign-in):** boing.network Cloudflare Pages + Workers (D1 for nonces/sessions). Wallet signs BLAKE3(message) with Ed25519; portal verifies with same stack (@noble/ed25519 + @noble/hashes). See [BOING-EXPRESS-WALLET.md](BOING-EXPRESS-WALLET.md) (Part 3: rollout and smoke test).
 - **Self-host:** Optional static + minimal API runbook and vendoring are documented in [BOING-INFRASTRUCTURE-INDEPENDENCE.md](BOING-INFRASTRUCTURE-INDEPENDENCE.md).
 
@@ -111,3 +123,4 @@ When the mainnet RPC URL is published, set the corresponding env in all three co
 - [BOING-EXPRESS-WALLET.md](BOING-EXPRESS-WALLET.md) — Wallet integration, signing, portal 401 troubleshooting.
 - [INFRASTRUCTURE-SETUP.md](INFRASTRUCTURE-SETUP.md) — RPC, CORS, Cloudflare Tunnel.
 - [RPC-API-SPEC.md](RPC-API-SPEC.md) — Boing JSON-RPC methods used by all three.
+- [PRE-VIBEMINER-NODE-COMMANDS.md](PRE-VIBEMINER-NODE-COMMANDS.md) — copy/paste RPC smoke and SDK **`verify`** for operators.

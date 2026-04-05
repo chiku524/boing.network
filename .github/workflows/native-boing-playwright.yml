@@ -1,0 +1,41 @@
+name: native-boing-playwright
+
+# Validates the Playwright package (install + test run). Tests skip without BOING_EXPRESS_EXTENSION_PATH (exit 0).
+# Real headed + extension E2E needs a display and manual unlock — see docs/PLAYWRIGHT-E2E-CI-OPS.md and docs/TESTNET-OPS-RUNBOOK.md §4.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "examples/native-boing-playwright/**"
+      - ".github/workflows/native-boing-playwright.yml"
+  pull_request:
+    paths:
+      - "examples/native-boing-playwright/**"
+      - ".github/workflows/native-boing-playwright.yml"
+
+jobs:
+  harness:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/native-boing-playwright
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: examples/native-boing-playwright/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Run Playwright (skipped without extension path)
+        run: npm run test:e2e

@@ -81,9 +81,9 @@ QA must confirm **both** of the following before any deployment is approved:
 
 ## 3. Why This Matters
 
-On typical EVM (and many other) chains:
+On many account-based L1s with contract layers:
 
-- Standards (ERC-20, ERC-721, etc.) are **conventions**, not enforced by the protocol.
+- Fungible and NFT-style interfaces are usually **conventions**, not enforced by the protocol.
 - Malformed, unsafe, or non-compliant contracts can be deployed and only fail or cause harm when called.
 - There is no protocol-level gate that says “this bytecode does not meet our quality bar.”
 
@@ -118,9 +118,11 @@ These are the **attributes and rules** that deployments must satisfy. They are t
   - Maximum bytecode size (e.g. 24 KiB or 32 KiB). Prevents abuse and keeps state bounded.
 - **Opcodes**
   - Only opcodes defined in the Boing VM are allowed. Any byte that does not decode to a valid opcode (or valid PUSH immediate) → **reject**.
-  - Today: `Stop, Add, Sub, Mul, Lt, Gt, Eq, IsZero, And, Or, Xor, Not, MLoad, MStore, SLoad, SStore, Push1..Push32, Jump, JumpI, Return` (see `boing-execution/src/bytecode.rs`).
+  - Today: `Stop, Add, Sub, Mul, Div, Mod, AddMod, MulMod, Lt, Gt, Eq, IsZero, And, Or, Xor, Not, Shl, Shr, Sar, Address, Caller, Dup1, Log0..Log4, MLoad, MStore, SLoad, SStore, Push1..Push32, Jump, JumpI, Return` (see `boing-execution/src/bytecode.rs`).
 - **Well-formedness**
   - Valid instruction stream: PUSH immediates consumed (correct lengths), no jump targets to non-instruction boundaries, no truncated instructions at end of bytecode.
+- **Init-code prefix (`0xFD`)**
+  - Optional leading byte `CONTRACT_DEPLOY_INIT_CODE_MARKER` (`0xFD`): opcode / well-formedness checks apply to the bytes **after** the prefix; the marker itself is not executed as VM code. A payload that is only `0xFD` (no trailing init code) → **reject** (malformed). See `TECHNICAL-SPECIFICATION.md` §4.4.
 - **Security and policy**
   - No use of opcodes or patterns that are **explicitly disallowed** by network policy (e.g. certain dangerous patterns if we define them).
   - Optional: static analysis heuristics (e.g. “no jump into PUSH data”) to catch obvious exploits; failures can be **reject** or **unsure** (send to pool).
@@ -694,7 +696,7 @@ If the deploy uses the legacy **ContractDeploy** or **ContractDeployWithPurpose*
 
 ## Appendix D: Upgrade / proxy patterns (QA context)
 
-Boing does **not** use EVM `DELEGATECALL`. **Immutable bytecode per `AccountId`** is the default after a successful deploy.
+Boing does **not** use delegate-to-runtime indirection that swaps implementation code in place. **Immutable bytecode per `AccountId`** is the default after a successful deploy.
 
 **Permitted product patterns** include a **fixed hub contract** that stores a pointer to the current implementation `AccountId` and **forwards** via `ContractCall`; each **new** implementation is a **separate deploy** that must **pass QA** again. See full guidance: [BOING-PATTERN-UPGRADE-PROXY.md](BOING-PATTERN-UPGRADE-PROXY.md).
 

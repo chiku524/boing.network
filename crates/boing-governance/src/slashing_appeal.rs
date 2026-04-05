@@ -94,41 +94,66 @@ impl SlashRegistry {
 
     /// Submit an appeal for a slash. Returns appeal ID or error.
     pub fn submit_appeal(&mut self, slash_id: u64, evidence: Vec<u8>) -> Result<u64, SlashingError> {
-        let slash = self.slashes.get(&slash_id).ok_or(SlashingError::SlashNotFound)?;
-        // Check appeal window
-        if slash.appeal_deadline > 0 {
-            // Caller must pass current height; we don't have chain access here
-            // For now we allow appeal if slash exists and no appeal yet
-        }
-        if self.appeals.values().any(|a| a.slash_id == slash_id) {
-            return Err(SlashingError::AppealAlreadyExists);
-        }
-        let id = self.next_appeal_id;
-        self.next_appeal_id += 1;
-        self.appeals.insert(
-            id,
-            SlashingAppeal {
+        let result = (|| {
+            let slash = self.slashes.get(&slash_id).ok_or(SlashingError::SlashNotFound)?;
+            // Check appeal window
+            if slash.appeal_deadline > 0 {
+                // Caller must pass current height; we don't have chain access here
+                // For now we allow appeal if slash exists and no appeal yet
+            }
+            if self.appeals.values().any(|a| a.slash_id == slash_id) {
+                return Err(SlashingError::AppealAlreadyExists);
+            }
+            let id = self.next_appeal_id;
+            self.next_appeal_id += 1;
+            self.appeals.insert(
                 id,
-                slash_id,
-                evidence,
-                status: AppealStatus::Pending,
-            },
-        );
-        Ok(id)
+                SlashingAppeal {
+                    id,
+                    slash_id,
+                    evidence,
+                    status: AppealStatus::Pending,
+                },
+            );
+            Ok(id)
+        })();
+        if let Err(ref e) = result {
+            boing_telemetry::component_warn(
+                "boing_governance::slashing",
+                "governance",
+                "submit_appeal_failed",
+                e,
+            );
+        }
+        result
     }
 
     /// Resolve an appeal (called when governance proposal executes).
     pub fn resolve_appeal(&mut self, appeal_id: u64, approved: bool) -> Result<(), SlashingError> {
-        let appeal = self.appeals.get_mut(&appeal_id).ok_or(SlashingError::AppealNotFound)?;
-        if appeal.status != AppealStatus::Pending {
-            return Err(SlashingError::AppealAlreadyResolved);
+        let result = (|| {
+            let appeal = self
+                .appeals
+                .get_mut(&appeal_id)
+                .ok_or(SlashingError::AppealNotFound)?;
+            if appeal.status != AppealStatus::Pending {
+                return Err(SlashingError::AppealAlreadyResolved);
+            }
+            appeal.status = if approved {
+                AppealStatus::Approved
+            } else {
+                AppealStatus::Rejected
+            };
+            Ok(())
+        })();
+        if let Err(ref e) = result {
+            boing_telemetry::component_warn(
+                "boing_governance::slashing",
+                "governance",
+                "resolve_appeal_failed",
+                e,
+            );
         }
-        appeal.status = if approved {
-            AppealStatus::Approved
-        } else {
-            AppealStatus::Rejected
-        };
-        Ok(())
+        result
     }
 
     /// Check if a slash was successfully appealed (reversed).

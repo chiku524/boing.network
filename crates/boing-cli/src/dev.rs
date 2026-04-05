@@ -45,7 +45,20 @@ pub async fn run(port: u16) -> anyhow::Result<()> {
             .args(node_args)
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
-            .spawn()?;
+            .spawn()
+            .map_err(|e| {
+                boing_telemetry::component_warn(
+                    "boing_cli::dev",
+                    "cli",
+                    "spawn_boing_node_failed",
+                    format!("{}: {e}", node_path.display()),
+                );
+                anyhow::anyhow!(
+                    "Failed to start boing-node at {}: {}",
+                    node_path.display(),
+                    e
+                )
+            })?;
         (child, false)
     } else {
         // Fallback: run from repo via cargo
@@ -64,7 +77,19 @@ pub async fn run(port: u16) -> anyhow::Result<()> {
             ])
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
-            .spawn()?;
+            .spawn()
+            .map_err(|e| {
+                boing_telemetry::component_warn(
+                    "boing_cli::dev",
+                    "cli",
+                    "spawn_cargo_boing_node_failed",
+                    &e,
+                );
+                anyhow::anyhow!(
+                    "Failed to run `cargo run -p boing-node`: {}. Install boing-node or run from the repo root.",
+                    e
+                )
+            })?;
         (child, true)
     };
 
@@ -77,6 +102,10 @@ pub async fn run(port: u16) -> anyhow::Result<()> {
     }
     println!("  Press Ctrl+C to stop");
 
-    let _ = child.wait();
+    let status = child.wait();
+    if let Err(e) = status {
+        boing_telemetry::component_warn("boing_cli::dev", "cli", "wait_boing_node_failed", &e);
+    }
+
     Ok(())
 }

@@ -1,0 +1,124 @@
+# Starts a local boing-node and runs boing-sdk Vitest with BOING_INTEGRATION_RPC_URL set.
+name: boing-sdk RPC integration
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "boing-sdk/**"
+      - "crates/boing-node/**"
+      - "crates/boing-execution/**"
+      - "crates/boing-primitives/**"
+      - "crates/boing-state/**"
+      - "crates/boing-consensus/**"
+      - "crates/boing-p2p/**"
+      - "crates/boing-qa/**"
+      - "crates/boing-tokenomics/**"
+      - "examples/native-boing-tutorial/**"
+      - ".github/workflows/boing-sdk-rpc-integration.yml"
+      - "tools/boing-node-public-testnet.env.example"
+  pull_request:
+    paths:
+      - "boing-sdk/**"
+      - "crates/boing-node/**"
+      - "crates/boing-execution/**"
+      - "crates/boing-primitives/**"
+      - "crates/boing-state/**"
+      - "crates/boing-consensus/**"
+      - "crates/boing-p2p/**"
+      - "crates/boing-qa/**"
+      - "crates/boing-tokenomics/**"
+      - "examples/native-boing-tutorial/**"
+      - ".github/workflows/boing-sdk-rpc-integration.yml"
+      - "tools/boing-node-public-testnet.env.example"
+
+jobs:
+  live-rpc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+
+      - name: Build boing-node (debug)
+        run: cargo build -p boing-node
+
+      - name: Start boing-node
+        run: |
+          set -e
+          DATA="$(mktemp -d)"
+          echo "Using data dir $DATA"
+          export BOING_CHAIN_ID=6913
+          export BOING_CHAIN_NAME="Boing Testnet"
+          RUST_LOG=warn ./target/debug/boing-node --validator --rpc-port 8545 --data-dir "$DATA" &
+          echo "NODE_PID=$!" >> "$GITHUB_ENV"
+
+      - name: Wait for JSON-RPC
+        run: |
+          set -e
+          for i in $(seq 1 60); do
+            if curl -sf -X POST http://127.0.0.1:8545 \
+              -H "Content-Type: application/json" \
+              -d '{"jsonrpc":"2.0","id":1,"method":"boing_chainHeight","params":[]}' \
+              | grep -q '"result"'; then
+              echo "RPC ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "RPC did not become ready in time"
+          exit 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: boing-sdk/package-lock.json
+
+      - name: SDK build, probe-rpc, verify (live RPC)
+        working-directory: boing-sdk
+        env:
+          BOING_INTEGRATION_RPC_URL: http://127.0.0.1:8545
+          BOING_EXPECT_FULL_RPC: "1"
+          BOING_EXPECT_CHAIN_ID: "6913"
+          BOING_EXPECT_CHAIN_NAME: "Boing Testnet"
+          BOING_RPC_URL: http://127.0.0.1:8545
+        run: |
+          npm ci
+          npm run build
+          npm run probe-rpc
+          npm run verify
+
+      - name: Tutorial preflight-rpc + indexer + AMM print smoke
+        working-directory: examples/native-boing-tutorial
+        env:
+          BOING_RPC_URL: http://127.0.0.1:8545
+        run: |
+          npm ci
+          npm run preflight-rpc
+          npm run indexer-ingest-tick
+          BOING_SENDER_HEX=0xabababababababababababababababababababababababababababababababab \
+            BOING_POOL_HEX=0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd \
+            BOING_AMOUNT_IN=1 node scripts/native-amm-print-contract-call-tx.mjs | node -e "\
+              let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{\
+                const j=JSON.parse(d); if(!j.ok) process.exit(1);\
+              });"
+
+      - name: Stop boing-node
+        if: always()
+        run: |
+          if [ -n "${NODE_PID:-}" ]; then
+            kill "$NODE_PID" 2>/dev/null || true
+            wait "$NODE_PID" 2>/dev/null || true
+          fi

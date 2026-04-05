@@ -5,24 +5,38 @@
 //! Optional testnet faucet (boing_faucetRequest) when --faucet-enable.
 
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
-use axum::http::header::{HeaderName, HeaderValue, CONTENT_TYPE};
+use axum::body::Body;
+use axum::body::Bytes;
+use axum::extract::Request as IncomingRequest;
+use axum::http::header::{ACCEPT, CONTENT_TYPE};
 use axum::http::Method;
+use axum::http::Uri;
+use axum::http::{HeaderMap, HeaderName, HeaderValue, Request as HttpRequest, StatusCode};
 use axum::{
+    extract::DefaultBodyLimit,
     extract::State,
-    http::{HeaderMap, StatusCode},
+    middleware::{self, Next},
     response::IntoResponse,
-    routing::post,
+    response::Response,
+    routing::get,
     Json, Router,
 };
 use governor::{Quota, RateLimiter};
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroU32;
-use tokio::sync::{Mutex as TokioMutex, RwLock};
+use tokio::sync::{broadcast, Mutex as TokioMutex, RwLock};
+use tower::ServiceBuilder;
 use tower_http::cors::{AllowOrigin, CorsLayer};
+use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, RequestId, SetRequestIdLayer};
+use tower_http::set_header::SetResponseHeaderLayer;
+use tower_http::trace::{DefaultOnFailure, DefaultOnRequest, DefaultOnResponse, TraceLayer};
+use tower_http::LatencyUnit;
 use tracing::info;
+use tracing::Level;
 
 use crate::faucet::{self, testnet_faucet_account_id};
 use crate::mempool::MempoolError;
@@ -31,12 +45,14 @@ use crate::security::RateLimitConfig;
 use boing_primitives::{
     create2_contract_address, nonce_derived_contract_address, AccessList, AccountId, ExecutionLog,
     ExecutionReceipt, Hash, SignedIntent, SignedTransaction, Transaction, TransactionPayload,
+    MAX_EXECUTION_LOG_TOPICS,
 };
 use boing_qa::pool::{PoolError, QaPoolVote};
 use boing_qa::{
     check_contract_deploy_full_with_metadata, qa_pool_config_from_json, rule_registry_from_json,
     QaPoolExpiryPolicy, QaResult, RuleRegistry,
 };
+use boing_tokenomics::BLOCK_TIME_SECS;
 
 /// Shared node state for RPC and validator loop.
 pub type NodeState = Arc<RwLock<BoingNode>>;
@@ -60,6 +76,25 @@ pub struct RpcState {
     pub faucet_submit_lock: Option<FaucetSubmitLock>,
     /// When set, `boing_qaPoolVote` and `boing_operatorApplyQaPolicy` require header `X-Boing-Operator: <token>`.
     pub operator_rpc_token: Option<Arc<str>>,
+    /// Broadcast channel for WebSocket **`/ws`** **newHeads** subscribers (clone per connection).
+    pub head_broadcast: Option<broadcast::Sender<serde_json::Value>>,
+    /// Concurrent **`GET /ws`** connections (increment on accept, decrement on close). `ws_max_connections == 0` = unlimited.
+    pub ws_active: Arc<AtomicUsize>,
+    pub ws_max_connections: usize,
+    /// **`RateLimitConfig.requests_per_sec`** used to build this router (**0** = HTTP JSON-RPC rate limit off). Exposed in **`boing_health`**.
+    pub rate_limit_requests_per_sec: u32,
+    /// Cumulative HTTP / JSON-RPC diagnostics (also returned on **`boing_health`**).
+    pub rpc_metrics: Arc<RpcHttpMetrics>,
+}
+
+/// Monotonic counters for RPC UX / operator dashboards (best-effort; not a billing metric).
+#[derive(Default)]
+pub struct RpcHttpMetrics {
+    pub rate_limited: AtomicU64,
+    pub json_parse_errors: AtomicU64,
+    pub batch_too_large: AtomicU64,
+    pub method_not_found: AtomicU64,
+    pub websocket_cap_rejects: AtomicU64,
 }
 
 impl RpcState {
@@ -91,6 +126,9 @@ struct JsonRpcResponse {
     result: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<JsonRpcError>,
+    /// Optional HTTP-level hint for operators (e.g. rate limit + **`x-request-id`** correlation).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    boing_http: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize)]
@@ -111,6 +149,7 @@ fn rpc_error(id: Option<serde_json::Value>, code: i32, message: String) -> JsonR
             message,
             data: None,
         }),
+        boing_http: None,
     }
 }
 
@@ -129,6 +168,7 @@ fn rpc_error_with_data(
             message,
             data: Some(data),
         }),
+        boing_http: None,
     }
 }
 
@@ -138,7 +178,100 @@ fn rpc_ok(id: Option<serde_json::Value>, result: serde_json::Value) -> JsonRpcRe
         id,
         result: Some(result),
         error: None,
+        boing_http: None,
     }
+}
+
+/// Emit a structured **warn** when the JSON-RPC body carries an `error` object (semantic fields for operators).
+fn respond_jsonrpc(
+    method: &str,
+    status: StatusCode,
+    body: JsonRpcResponse,
+) -> (StatusCode, Json<JsonRpcResponse>) {
+    if let Some(ref err) = body.error {
+        boing_telemetry::jsonrpc_error_response(
+            method,
+            &body.id,
+            err.code,
+            &err.message,
+            err.data.is_some(),
+            status.as_u16(),
+        );
+    }
+    (status, Json(body))
+}
+
+/// HTTP **429** JSON-RPC error with **`Retry-After: 1`** (quota is per-second).
+fn respond_jsonrpc_rate_limited(
+    method: &str,
+    mut body: JsonRpcResponse,
+    request_id: Option<&str>,
+) -> Response {
+    if let Some(ref err) = body.error {
+        boing_telemetry::jsonrpc_error_response(
+            method,
+            &body.id,
+            err.code,
+            &err.message,
+            err.data.is_some(),
+            StatusCode::TOO_MANY_REQUESTS.as_u16(),
+        );
+    }
+    let rid = request_id.map(str::to_string).filter(|s| !s.is_empty());
+    body.boing_http = Some(serde_json::json!({
+        "code": "rate_limited",
+        "message": "HTTP JSON-RPC global rate limit exceeded; honor Retry-After and see boing_health.rpc_surface.http_rate_limit_requests_per_sec.",
+        "request_id": rid,
+    }));
+    (
+        StatusCode::TOO_MANY_REQUESTS,
+        [(
+            HeaderName::from_static("retry-after"),
+            HeaderValue::from_static("1"),
+        )],
+        Json(body),
+    )
+        .into_response()
+}
+
+/// **`GET /`** — browsers and `curl` without `-X POST` hit this; point them at JSON-RPC.
+async fn http_root_get() -> impl IntoResponse {
+    (
+        StatusCode::METHOD_NOT_ALLOWED,
+        [(
+            HeaderName::from_static("allow"),
+            HeaderValue::from_static("GET, HEAD, POST, OPTIONS"),
+        )],
+        concat!(
+            "Boing JSON-RPC: use POST / with Content-Type: application/json (JSON-RPC 2.0).\n",
+            "Discovery: GET /openapi.json, GET /.well-known/boing-rpc.\n",
+            "Probes: GET /live, GET /ready (JSON: /live.json, /ready.json, or Accept: application/json).\n",
+            "WebSocket: GET /ws (newHeads).\n",
+            "See boing_getNetworkInfo.developer and docs/RPC-API-SPEC.md\n",
+        ),
+    )
+}
+
+/// **`HEAD /`** — same constraints as **`GET /`** (no body); for cheap proxy checks.
+async fn http_head_root() -> impl IntoResponse {
+    (
+        StatusCode::METHOD_NOT_ALLOWED,
+        [(
+            HeaderName::from_static("allow"),
+            HeaderValue::from_static("GET, HEAD, POST, OPTIONS"),
+        )],
+    )
+}
+
+/// **`OPTIONS /`** — CORS preflight and `Allow` discovery (`curl -X OPTIONS`).
+async fn http_options_root() -> impl IntoResponse {
+    (
+        StatusCode::NO_CONTENT,
+        [(
+            HeaderName::from_static("allow"),
+            HeaderValue::from_static("GET, HEAD, POST, OPTIONS"),
+        )],
+    )
 }
 
 fn execution_logs_to_json(logs: &[ExecutionLog]) -> serde_json::Value {
@@ -222,9 +355,13 @@ const BOING_RPC_SUPPORTED_METHODS: &[&str] = &[
     "boing_getBlockByHeight",
     "boing_getContractStorage",
     "boing_getLogs",
+    "boing_getNetworkInfo",
     "boing_getQaRegistry",
+    "boing_getRpcMethodCatalog",
+    "boing_getRpcOpenApi",
     "boing_getSyncState",
     "boing_getTransactionReceipt",
+    "boing_health",
     "boing_operatorApplyQaPolicy",
     "boing_qaCheck",
     "boing_qaPoolConfig",
@@ -237,6 +374,377 @@ const BOING_RPC_SUPPORTED_METHODS: &[&str] = &[
     "boing_submitTransaction",
     "boing_verifyAccountProof",
 ];
+
+static DEVELOPER_API_DOCUMENT: OnceLock<serde_json::Value> = OnceLock::new();
+
+fn developer_api_document() -> &'static serde_json::Value {
+    DEVELOPER_API_DOCUMENT.get_or_init(|| {
+        serde_json::from_str(include_str!("../schemas/developer_api.json"))
+            .expect("developer_api.json must parse")
+    })
+}
+
+/// Default for `boing_getNetworkInfo.developer.repository_url` when `BOING_DEVELOPER_REPOSITORY_URL` is unset.
+const DEFAULT_DEVELOPER_REPOSITORY_URL: &str = "https://github.com/chiku524/boing.network";
+
+fn network_info_developer_hints() -> serde_json::Value {
+    let repository_url = std::env::var("BOING_DEVELOPER_REPOSITORY_URL")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| DEFAULT_DEVELOPER_REPOSITORY_URL.to_string());
+    let base = repository_url.trim_end_matches('/').to_string();
+    let rpc_spec_url = std::env::var("BOING_DEVELOPER_RPC_SPEC_URL")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| format!("{}/blob/main/docs/RPC-API-SPEC.md", base));
+    let dapp_integration_doc_url = std::env::var("BOING_DEVELOPER_DAPP_DOC_URL")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| format!("{}/blob/main/docs/BOING-DAPP-INTEGRATION.md", base));
+    serde_json::json!({
+        "repository_url": repository_url,
+        "rpc_spec_url": rpc_spec_url,
+        "dapp_integration_doc_url": dapp_integration_doc_url,
+        "sdk_npm_package": "boing-sdk",
+        "websocket": {
+            "path": "/ws",
+            "handshake": {"type": "subscribe", "channel": "newHeads"},
+            "event_types": ["newHead"]
+        },
+        "api_discovery_methods": ["boing_getRpcMethodCatalog", "boing_getRpcOpenApi", "boing_rpcSupportedMethods"],
+        "http": {
+            "live_path": "/live",
+            "ready_path": "/ready",
+            "live_json_path": "/live.json",
+            "ready_json_path": "/ready.json",
+            "openapi_http_path": "/openapi.json",
+            "well_known_boing_rpc_path": "/.well-known/boing-rpc",
+            "jsonrpc_post_path": "/",
+            "response_header_rpc_version": "x-boing-rpc-version",
+            "request_id_header": "x-request-id",
+            "supports_jsonrpc_batch": true,
+            "jsonrpc_batch_max_env": "BOING_RPC_MAX_BATCH",
+            "jsonrpc_max_body_mb_env": "BOING_RPC_MAX_BODY_MB",
+            "websocket_max_connections_env": "BOING_RPC_WS_MAX_CONNECTIONS",
+            "ready_min_peers_env": "BOING_RPC_READY_MIN_PEERS"
+        }
+    })
+}
+
+/// Max JSON-RPC POST body size (default **8** MiB). Operators may raise for large deploy calldata.
+fn max_rpc_body_bytes() -> usize {
+    const DEFAULT_MB: usize = 8;
+    const MIN_MB: usize = 1;
+    match std::env::var("BOING_RPC_MAX_BODY_MB") {
+        Ok(s) => match s.trim().parse::<usize>() {
+            Ok(mb) if mb >= MIN_MB => {
+                let bytes = mb.saturating_mul(1024 * 1024);
+                if mb != DEFAULT_MB {
+                    tracing::info!(
+                        megabytes = mb,
+                        "BOING_RPC_MAX_BODY_MB: max JSON-RPC POST body size"
+                    );
+                }
+                bytes
+            }
+            Ok(_) => {
+                tracing::warn!(
+                    "BOING_RPC_MAX_BODY_MB must be >= {} MiB; using default {}",
+                    MIN_MB,
+                    DEFAULT_MB
+                );
+                DEFAULT_MB * 1024 * 1024
+            }
+            Err(_) => {
+                tracing::warn!("BOING_RPC_MAX_BODY_MB invalid; using default {}", DEFAULT_MB);
+                DEFAULT_MB * 1024 * 1024
+            }
+        },
+        Err(_) => DEFAULT_MB * 1024 * 1024,
+    }
+}
+
+/// Max JSON-RPC objects per **batch** POST (default **32**, hard cap **256**). Set `BOING_RPC_MAX_BATCH`.
+fn max_rpc_batch_len() -> usize {
+    const DEFAULT: usize = 32;
+    const HARD_CAP: usize = 256;
+    match std::env::var("BOING_RPC_MAX_BATCH") {
+        Ok(s) => match s.trim().parse::<usize>() {
+            Ok(0) => {
+                tracing::warn!("BOING_RPC_MAX_BATCH 0 is invalid; using default {}", DEFAULT);
+                DEFAULT
+            }
+            Ok(n) => n.min(HARD_CAP),
+            Err(_) => {
+                tracing::warn!("BOING_RPC_MAX_BATCH invalid; using default {}", DEFAULT);
+                DEFAULT
+            }
+        },
+        Err(_) => DEFAULT,
+    }
+}
+
+/// Max concurrent **`GET /ws`** connections (default **0** = unlimited). Set **`BOING_RPC_WS_MAX_CONNECTIONS`**.
+fn max_ws_connections() -> usize {
+    match std::env::var("BOING_RPC_WS_MAX_CONNECTIONS") {
+        Ok(s) => match s.trim().parse::<usize>() {
+            Ok(n) => {
+                if n > 0 {
+                    tracing::info!(
+                        max = n,
+                        "BOING_RPC_WS_MAX_CONNECTIONS: rejecting new WebSocket handshakes when at cap"
+                    );
+                }
+                n
+            }
+            Err(_) => {
+                tracing::warn!("BOING_RPC_WS_MAX_CONNECTIONS invalid; WebSocket connections unlimited");
+                0
+            }
+        },
+        Err(_) => 0,
+    }
+}
+
+/// When set, `GET /ready` returns **503** unless `connected_peers().len() >= N`. Unset = no peer check.
+fn ready_min_peers() -> Option<u32> {
+    static PARSED: OnceLock<Option<u32>> = OnceLock::new();
+    *PARSED.get_or_init(|| {
+        match std::env::var("BOING_RPC_READY_MIN_PEERS") {
+            Ok(s) => match s.trim().parse::<u32>() {
+                Ok(0) => None,
+                Ok(n) => {
+                    tracing::info!(
+                        min_peers = n,
+                        "BOING_RPC_READY_MIN_PEERS: /ready requires at least this many P2P peers"
+                    );
+                    Some(n)
+                }
+                Err(_) => {
+                    tracing::warn!("BOING_RPC_READY_MIN_PEERS invalid; ignoring peer requirement");
+                    None
+                }
+            },
+            Err(_) => None,
+        }
+    })
+}
+
+fn max_rpc_body_megabytes() -> u64 {
+    (max_rpc_body_bytes() / (1024 * 1024)).max(1) as u64
+}
+
+fn accept_requests_json(headers: &HeaderMap) -> bool {
+    let Some(raw) = headers.get(ACCEPT).and_then(|v| v.to_str().ok()) else {
+        return false;
+    };
+    for part in raw.split(',') {
+        let mut it = part.trim().split(';');
+        let mime = it.next().unwrap_or("").trim();
+        if mime.eq_ignore_ascii_case("application/json") {
+            let mut q = 1.0f32;
+            for p in it {
+                let p = p.trim();
+                if let Some(rest) = p.strip_prefix("q=") {
+                    if let Ok(qv) = rest.trim().parse::<f32>() {
+                        q = qv;
+                    }
+                }
+            }
+            if q > 0.0 {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn probe_wants_json_path(uri_path: &str, headers: &HeaderMap) -> bool {
+    uri_path.ends_with(".json") || accept_requests_json(headers)
+}
+
+fn rpc_surface_capabilities(state: &RpcState) -> serde_json::Value {
+    serde_json::json!({
+        "jsonrpc_batch_max": max_rpc_batch_len(),
+        "websocket_max_connections": max_ws_connections(),
+        "http_rate_limit_requests_per_sec": state.rate_limit_requests_per_sec,
+        "ready_min_peers": ready_min_peers(),
+        "http_max_body_megabytes": max_rpc_body_megabytes(),
+        "get_logs_max_block_range": GET_LOGS_MAX_BLOCK_RANGE,
+        "get_logs_max_results": GET_LOGS_MAX_RESULTS,
+        "max_log_topic_filters": MAX_EXECUTION_LOG_TOPICS,
+    })
+}
+
+fn rpc_metrics_snapshot(state: &RpcState) -> serde_json::Value {
+    serde_json::json!({
+        "rate_limited_total": state.rpc_metrics.rate_limited.load(Ordering::Relaxed),
+        "json_parse_errors_total": state.rpc_metrics.json_parse_errors.load(Ordering::Relaxed),
+        "batch_too_large_total": state.rpc_metrics.batch_too_large.load(Ordering::Relaxed),
+        "method_not_found_total": state.rpc_metrics.method_not_found.load(Ordering::Relaxed),
+        "websocket_cap_rejects_total": state.rpc_metrics.websocket_cap_rejects.load(Ordering::Relaxed),
+    })
+}
+
+fn well_known_boing_rpc_document() -> serde_json::Value {
+    serde_json::json!({
+        "schema_version": 1,
+        "openapi_url": "/openapi.json",
+        "jsonrpc_post_path": "/",
+        "live_plain_path": "/live",
+        "live_json_path": "/live.json",
+        "ready_plain_path": "/ready",
+        "ready_json_path": "/ready.json",
+        "websocket_path": "/ws",
+    })
+}
+
+fn end_user_network_hints() -> serde_json::Value {
+    let chain_display_name = std::env::var("BOING_CHAIN_DISPLAY_NAME")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let explorer_url = std::env::var("BOING_EXPLORER_URL")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let faucet_url = std::env::var("BOING_FAUCET_URL")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    serde_json::json!({
+        "chain_display_name": chain_display_name,
+        "explorer_url": explorer_url,
+        "faucet_url": faucet_url,
+    })
+}
+
+/// One-line effective RPC config after env parsing (complements per-var logs from limit helpers).
+pub fn log_rpc_config_banner(rpc_listen: &str, rate_limit_rps: u32) {
+    info!(
+        listen = %rpc_listen,
+        jsonrpc_max_batch = max_rpc_batch_len(),
+        jsonrpc_max_body_mib = max_rpc_body_megabytes(),
+        websocket_max_connections = max_ws_connections(),
+        ready_min_peers = ?ready_min_peers(),
+        http_rate_limit_rps = rate_limit_rps,
+        "Boing RPC: POST / (JSON-RPC); GET /openapi.json; GET /.well-known/boing-rpc; probes /live /ready (+ .json); WS /ws",
+    );
+}
+
+async fn map_payload_too_large_to_json(req: IncomingRequest, next: Next) -> Response {
+    let res = next.run(req).await;
+    if res.status() != StatusCode::PAYLOAD_TOO_LARGE {
+        return res;
+    }
+    let (mut parts, _) = res.into_parts();
+    let rid = parts
+        .headers
+        .get(HeaderName::from_static("x-request-id"))
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string);
+    let mb = max_rpc_body_megabytes();
+    let body = serde_json::json!({
+        "code": "payload_too_large",
+        "message": format!(
+            "JSON-RPC POST body exceeds the configured maximum ({} MiB). Raise BOING_RPC_MAX_BODY_MB on the node if legitimate.",
+            mb
+        ),
+        "request_id": rid,
+    });
+    parts.headers.insert(
+        CONTENT_TYPE,
+        HeaderValue::from_static("application/json"),
+    );
+    Response::from_parts(parts, Body::from(body.to_string()))
+}
+
+/// **`GET /live`** — plain **`ok\\n`** by default, or JSON when **`Accept: application/json`** or path **`/live.json`**.
+async fn http_live(uri: Uri, headers: HeaderMap) -> Response {
+    if probe_wants_json_path(uri.path(), &headers) {
+        return (StatusCode::OK, Json(serde_json::json!({ "ok": true }))).into_response();
+    }
+    (StatusCode::OK, "ok\n").into_response()
+}
+
+async fn http_head_live() -> StatusCode {
+    StatusCode::OK
+}
+
+/// **`GET /ready`** — optional peer gate; JSON with **`503`** + **`Retry-After: 5`** when **`BOING_RPC_READY_MIN_PEERS`** not met.
+async fn http_ready(State(state): State<RpcState>, uri: Uri, headers: HeaderMap) -> Response {
+    let json = probe_wants_json_path(uri.path(), &headers);
+    let n = state.node.read().await;
+    if let Some(min) = ready_min_peers() {
+        let count = n.p2p.connected_peers().await.len() as u32;
+        if count < min {
+            if json {
+                let body = serde_json::json!({
+                    "ready": false,
+                    "reason": "peers_below_min",
+                    "peers": count,
+                    "min_peers": min,
+                });
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    [(
+                        HeaderName::from_static("retry-after"),
+                        HeaderValue::from_static("5"),
+                    )],
+                    Json(body),
+                )
+                    .into_response();
+            }
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                [(
+                    HeaderName::from_static("retry-after"),
+                    HeaderValue::from_static("5"),
+                )],
+                format!("not_ready: peers {} < {}\n", count, min),
+            )
+                .into_response();
+        }
+    }
+    if json {
+        return (StatusCode::OK, Json(serde_json::json!({ "ready": true }))).into_response();
+    }
+    (StatusCode::OK, "ready\n").into_response()
+}
+
+async fn http_head_ready(State(state): State<RpcState>) -> impl IntoResponse {
+    let n = state.node.read().await;
+    if let Some(min) = ready_min_peers() {
+        let count = n.p2p.connected_peers().await.len() as u32;
+        if count < min {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                [(
+                    HeaderName::from_static("retry-after"),
+                    HeaderValue::from_static("5"),
+                )],
+            )
+                .into_response();
+        }
+    }
+    StatusCode::OK.into_response()
+}
+
+async fn http_openapi_json() -> Json<serde_json::Value> {
+    let root = developer_api_document();
+    let oa = root
+        .get("openapi")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
+    Json(oa)
+}
+
+async fn http_well_known_boing_rpc() -> Json<serde_json::Value> {
+    Json(well_known_boing_rpc_document())
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -364,24 +872,145 @@ fn parse_qa_pool_vote(s: &str) -> Result<QaPoolVote, String> {
     }
 }
 
+
 async fn handle_rpc(
     State(state): State<RpcState>,
     headers: HeaderMap,
-    Json(req): Json<JsonRpcRequest>,
-) -> impl IntoResponse {
+    body: Bytes,
+) -> Response {
+    let hdr_request_id = headers
+        .get(HeaderName::from_static("x-request-id"))
+        .and_then(|v| v.to_str().ok());
+
     if let Some(ref limiter) = state.rate_limiter {
         if limiter.check().is_err() {
-            return (
-                StatusCode::TOO_MANY_REQUESTS,
-                Json(rpc_error(
-                    req.id,
+            state.rpc_metrics.rate_limited.fetch_add(1, Ordering::Relaxed);
+            return respond_jsonrpc_rate_limited(
+                "jsonrpc",
+                rpc_error(
+                    None,
                     -32016,
                     "Rate limit exceeded. Try again later.".into(),
-                )),
+                ),
+                hdr_request_id,
             );
         }
     }
 
+    let v: serde_json::Value = match serde_json::from_slice(&body) {
+        Ok(v) => v,
+        Err(e) => {
+            state
+                .rpc_metrics
+                .json_parse_errors
+                .fetch_add(1, Ordering::Relaxed);
+            return respond_jsonrpc(
+                "jsonrpc",
+                StatusCode::OK,
+                rpc_error(
+                    None,
+                    -32700,
+                    format!("Parse error: {}", e),
+                ),
+            )
+            .into_response();
+        }
+    };
+
+    match v {
+        serde_json::Value::Array(items) => {
+            let max_batch = max_rpc_batch_len();
+            if items.len() > max_batch {
+                state
+                    .rpc_metrics
+                    .batch_too_large
+                    .fetch_add(1, Ordering::Relaxed);
+                return respond_jsonrpc(
+                    "jsonrpc",
+                    StatusCode::OK,
+                    rpc_error(
+                        None,
+                        -32600,
+                        format!(
+                            "Invalid Request: batch exceeds max length {} (BOING_RPC_MAX_BATCH)",
+                            max_batch
+                        ),
+                    ),
+                )
+                .into_response();
+            }
+            if items.is_empty() {
+                return (StatusCode::OK, Json(Vec::<JsonRpcResponse>::new())).into_response();
+            }
+            let mut out: Vec<JsonRpcResponse> = Vec::with_capacity(items.len());
+            for item in items {
+                let req = match serde_json::from_value::<JsonRpcRequest>(item) {
+                    Ok(r) => r,
+                    Err(_) => {
+                        out.push(rpc_error(
+                            None,
+                            -32600,
+                            "Invalid Request".into(),
+                        ));
+                        continue;
+                    }
+                };
+                if req.id.is_none() {
+                    // JSON-RPC notification: no response object in batch output
+                    let _ = dispatch_jsonrpc_request(&state, &headers, req).await;
+                    continue;
+                }
+                let (_st, resp) = dispatch_jsonrpc_request(&state, &headers, req).await;
+                out.push(resp);
+            }
+            if out.is_empty() {
+                // JSON-RPC 2.0: batch of notifications only → no response body
+                return StatusCode::NO_CONTENT.into_response();
+            }
+            (StatusCode::OK, Json(out)).into_response()
+        }
+        serde_json::Value::Object(_) => {
+            let req: JsonRpcRequest = match serde_json::from_value(v) {
+                Ok(r) => r,
+                Err(e) => {
+                    return respond_jsonrpc(
+                        "jsonrpc",
+                        StatusCode::OK,
+                        rpc_error(
+                            None,
+                            -32600,
+                            format!("Invalid Request: {}", e),
+                        ),
+                    )
+                    .into_response();
+                }
+            };
+            if req.id.is_none() {
+                let _ = dispatch_jsonrpc_request(&state, &headers, req).await;
+                return StatusCode::NO_CONTENT.into_response();
+            }
+            let method = req.method.clone();
+            let (st, resp) = dispatch_jsonrpc_request(&state, &headers, req).await;
+            respond_jsonrpc(method.as_str(), st, resp).into_response()
+        }
+        _ => respond_jsonrpc(
+            "jsonrpc",
+            StatusCode::OK,
+            rpc_error(
+                None,
+                -32600,
+                "Invalid Request: top-level JSON must be an object or array".into(),
+            ),
+        )
+        .into_response(),
+    }
+}
+
+async fn dispatch_jsonrpc_request(
+    state: &RpcState,
+    headers: &HeaderMap,
+    req: JsonRpcRequest,
+) -> (StatusCode, JsonRpcResponse) {
     let node = &state.node;
     let id = req.id;
 
@@ -393,22 +1022,22 @@ async fn handle_rpc(
             let hex_tx = match params {
                 Some(v) if !v.is_empty() => v[0].clone(),
                 _ => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_signed_tx]".into(),
-                        )),
+                        ),
                     )
                 }
             };
             match hex::decode(hex_tx.trim_start_matches("0x")) {
                 Ok(bytes) => match bincode::deserialize::<SignedTransaction>(&bytes) {
                     Ok(signed) => {
+                        let gossip_copy = signed.clone();
                         let n = node.read().await;
                         match n.submit_transaction(signed) {
                             Ok(()) => {
+                                let _ = n.p2p.broadcast_signed_transaction(&gossip_copy);
                                 info!("RPC: transaction submitted");
                                 rpc_ok(id, serde_json::json!({"tx_hash": "ok"}))
                             }
@@ -500,14 +1129,12 @@ async fn handle_rpc(
         }
         "boing_qaPoolVote" => {
             if !state.operator_authorized(&headers) {
-                return (
-                    StatusCode::OK,
-                    Json(rpc_error(
+                return (StatusCode::OK, rpc_error(
                         id,
                         -32057,
                         "Operator authentication required: set X-Boing-Operator to match the node's BOING_OPERATOR_RPC_TOKEN."
                             .into(),
-                    )),
+                    ),
                 );
             }
             let params = req
@@ -516,27 +1143,25 @@ async fn handle_rpc(
             let (tx_hex, voter_hex, vote_s) = match params {
                 Some(v) if v.len() >= 3 => (v[0].clone(), v[1].clone(), v[2].clone()),
                 _ => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [tx_hash_hex, voter_hex, allow|reject|abstain]".into(),
-                        )),
+                        ),
                     );
                 }
             };
             let tx_hash = match parse_hash32_hex(&tx_hex) {
                 Ok(h) => h,
-                Err(e) => return (StatusCode::OK, Json(rpc_error(id, -32602, e))),
+                Err(e) => return (StatusCode::OK, rpc_error(id, -32602, e)),
             };
             let voter = match parse_account_id_hex(&voter_hex) {
                 Ok(a) => a,
-                Err(e) => return (StatusCode::OK, Json(rpc_error(id, -32602, e))),
+                Err(e) => return (StatusCode::OK, rpc_error(id, -32602, e)),
             };
             let vote = match parse_qa_pool_vote(&vote_s) {
                 Ok(v) => v,
-                Err(e) => return (StatusCode::OK, Json(rpc_error(id, -32602, e))),
+                Err(e) => return (StatusCode::OK, rpc_error(id, -32602, e)),
             };
             let n = node.read().await;
             match n.qa_pool_vote(tx_hash, voter, vote) {
@@ -573,14 +1198,12 @@ async fn handle_rpc(
         }
         "boing_operatorApplyQaPolicy" => {
             if !state.operator_authorized(&headers) {
-                return (
-                    StatusCode::OK,
-                    Json(rpc_error(
+                return (StatusCode::OK, rpc_error(
                         id,
                         -32057,
                         "Operator authentication required: set X-Boing-Operator to match the node's BOING_OPERATOR_RPC_TOKEN."
                             .into(),
-                    )),
+                    ),
                 );
             }
             let params = req
@@ -589,39 +1212,33 @@ async fn handle_rpc(
             let (reg_json, pool_json) = match params {
                 Some(v) if v.len() >= 2 => (v[0].clone(), v[1].clone()),
                 _ => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [qa_registry_json, qa_pool_config_json] (two JSON strings).".into(),
-                        )),
+                        ),
                     );
                 }
             };
             let registry = match rule_registry_from_json(reg_json.as_bytes()) {
                 Ok(r) => r,
                 Err(e) => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             format!("Invalid qa_registry JSON: {}", e),
-                        )),
+                        ),
                     );
                 }
             };
             let pool_cfg = match qa_pool_config_from_json(pool_json.as_bytes()) {
                 Ok(c) => c,
                 Err(e) => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             format!("Invalid qa_pool_config JSON: {}", e),
-                        )),
+                        ),
                     );
                 }
             };
@@ -634,6 +1251,28 @@ async fn handle_rpc(
             let n = node.read().await;
             let height = n.chain.height();
             rpc_ok(id, serde_json::json!(height))
+        }
+        "boing_health" => {
+            let n = node.read().await;
+            let chain_id = std::env::var("BOING_CHAIN_ID")
+                .ok()
+                .and_then(|s| s.trim().parse::<u64>().ok());
+            let chain_name = std::env::var("BOING_CHAIN_NAME")
+                .ok()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty());
+            rpc_ok(
+                id,
+                serde_json::json!({
+                    "ok": true,
+                    "client_version": format!("boing-node/{}", env!("CARGO_PKG_VERSION")),
+                    "chain_id": chain_id,
+                    "chain_name": chain_name,
+                    "head_height": n.chain.height(),
+                    "rpc_surface": rpc_surface_capabilities(state),
+                    "rpc_metrics": rpc_metrics_snapshot(state),
+                }),
+            )
         }
         "boing_clientVersion" => rpc_ok(
             id,
@@ -661,6 +1300,69 @@ async fn handle_rpc(
                 }),
             )
         }
+        "boing_getNetworkInfo" => {
+            let n = node.read().await;
+            let head_height = n.chain.height();
+            let latest_block_hash = n.chain.latest_hash();
+            let chain_id = std::env::var("BOING_CHAIN_ID")
+                .ok()
+                .and_then(|s| s.trim().parse::<u64>().ok());
+            let chain_name = std::env::var("BOING_CHAIN_NAME")
+                .ok()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty());
+            let agg = &n.native_aggregates;
+            rpc_ok(
+                id,
+                serde_json::json!({
+                    "chain_id": chain_id,
+                    "chain_name": chain_name,
+                    "head_height": head_height,
+                    "finalized_height": head_height,
+                    "latest_block_hash": format!("0x{}", hex::encode(latest_block_hash.0)),
+                    "target_block_time_secs": BLOCK_TIME_SECS,
+                    "client_version": format!("boing-node/{}", env!("CARGO_PKG_VERSION")),
+                    "consensus": {
+                        "validator_count": n.consensus.num_validators(),
+                        "model": "hotstuff_bft"
+                    },
+                    "native_currency": {
+                        "symbol": "BOING",
+                        "decimals": 18
+                    },
+                    "chain_native": {
+                        "account_count": agg.account_count,
+                        "total_balance": agg.total_balance.to_string(),
+                        "total_stake": agg.total_stake.to_string(),
+                        "total_native_held": agg.total_native_held.to_string(),
+                        "as_of_height": head_height,
+                    },
+                    "developer": network_info_developer_hints(),
+                    "rpc_surface": rpc_surface_capabilities(state),
+                    "end_user": end_user_network_hints(),
+                    "rpc": {
+                        "not_available": ["staking_apy"],
+                        "not_available_note": "This JSON-RPC surface does not expose staking APY. Chain-wide sums of committed account balances and stakes are in chain_native (not circulating supply or treasury totals). Per-account balance and stake are available via boing_getAccount. For APY or custom supply definitions, use protocol metrics or indexers."
+                    }
+                }),
+            )
+        }
+        "boing_getRpcMethodCatalog" => {
+            let root = developer_api_document();
+            let cat = root
+                .get("method_catalog")
+                .cloned()
+                .unwrap_or(serde_json::Value::Null);
+            rpc_ok(id, cat)
+        }
+        "boing_getRpcOpenApi" => {
+            let root = developer_api_document();
+            let oa = root
+                .get("openapi")
+                .cloned()
+                .unwrap_or(serde_json::Value::Null);
+            rpc_ok(id, oa)
+        }
         "boing_getBalance" => {
             let params = req
                 .params
@@ -668,13 +1370,11 @@ async fn handle_rpc(
             let hex_account = match params {
                 Some(v) if !v.is_empty() => v[0].clone(),
                 _ => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_account_id]".into(),
-                        )),
+                        ),
                     )
                 }
             };
@@ -701,13 +1401,11 @@ async fn handle_rpc(
             let hex_account = match params {
                 Some(v) if !v.is_empty() => v[0].clone(),
                 _ => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_account_id]".into(),
-                        )),
+                        ),
                     )
                 }
             };
@@ -750,39 +1448,33 @@ async fn handle_rpc(
             let (hex_contract, hex_key) = match params.as_ref() {
                 Some(v) if v.len() >= 2 => (v[0].clone(), v[1].clone()),
                 _ => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_contract_id, hex_storage_key]".into(),
-                        )),
+                        ),
                     );
                 }
             };
             let contract_bytes = match hex::decode(hex_contract.trim_start_matches("0x")) {
                 Ok(b) if b.len() == 32 => b,
                 _ => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             "Invalid contract id: expected 32 bytes hex".into(),
-                        )),
+                        ),
                     )
                 }
             };
             let key_bytes = match hex::decode(hex_key.trim_start_matches("0x")) {
                 Ok(b) if b.len() == 32 => b,
                 _ => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             "Invalid storage key: expected 32 bytes hex".into(),
-                        )),
+                        ),
                     )
                 }
             };
@@ -807,13 +1499,11 @@ async fn handle_rpc(
             let hex_account = match params {
                 Some(v) if !v.is_empty() => v[0].clone(),
                 _ => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_account_id]".into(),
-                        )),
+                        ),
                     )
                 }
             };
@@ -853,13 +1543,11 @@ async fn handle_rpc(
             let (hex_proof, hex_root) = match params {
                 Some(v) if v.len() >= 2 => (v[0].clone(), v[1].clone()),
                 _ => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_proof, hex_state_root]".into(),
-                        )),
+                        ),
                     )
                 }
             };
@@ -887,13 +1575,11 @@ async fn handle_rpc(
             let hex_tx = match params {
                 Some(v) if !v.is_empty() => v[0].clone(),
                 _ => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_signed_tx]".into(),
-                        )),
+                        ),
                     )
                 }
             };
@@ -949,24 +1635,20 @@ async fn handle_rpc(
             let height = match params.as_ref() {
                 Some(v) if !v.is_empty() => v[0].as_u64(),
                 _ => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [height] or [height, include_receipts]"
                                 .into(),
-                        )),
+                        ),
                     );
                 }
             };
             let height = match height {
                 Some(h) => h,
                 None => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(id, -32602, "Invalid height: expected u64".into())),
-                    )
+                    return (StatusCode::OK, rpc_error(id, -32602, "Invalid height: expected u64".into()),
+                    );
                 }
             };
             let include_receipts = params
@@ -1008,13 +1690,11 @@ async fn handle_rpc(
             let hex_id = match params {
                 Some(v) if !v.is_empty() => v[0].clone(),
                 _ => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_tx_id]".into(),
-                        )),
+                        ),
                     );
                 }
             };
@@ -1036,68 +1716,60 @@ async fn handle_rpc(
             let filter_val = match params.as_ref().and_then(|v| v.first()) {
                 Some(v) => v.clone(),
                 None => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [filter_object] with fromBlock and toBlock"
                                 .into(),
-                        )),
+                        ),
                     );
                 }
             };
             let filter: GetLogsFilterParams = match serde_json::from_value(filter_val) {
                 Ok(f) => f,
                 Err(e) => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             format!("Invalid getLogs filter: {}", e),
-                        )),
+                        ),
                     );
                 }
             };
             let from_block = match json_block_number(&filter.from_block) {
                 Ok(h) => h,
-                Err(e) => return (StatusCode::OK, Json(rpc_error(id, -32602, e))),
+                Err(e) => return (StatusCode::OK, rpc_error(id, -32602, e)),
             };
             let to_block = match json_block_number(&filter.to_block) {
                 Ok(h) => h,
-                Err(e) => return (StatusCode::OK, Json(rpc_error(id, -32602, e))),
+                Err(e) => return (StatusCode::OK, rpc_error(id, -32602, e)),
             };
             if to_block < from_block {
-                return (
-                    StatusCode::OK,
-                    Json(rpc_error(id, -32602, "toBlock must be >= fromBlock".into())),
+                return (StatusCode::OK, rpc_error(id, -32602, "toBlock must be >= fromBlock".into()),
                 );
             }
             let span = to_block.saturating_sub(from_block).saturating_add(1);
             if span > GET_LOGS_MAX_BLOCK_RANGE {
-                return (
-                    StatusCode::OK,
-                    Json(rpc_error(
+                return (StatusCode::OK, rpc_error(
                         id,
                         -32602,
                         format!(
                             "block range too large (max {} inclusive blocks)",
                             GET_LOGS_MAX_BLOCK_RANGE
                         ),
-                    )),
+                    ),
                 );
             }
             let addr_filter = match filter.address.as_deref() {
                 None | Some("") => None,
                 Some(s) => match parse_account_id_hex(s) {
                     Ok(a) => Some(a),
-                    Err(e) => return (StatusCode::OK, Json(rpc_error(id, -32602, e))),
+                    Err(e) => return (StatusCode::OK, rpc_error(id, -32602, e)),
                 },
             };
             let topic_filter = match parse_topics_filter(filter.topics) {
                 Ok(t) => t,
-                Err(e) => return (StatusCode::OK, Json(rpc_error(id, -32602, e))),
+                Err(e) => return (StatusCode::OK, rpc_error(id, -32602, e)),
             };
 
             let n = node.read().await;
@@ -1125,16 +1797,14 @@ async fn handle_rpc(
                             continue;
                         }
                         if out.len() >= GET_LOGS_MAX_RESULTS {
-                            return (
-                                StatusCode::OK,
-                                Json(rpc_error(
+                            return (StatusCode::OK, rpc_error(
                                     id,
                                     -32603,
                                     format!(
                                         "log result limit exceeded (max {}); narrow filters or block range",
                                         GET_LOGS_MAX_RESULTS
                                     ),
-                                )),
+                                ),
                             );
                         }
                         let addr_hex = emit_addr.map(|a| format!("0x{}", hex::encode(a.0)));
@@ -1160,26 +1830,22 @@ async fn handle_rpc(
                 Some(v) if !v.is_empty() => match v[0].as_str() {
                     Some(s) => s.to_string(),
                     None => {
-                        return (
-                            StatusCode::OK,
-                            Json(rpc_error(
+                        return (StatusCode::OK, rpc_error(
                                 id,
                                 -32602,
                                 "Invalid params: expected [hex_block_hash] or [hex_block_hash, include_receipts]"
                                     .into(),
-                            )),
+                            ),
                         );
                     }
                 },
                 _ => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_block_hash] or [hex_block_hash, include_receipts]"
                                 .into(),
-                        )),
+                        ),
                     );
                 }
             };
@@ -1191,16 +1857,12 @@ async fn handle_rpc(
             let bytes = match hex::decode(hex_hash.trim_start_matches("0x")) {
                 Ok(b) if b.len() == 32 => b,
                 Ok(_) => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(id, -32602, "Hash must be 32 bytes".into())),
-                    )
+                    return (StatusCode::OK, rpc_error(id, -32602, "Hash must be 32 bytes".into()),
+                    );
                 }
                 Err(e) => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(id, -32602, format!("Invalid hex: {}", e))),
-                    )
+                    return (StatusCode::OK, rpc_error(id, -32602, format!("Invalid hex: {}", e)),
+                    );
                 }
             };
             let mut arr = [0u8; 32];
@@ -1242,13 +1904,11 @@ async fn handle_rpc(
             let (hex_contract, hex_owner) = match params {
                 Some(v) if v.len() >= 2 => (v[0].clone(), v[1].clone()),
                 _ => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_contract, hex_owner]".into(),
-                        )),
+                        ),
                     )
                 }
             };
@@ -1285,18 +1945,16 @@ async fn handle_rpc(
                 .and_then(|p| serde_json::from_value::<Vec<serde_json::Value>>(p).ok());
             let hex_bytecode = match params.as_ref().and_then(|v| v.first()) {
                 Some(serde_json::Value::String(s)) => s.clone(),
-                _ => return (StatusCode::OK, Json(rpc_error(id, -32602, "Invalid params: expected [hex_bytecode] or [hex_bytecode, purpose_category?, description_hash?, asset_name?, asset_symbol?]".into()))),
+                _ => return (StatusCode::OK, rpc_error(id, -32602, "Invalid params: expected [hex_bytecode] or [hex_bytecode, purpose_category?, description_hash?, asset_name?, asset_symbol?]".into())),
             };
             let bytecode = match hex::decode(hex_bytecode.trim_start_matches("0x")) {
                 Ok(b) => b,
                 Err(e) => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             format!("Invalid hex bytecode: {}", e),
-                        )),
+                        ),
                     )
                 }
             };
@@ -1365,13 +2023,11 @@ async fn handle_rpc(
             let hex_intent = match params {
                 Some(v) if !v.is_empty() => v[0].clone(),
                 _ => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_signed_intent]".into(),
-                        )),
+                        ),
                     )
                 }
             };
@@ -1397,33 +2053,27 @@ async fn handle_rpc(
         }
         "boing_faucetRequest" => {
             let Some(ref faucet_signer) = state.faucet_signer else {
-                return (
-                    StatusCode::OK,
-                    Json(rpc_error(
+                return (StatusCode::OK, rpc_error(
                         id,
                         -32601,
                         "Faucet not enabled on this node.".into(),
-                    )),
+                    ),
                 );
             };
             let Some(ref cooldown) = state.faucet_cooldown else {
-                return (
-                    StatusCode::OK,
-                    Json(rpc_error(
+                return (StatusCode::OK, rpc_error(
                         id,
                         -32601,
                         "Faucet not enabled on this node.".into(),
-                    )),
+                    ),
                 );
             };
             let Some(ref submit_lock) = state.faucet_submit_lock else {
-                return (
-                    StatusCode::OK,
-                    Json(rpc_error(
+                return (StatusCode::OK, rpc_error(
                         id,
                         -32601,
                         "Faucet not enabled on this node.".into(),
-                    )),
+                    ),
                 );
             };
             let params = req
@@ -1432,33 +2082,27 @@ async fn handle_rpc(
             let hex_account = match params {
                 Some(v) if !v.is_empty() => v[0].clone(),
                 _ => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_account_id] (32 bytes hex)".into(),
-                        )),
+                        ),
                     )
                 }
             };
             let to_bytes = match hex::decode(hex_account.trim_start_matches("0x")) {
                 Ok(b) if b.len() == 32 => b,
                 Ok(_) => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             "Account ID must be 32 bytes hex.".into(),
-                        )),
+                        ),
                     )
                 }
                 Err(e) => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(id, -32602, format!("Invalid hex: {}", e))),
-                    )
+                    return (StatusCode::OK, rpc_error(id, -32602, format!("Invalid hex: {}", e)),
+                    );
                 }
             };
             let mut arr = [0u8; 32];
@@ -1470,16 +2114,14 @@ async fn handle_rpc(
                 let map = cooldown.lock().unwrap();
                 if let Some(&last) = map.get(&to_id) {
                     if last.elapsed() < COOLDOWN {
-                        return (
-                            StatusCode::OK,
-                            Json(rpc_error(
+                        return (StatusCode::OK, rpc_error(
                                 id,
                                 -32016,
                                 format!(
                                     "Faucet cooldown: try again in {} seconds.",
                                     (COOLDOWN.as_secs()).saturating_sub(last.elapsed().as_secs())
                                 ),
-                            )),
+                            ),
                         );
                     }
                 }
@@ -1492,20 +2134,16 @@ async fn handle_rpc(
             let (chain_nonce, balance_ok) = match n.state.get(&faucet_id) {
                 Some(s) => (s.nonce, s.balance >= faucet::FAUCET_DISPENSE_AMOUNT),
                 None => {
-                    return (
-                        StatusCode::OK,
-                        Json(rpc_error(
+                    return (StatusCode::OK, rpc_error(
                             id,
                             -32000,
                             "Faucet account not initialized.".into(),
-                        )),
+                        ),
                     );
                 }
             };
             if !balance_ok {
-                return (
-                    StatusCode::OK,
-                    Json(rpc_error(id, -32000, "Faucet balance too low.".into())),
+                return (StatusCode::OK, rpc_error(id, -32000, "Faucet balance too low.".into()),
                 );
             }
             let nonce = n
@@ -1521,10 +2159,12 @@ async fn handle_rpc(
                 access_list: AccessList::new(vec![faucet_id, to_id], vec![faucet_id, to_id]),
             };
             let signed = SignedTransaction::new(tx, faucet_signer.as_ref());
+            let gossip_copy = signed.clone();
             drop(n);
             let n = node.write().await;
             match n.submit_transaction(signed) {
                 Ok(()) => {
+                    let _ = n.p2p.broadcast_signed_transaction(&gossip_copy);
                     if let Ok(mut map) = cooldown.lock() {
                         map.insert(to_id, Instant::now());
                     }
@@ -1546,20 +2186,137 @@ async fn handle_rpc(
                 Err(e) => rpc_error(id, -32000, format!("Faucet submit failed: {}", e)),
             }
         }
-        _ => rpc_error(id, -32601, format!("Method not found: {}", req.method)),
+        _ => {
+            state
+                .rpc_metrics
+                .method_not_found
+                .fetch_add(1, Ordering::Relaxed);
+            rpc_error_with_data(
+                id,
+                -32601,
+                format!("Method not found: {}", req.method),
+                serde_json::json!({ "method": req.method }),
+            )
+        }
     };
 
-    (StatusCode::OK, Json(result))
+    (StatusCode::OK, result)
+}
+
+/// Per-request span for the HTTP RPC stack (after [`SetRequestIdLayer`]); includes **`x-request-id`** for log correlation.
+fn rpc_http_make_span<B>(req: &HttpRequest<B>) -> tracing::Span {
+    let request_id = req
+        .extensions()
+        .get::<RequestId>()
+        .and_then(|id| id.header_value().to_str().ok())
+        .filter(|s| !s.is_empty())
+        .unwrap_or("-");
+    tracing::info_span!(
+        "rpc_http",
+        method = %req.method(),
+        path = %req.uri().path(),
+        request_id = %request_id,
+    )
+}
+
+fn rpc_http_trace_layer() -> TraceLayer<
+    tower_http::classify::SharedClassifier<tower_http::classify::ServerErrorsAsFailures>,
+    fn(&HttpRequest<axum::body::Body>) -> tracing::Span,
+    DefaultOnRequest,
+    DefaultOnResponse,
+    tower_http::trace::DefaultOnBodyChunk,
+    tower_http::trace::DefaultOnEos,
+    DefaultOnFailure,
+> {
+    TraceLayer::new_for_http()
+        .make_span_with(rpc_http_make_span as fn(&HttpRequest<axum::body::Body>) -> tracing::Span)
+        .on_request(DefaultOnRequest::new().level(Level::DEBUG))
+        .on_response(
+            DefaultOnResponse::new()
+                .level(Level::DEBUG)
+                .latency_unit(LatencyUnit::Millis),
+        )
+        .on_failure(DefaultOnFailure::new().level(Level::WARN))
+}
+
+fn build_rpc_cors_layer() -> CorsLayer {
+    let mut origins = vec![
+        HeaderValue::from_static("https://boing.observer"),
+        HeaderValue::from_static("https://boing.express"),
+        HeaderValue::from_static("https://boing.network"),
+        HeaderValue::from_static("https://www.boing.network"),
+        HeaderValue::from_static("https://boing.finance"),
+        HeaderValue::from_static("https://www.boing.finance"),
+        HeaderValue::from_static("https://bootnode2.boing.network"),
+        HeaderValue::from_static("https://testnet-rpc-2.boing.network"),
+        HeaderValue::from_static("http://localhost:3000"),
+        HeaderValue::from_static("http://localhost:4321"),
+        HeaderValue::from_static("http://127.0.0.1:3000"),
+        HeaderValue::from_static("http://127.0.0.1:4321"),
+        HeaderValue::from_static("http://localhost:5173"),
+        HeaderValue::from_static("http://127.0.0.1:5173"),
+        HeaderValue::from_static("http://localhost:5174"),
+        HeaderValue::from_static("http://127.0.0.1:5174"),
+        HeaderValue::from_static("http://localhost:4173"),
+        HeaderValue::from_static("http://127.0.0.1:4173"),
+        HeaderValue::from_static("http://localhost:8080"),
+        HeaderValue::from_static("http://127.0.0.1:8080"),
+    ];
+    let mut cors_extra_merged: usize = 0;
+    if let Ok(raw) = std::env::var("BOING_RPC_CORS_EXTRA_ORIGINS") {
+        for part in raw.split(',') {
+            let t = part.trim();
+            if t.is_empty() {
+                continue;
+            }
+            match HeaderValue::from_str(t) {
+                Ok(v) => {
+                    origins.push(v);
+                    cors_extra_merged = cors_extra_merged.saturating_add(1);
+                }
+                Err(_) => tracing::warn!(
+                    origin = %t,
+                    "BOING_RPC_CORS_EXTRA_ORIGINS: skipped invalid origin"
+                ),
+            }
+        }
+    }
+    if cors_extra_merged > 0 {
+        tracing::info!(
+            merged = cors_extra_merged,
+            "BOING_RPC_CORS_EXTRA_ORIGINS: merged extra browser origins for JSON-RPC POST / and WebSocket GET /ws"
+        );
+    }
+    CorsLayer::new()
+        .allow_origin(AllowOrigin::list(origins))
+        .allow_methods([Method::GET, Method::HEAD, Method::POST, Method::OPTIONS])
+        .allow_headers([
+            CONTENT_TYPE,
+            HeaderName::from_static("x-boing-operator"),
+            HeaderName::from_static("x-request-id"),
+            HeaderName::from_static("sec-websocket-protocol"),
+            HeaderName::from_static("sec-websocket-version"),
+            HeaderName::from_static("sec-websocket-key"),
+            HeaderName::from_static("upgrade"),
+            HeaderName::from_static("connection"),
+        ])
+        .expose_headers([
+            HeaderName::from_static("x-boing-rpc-version"),
+            HeaderName::from_static("x-request-id"),
+            HeaderName::from_static("retry-after"),
+        ])
 }
 
 /// Build the RPC router.
 /// When `rate_limit` has `requests_per_sec > 0`, applies global rate limiting.
 /// When `faucet_signer` is Some, enables boing_faucetRequest (testnet only).
+/// When `head_broadcast` is Some, WebSocket **`GET /ws`** streams **newHeads** (see `network_info_developer_hints`).
 pub fn rpc_router(
     node: NodeState,
     rate_limit: &RateLimitConfig,
     faucet_signer: Option<Arc<ed25519_dalek::SigningKey>>,
     operator_rpc_token: Option<Arc<str>>,
+    head_broadcast: Option<broadcast::Sender<serde_json::Value>>,
 ) -> Router {
     let rate_limiter = if rate_limit.requests_per_sec > 0 {
         let rps = NonZeroU32::new(rate_limit.requests_per_sec.max(1))
@@ -1582,29 +2339,49 @@ pub fn rpc_router(
         (None, None, None)
     };
 
-    let cors = CorsLayer::new()
-        .allow_origin(AllowOrigin::list(vec![
-            HeaderValue::from_static("https://boing.observer"),
-            HeaderValue::from_static("https://boing.express"),
-            HeaderValue::from_static("https://boing.network"),
-            HeaderValue::from_static("https://www.boing.network"),
-            HeaderValue::from_static("https://boing.finance"),
-            HeaderValue::from_static("https://www.boing.finance"),
-            HeaderValue::from_static("https://bootnode2.boing.network"),
-            HeaderValue::from_static("https://testnet-rpc-2.boing.network"),
-            HeaderValue::from_static("http://localhost:3000"),
-            HeaderValue::from_static("http://localhost:4321"),
-            HeaderValue::from_static("http://127.0.0.1:3000"),
-            HeaderValue::from_static("http://127.0.0.1:4321"),
-            HeaderValue::from_static("http://localhost:5173"),
-            HeaderValue::from_static("http://127.0.0.1:5173"),
-        ]))
-        .allow_methods([Method::POST, Method::OPTIONS])
-        .allow_headers([CONTENT_TYPE, HeaderName::from_static("x-boing-operator")]);
+    let cors = build_rpc_cors_layer();
+
+    let rpc_version_hdr = HeaderValue::try_from(format!("boing-node/{}", env!("CARGO_PKG_VERSION")))
+        .expect("CARGO_PKG_VERSION produces valid header value");
+
+    let ws_max_connections = max_ws_connections();
+    let ws_active = Arc::new(AtomicUsize::new(0));
+
+    let rate_limit_requests_per_sec = rate_limit.requests_per_sec;
+    let rpc_metrics = Arc::new(RpcHttpMetrics::default());
 
     Router::new()
-        .route("/", post(handle_rpc))
+        .route(
+            "/",
+            get(http_root_get)
+                .head(http_head_root)
+                .post(handle_rpc)
+                .options(http_options_root),
+        )
+        .route("/openapi.json", get(http_openapi_json))
+        .route("/.well-known/boing-rpc", get(http_well_known_boing_rpc))
+        .route("/live", get(http_live).head(http_head_live))
+        .route("/live.json", get(http_live).head(http_head_live))
+        .route("/ready", get(http_ready).head(http_head_ready))
+        .route("/ready.json", get(http_ready).head(http_head_ready))
+        .route(
+            "/ws",
+            get(crate::rpc_ws::ws_new_heads_upgrade),
+        )
+        .layer(
+            ServiceBuilder::new()
+                .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
+                .layer(rpc_http_trace_layer())
+                .layer(PropagateRequestIdLayer::x_request_id()),
+        )
+        .layer(SetResponseHeaderLayer::overriding(
+            HeaderName::from_static("x-boing-rpc-version"),
+            rpc_version_hdr,
+        ))
+        // Large signed-tx hex payloads (e.g. contract deploy); override with BOING_RPC_MAX_BODY_MB.
+        .layer(DefaultBodyLimit::max(max_rpc_body_bytes()))
         .layer(cors)
+        .layer(middleware::from_fn(map_payload_too_large_to_json))
         .with_state(RpcState {
             node,
             rate_limiter,
@@ -1612,5 +2389,10 @@ pub fn rpc_router(
             faucet_cooldown,
             faucet_submit_lock,
             operator_rpc_token,
+            head_broadcast,
+            ws_active,
+            ws_max_connections,
+            rate_limit_requests_per_sec,
+            rpc_metrics,
         })
 }

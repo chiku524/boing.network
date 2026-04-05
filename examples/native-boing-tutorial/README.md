@@ -1,10 +1,12 @@
-# Native Boing tutorial (SDK — no ethers)
+# Native Boing tutorial (SDK only — no foreign chain client)
 
 End-to-end examples for **Boing L1** using only **`boing-sdk`**: transfer, reference-token `contract_call`, and a minimal `contract_deploy` with QA. For **browser + Boing Express**, use the same RPC helpers and `window.boing.request({ method: 'boing_sendTransaction', params: [...] })` per [BOING-EXPRESS-WALLET.md](../../docs/BOING-EXPRESS-WALLET.md).
 
+**Form-parity deploy (pinned bytecode + `contract_deploy_meta`):** [BOING-CANONICAL-DEPLOY-ARTIFACTS.md](../../docs/BOING-CANONICAL-DEPLOY-ARTIFACTS.md) and **`boing-sdk`** `buildContractDeployMetaTx` / `resolveReferenceFungibleTemplateBytecodeHex`. Hex dump: `cargo run -p boing-execution --example dump_reference_token_artifacts` (line **1** = smoke tests only; line **2** = fungible template; line **3** = NFT collection).
+
 ## Prereqs
 
-1. A running Boing node RPC (e.g. `http://127.0.0.1:8545`).
+1. A running Boing node RPC (e.g. `http://127.0.0.1:8545` or `https://testnet-rpc.boing.network`). For native AMM scripts, set **`BOING_POOL_HEX`** to your pool `AccountId`, or after **`cd ../../boing-sdk && npm run build`** use the exported default: `import { CANONICAL_BOING_TESTNET_NATIVE_CP_POOL_HEX } from 'boing-sdk'` (same value as [RPC-API-SPEC.md](../../docs/RPC-API-SPEC.md) § Native constant-product AMM; [OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](../../docs/OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md) § Published).
 2. Funded account: 32-byte Ed25519 **secret** as hex (`0x` + 64 hex chars). Testnet: `boing_faucetRequest` via SDK or site faucet.
 3. Build the SDK:
 
@@ -17,6 +19,14 @@ cd ../../boing-sdk && npm install && npm run build
 ```bash
 cd examples/native-boing-tutorial && npm install
 ```
+
+5. **Before relying on public testnet RPC** (deploy, faucet, etc.), run **`npm run preflight-rpc`** or **`npm run check-testnet-rpc`** (uses **`BOING_RPC_URL`**; **`preflight-rpc`** adds a one-shot sync-state poll). See [NETWORK-GO-LIVE-CHECKLIST.md](../../docs/NETWORK-GO-LIVE-CHECKLIST.md) and [PRE-VIBEMINER-NODE-COMMANDS.md](../../docs/PRE-VIBEMINER-NODE-COMMANDS.md).
+
+**Note:** Native AMM bytecode dumps are **gitignored**. From the repo root, write **two lines** (v1 then v2) without mixing stderr into the file:
+
+`cargo run -p boing-execution --example dump_native_amm_pool 2>pool-meta.txt 1>pool-lines.hex`
+
+Use **line 1 only** for v1 deploy, or set **`BOING_NATIVE_AMM_VARIANT=v1`** (default) and pass **`pool-lines.hex`** to **`deploy-native-amm-pool`** — it picks the correct line. See [DEVNET-OPERATOR-NATIVE-AMM.md](../../docs/DEVNET-OPERATOR-NATIVE-AMM.md).
 
 ## Scripts
 
@@ -45,7 +55,195 @@ Requires a **deployed** reference-token contract.
 
 Sends reference **`transfer(to, amount)`** calldata ([BOING-REFERENCE-TOKEN.md](../../docs/BOING-REFERENCE-TOKEN.md)). Set `BOING_TRANSFER_TO_HEX` and `BOING_TRANSFER_AMOUNT` (default `1`).
 
-### 3. Minimal deploy (`npm run deploy-minimal`)
+### 3. Chunked log query (`npm run fetch-logs-range`)
+
+Read-only: **`getLogsChunked`** over `[BOING_FROM_BLOCK, BOING_TO_BLOCK]` (splits into ≤128-block RPC spans). Optional **`BOING_MAX_CONCURRENT`** > 1 parallelizes chunk requests when your RPC allows it.
+
+| Variable | Required |
+|----------|----------|
+| `BOING_FROM_BLOCK` | yes (integer) |
+| `BOING_TO_BLOCK` | yes (integer) |
+| `BOING_RPC_URL` | no |
+| `BOING_ADDRESS` | no (filter by contract account) |
+| `BOING_MAX_CONCURRENT` | no (default `1`) |
+
+### 4. Block + receipts range (`npm run fetch-blocks-range`)
+
+Read-only: **`fetchBlocksWithReceiptsForHeightRange`** (one `boing_getBlockByHeight(h, true)` per height; optional **`BOING_MAX_CONCURRENT`**). Matches the **canonical indexer replay** path in [INDEXER-RECEIPT-AND-LOG-INGESTION.md](../../docs/INDEXER-RECEIPT-AND-LOG-INGESTION.md).
+
+| Variable | Required |
+|----------|----------|
+| `BOING_FROM_HEIGHT` | yes (integer) |
+| `BOING_TO_HEIGHT` | yes (integer) |
+| `BOING_RPC_URL` | no |
+| `BOING_MAX_CONCURRENT` | no (default `1`) |
+| `BOING_CLAMP_TO_DURABLE` | no — set `1` or `true` to cap the range with **`getIndexerChainTips`** + **`clampIndexerHeightRange`** |
+| `BOING_OMIT_MISSING` | no — set `1` or `true` for `onMissingBlock: 'omit'` (pruned heights) |
+| `BOING_VERBOSE` | no — set `1` or `true`, or pass **`--verbose`**, to add **`verbose.perBlock`** and **`verbose.txIdsSample`** (bounded **`tx_id`** list from receipts) |
+| `BOING_VERBOSE_TX_LIMIT` | no — default `24` max rows in **`txIdsSample`** |
+
+### 5. RPC capability probe (`npm run probe-rpc`)
+
+Runs the script in **`boing-sdk/scripts/probe-rpc.mjs`** (needs **`cd ../../boing-sdk && npm run build`** first). Same as **`npm run probe-rpc`** from **`boing-sdk`** or the monorepo root.
+
+Read-only: **`probeBoingRpcCapabilities`** — checks **`boing_chainHeight`**, **`boing_getSyncState`**, **`boing_getBlockByHeight`**, **`boing_getLogs`**, **`boing_getTransactionReceipt`**, **`boing_getNetworkInfo`**. JSON includes **`diagnosis`** when **`explainBoingRpcProbeGaps`** applies (e.g. **-32601** while **`boing_chainHeight`** works → upgrade **`boing-node`** or fix a filtering proxy — see [RPC-API-SPEC.md](../../docs/RPC-API-SPEC.md), [RUNBOOK.md](../../docs/RUNBOOK.md)).
+
+| Variable | Required |
+|----------|----------|
+| `BOING_RPC_URL` | no |
+
+### 5b. Public RPC preflight (`npm run check-testnet-rpc`)
+
+Read-only: **`boing_chainHeight`** against **`BOING_RPC_URL`** (default **`https://testnet-rpc.boing.network`**). Exits **0** only when the endpoint returns a normal JSON-RPC result — use after bringing up **Cloudflare Tunnel** + **`boing-node`**. Set **`BOING_PROBE_FULL=1`** to include **`probeBoingRpcCapabilities`** (same signals as **`probe-rpc`**, without requiring a separate **`boing-sdk` cwd**). See [NETWORK-GO-LIVE-CHECKLIST.md](../../docs/NETWORK-GO-LIVE-CHECKLIST.md).
+
+| Variable | Required |
+|----------|----------|
+| `BOING_RPC_URL` | no |
+| `BOING_PROBE_FULL` | no — **`1`** for full method probe |
+
+### 5c. Combined preflight (`npm run preflight-rpc`)
+
+One **Node** process (same checks as **`check-testnet-rpc`** then a one-shot **`boing_getSyncState`** line) so Windows does not hit a **libuv** teardown race from chained **`spawnSync`**. **Second JSON line:** if **`sync._error`** mentions **`Method not found`** for **`boing_getSyncState`**, the preflight still **succeeded** — many public RPCs omit that method; upgrade **`boing-node`** if you need sync fields for indexers. **`boing_chainHeight`** must succeed. Same **`BOING_RPC_URL`** / **`BOING_PROBE_FULL`** as §5b. See [PRE-VIBEMINER-NODE-COMMANDS.md](../../docs/PRE-VIBEMINER-NODE-COMMANDS.md).
+
+### 6. Indexer chain tips (`npm run indexer-chain-tips`)
+
+Read-only: **`getIndexerChainTips`** (`headHeight`, `finalizedHeight`, **`durableIndexThrough`**) from **`boing_getSyncState`**. Optional: set **`BOING_FROM_HEIGHT`** and **`BOING_TO_HEIGHT`** to print **`clampIndexerHeightRange`** (caps the high end to the durable tip).
+
+| Variable | Required |
+|----------|----------|
+| `BOING_RPC_URL` | no |
+| `BOING_FROM_HEIGHT` | no (use with `BOING_TO_HEIGHT`) |
+| `BOING_TO_HEIGHT` | no |
+
+### 6b. Indexer ingest tick (`npm run indexer-ingest-tick`)
+
+**Plan** one catch-up range with **`planIndexerCatchUp`** ( **`getSyncState`** with **`chainHeight`** fallback on **-32601**). Default prints JSON only; set **`BOING_FETCH=1`** to run **`fetchBlocksWithReceiptsForHeightRange`**. With fetch, **`BOING_OMIT_MISSING=1`** sets **`onMissingBlock: 'omit'`** for pruned RPCs and adds **`fetchGaps`** plus **`suggestedNextContiguousIndexedHeight`** (persist gaps / cursor — [INDEXER-RECEIPT-AND-LOG-INGESTION.md](../../docs/INDEXER-RECEIPT-AND-LOG-INGESTION.md) § **Pruned nodes and missing blocks**).
+
+| Variable | Required |
+|----------|----------|
+| `BOING_RPC_URL` | no |
+| `BOING_LAST_INDEXED_HEIGHT` | no (default **-1**) |
+| `BOING_MAX_BLOCKS_PER_TICK` | no |
+| `BOING_FETCH` | no — **`1`** / **`true`** to fetch blocks |
+| `BOING_MAX_CONCURRENT` | no (when fetching) |
+| `BOING_OMIT_MISSING` | no — **`1`** for pruned gaps |
+
+### 7. Native AMM reserves (`npm run fetch-native-amm-reserves`)
+
+Read-only: **`fetchNativeConstantProductPoolSnapshot`** — one batched **`boing_getContractStorage`** round-trip for **reserve A**, **reserve B**, and **total LP supply**; optional fourth read for a signer’s **LP balance** when **`BOING_SIGNER_HEX`** is set ([NATIVE-AMM-CALLDATA.md](../../docs/NATIVE-AMM-CALLDATA.md)). Amounts are **u128** in the storage word low 16 bytes (stay within **u64** for on-chain math).
+
+| Variable | Required |
+|----------|----------|
+| `BOING_POOL_HEX` | yes |
+| `BOING_RPC_URL` | no |
+| `BOING_SIGNER_HEX` | no — when set, JSON includes **`signerLpBalance`** |
+
+### 7b. Native AMM pool logs (`npm run fetch-native-amm-logs`)
+
+Read-only: **`getLogsChunked`** scoped to **`BOING_POOL_HEX`**, then **`filterMapNativeAmmRpcLogs`** / **`tryParseNativeAmmRpcLogEntry`** so each **`swap` / `add_liquidity` / `remove_liquidity`** `Log2` becomes JSON with stringified `bigint` fields. If **`BOING_FROM_BLOCK`** and **`BOING_TO_BLOCK`** are omitted, the script uses **`boing_chainHeight`** and **`BOING_LOOKBACK_BLOCKS`** (default **50**).
+
+| Variable | Required |
+|----------|----------|
+| `BOING_POOL_HEX` | yes |
+| `BOING_RPC_URL` | no |
+| `BOING_FROM_BLOCK` / `BOING_TO_BLOCK` | no (pair; default = tip ± lookback) |
+| `BOING_LOOKBACK_BLOCKS` | no (default `50` when from/to omitted) |
+| `BOING_MAX_CONCURRENT` | no (default `1`) |
+
+### 7c. Deploy native AMM pool (`npm run deploy-native-amm-pool`)
+
+**First:** compile the linked SDK so **`dist/`** matches **`src/`** (otherwise Node may throw *does not provide an export named `NATIVE_CP_POOL_CREATE2_SALT_V2`*):
+
+`cd ../../boing-sdk && npm install && npm run build`
+
+Submits **`ContractDeployWithPurpose`** (you supply bytecode hex) to **`BOING_RPC_URL`**. Default RPC is **`https://testnet-rpc.boing.network`**. Uses **CREATE2** + **`NATIVE_CP_POOL_CREATE2_SALT_V1`** or **`…_V2`** (see **`BOING_NATIVE_AMM_VARIANT`**) so the pool address is predictable before you send (**`predictedPoolHex`**).
+
+**Nobody can deploy for you remotely** — signing requires your **32-byte Ed25519 seed** locally. Do **not** paste **`BOING_SECRET_HEX`** in chat or commit it.
+
+| Variable | Required |
+|----------|----------|
+| `BOING_SECRET_HEX` | yes — 32-byte signing seed (`0x` + 64 hex) |
+| `BOING_NATIVE_AMM_BYTECODE_FILE` or `BOING_NATIVE_AMM_BYTECODE_HEX` | yes — one line of `0x…` bytecode, or a **two-line** file from `dump_native_amm_pool` (v1 line then v2 line) |
+| `BOING_NATIVE_AMM_VARIANT` | no — **`v1`** (default) or **`v2`** — selects line + CREATE2 salt when the file has two lines |
+| `BOING_RPC_URL` | no — defaults to public testnet RPC |
+| `BOING_EXPECT_SENDER_HEX` | no — if set, must match the account derived from the secret (e.g. sanity check your public id) |
+| `BOING_USE_CREATE2` | no — default `1`; set `0` for nonce-derived pool address |
+| `BOING_PURPOSE` | no — default `dapp` |
+
+```bash
+# From repo root (v1 + v2 bytecode on stdout, meta on stderr)
+cargo run -p boing-execution --example dump_native_amm_pool 2>pool-meta.txt 1>pool-lines.hex
+
+cd examples/native-boing-tutorial
+export BOING_RPC_URL=https://testnet-rpc.boing.network
+export BOING_SECRET_HEX=0x   # your seed — local only
+export BOING_NATIVE_AMM_VARIANT=v1
+export BOING_NATIVE_AMM_BYTECODE_FILE=../../pool-lines.hex
+export BOING_EXPECT_SENDER_HEX=0xc063512f42868f1278c59a1f61ec0944785c304dbc48dec7e4c41f70f666733f
+npm run deploy-native-amm-pool
+```
+
+After a successful submit, seed liquidity with **`npm run native-amm-submit-contract-call`** (**`BOING_NATIVE_AMM_ACTION=add`**) or Boing Express + [NATIVE-AMM-E2E-SMOKE.md](../../docs/NATIVE-AMM-E2E-SMOKE.md). Full operator path: [DEVNET-OPERATOR-NATIVE-AMM.md](../../docs/DEVNET-OPERATOR-NATIVE-AMM.md).
+
+**Troubleshooting:** **`SyntaxError: does not provide an export named 'NATIVE_CP_POOL_CREATE2_SALT_V2'`** — rebuild **`boing-sdk`** (`cd ../../boing-sdk && npm run build`). Run from repo root: `cd examples/native-boing-tutorial` (paths like `./pool.hex` assume that cwd). If you see **`BoingRpcError` / HTTP 530** (often with **`error code: 1033`** in the message), the **public testnet RPC URL is not reaching a live node** (Cloudflare tunnel / origin). Use a local node (`BOING_RPC_URL=http://127.0.0.1:8545`) or retry when the public endpoint is healthy — see [RUNBOOK.md](../../docs/RUNBOOK.md) § 8.3. On Windows, **`UV_HANDLE_CLOSING`** after **`preflight-rpc`** was a **Node/libuv** exit race; **`observer-chain-tip-poll`** defers **`process.exit`** to avoid it — update this repo and retry.
+
+**`tx_hash: "ok"` in script JSON:** Current **`boing-node`** returns **`{ "tx_hash": "ok" }`** on successful **`boing_submitTransaction`** — not a 32-byte hash. Use **`predictedPoolHex`** (CREATE2) + **`fetch-native-amm-reserves`** to confirm the pool; see [RPC-API-SPEC.md](../../docs/RPC-API-SPEC.md) § **`boing_submitTransaction`**.
+
+### 7d. Print native AMM `contract_call` JSON (`npm run native-amm-print-contract-call-tx`)
+
+Read-only helper: prints **`{ ok, action, tx }`** where **`tx`** matches **`buildNativeConstantProductContractCallTx`** (for Boing Express / wallet paste). No keys, no RPC.
+
+| Variable | Required |
+|----------|----------|
+| `BOING_SENDER_HEX` | yes |
+| `BOING_POOL_HEX` | yes |
+| `BOING_NATIVE_AMM_ACTION` | no — **`swap`** (default), **`add`** / **`add_liquidity`**, **`remove`** / **`remove_liquidity`** |
+| `BOING_SWAP_DIRECTION`, `BOING_AMOUNT_IN`, `BOING_MIN_OUT` | swap (min out default **0**) |
+| `BOING_AMOUNT_A`, `BOING_AMOUNT_B`, `BOING_MIN_LIQUIDITY` | add (**min liquidity** default **0**) |
+| `BOING_LIQUIDITY_BURN`, `BOING_MIN_A`, `BOING_MIN_B` | remove |
+| `BOING_TOKEN_A_HEX`, `BOING_TOKEN_B_HEX` | no — optional **`additionalAccountsHex32`** for future token-**`CALL`** pools |
+
+```bash
+export BOING_SENDER_HEX=0xabababababababababababababababababababababababababababababababab
+export BOING_POOL_HEX=0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd
+export BOING_AMOUNT_IN=100
+npm run native-amm-print-contract-call-tx
+```
+
+### 7e. Submit native AMM `contract_call` (`npm run native-amm-submit-contract-call`)
+
+Same env as **§7d** (action + amount fields), plus **`BOING_RPC_URL`** and **`BOING_SECRET_HEX`**. Runs **`submitContractCallWithSimulationRetry`** (simulate → widen access list if needed → submit). Use to **seed liquidity** or script swaps without the browser.
+
+| Variable | Required |
+|----------|----------|
+| `BOING_SECRET_HEX` | yes |
+| `BOING_POOL_HEX` | yes |
+| `BOING_RPC_URL` | no — default `http://127.0.0.1:8545` |
+| (same action / amount vars as §7d) | per action |
+| `BOING_TOKEN_A_HEX`, `BOING_TOKEN_B_HEX` | no — v2 access list extras |
+
+```bash
+export BOING_RPC_URL=https://your-rpc.example/
+export BOING_SECRET_HEX=0x...
+export BOING_POOL_HEX=0x...
+export BOING_NATIVE_AMM_ACTION=add
+export BOING_AMOUNT_A=1000000
+export BOING_AMOUNT_B=2000000
+npm run native-amm-submit-contract-call
+```
+
+### 7f. Chain tip poll (`npm run observer-chain-tip-poll`)
+
+Operator **monitoring** (no DB): prints one JSON line per interval with **`boing_chainHeight`** and **`boing_getSyncState`**. Use beside nodes until a full explorer / indexer exists ([TESTNET-OPS-RUNBOOK.md](../../docs/TESTNET-OPS-RUNBOOK.md) §3). Stop with **Ctrl+C**.
+
+| Variable | Required |
+|----------|----------|
+| `BOING_RPC_URL` | no |
+| `BOING_POLL_INTERVAL_SECS` | no (default **15**) |
+| `BOING_STALL_WARN_SECS` | no — if **> 0**, stderr JSON when **height** unchanged that long |
+| `BOING_POLL_ONCE` | no — **`1`** / **`true`**: one poll then **exit** (CI / scripting; **exit 1** on failure) |
+
+### 8. Minimal deploy (`npm run deploy-minimal`)
 
 Deploys tiny bytecode (`RETURN 1` style) with purpose category **`tooling`** (override with `BOING_PURPOSE`).
 
@@ -66,6 +264,10 @@ Node cannot hold the user’s extension key. In a page:
 
 ## Docs
 
+- [DEVNET-OPERATOR-NATIVE-AMM.md](../../docs/DEVNET-OPERATOR-NATIVE-AMM.md) (self-hosted RPC: deploy pool + seed liquidity + dApp RPC)
+- [TESTNET-OPS-RUNBOOK.md](../../docs/TESTNET-OPS-RUNBOOK.md) (operators: go-live order, monitoring, **OPS-1**)
 - [BOING-DAPP-INTEGRATION.md](../../docs/BOING-DAPP-INTEGRATION.md)
 - [BOING-SIGNED-TRANSACTION-ENCODING.md](../../docs/BOING-SIGNED-TRANSACTION-ENCODING.md)
+- [INDEXER-RECEIPT-AND-LOG-INGESTION.md](../../docs/INDEXER-RECEIPT-AND-LOG-INGESTION.md) (SDK tick + `fetch-blocks-range` + `indexer-ingest-tick`)
+- [NEXT-STEPS-FUTURE-WORK.md](../../docs/NEXT-STEPS-FUTURE-WORK.md) (backlog / future slices)
 - [BOING-VM-CAPABILITY-PARITY-ROADMAP.md](../../docs/BOING-VM-CAPABILITY-PARITY-ROADMAP.md) (E1)

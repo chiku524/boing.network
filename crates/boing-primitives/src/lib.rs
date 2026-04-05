@@ -17,9 +17,10 @@ pub use signature::{
     SignedTransaction,
 };
 pub use types::{
-    create2_contract_address, nonce_derived_contract_address, receipt_leaf_hash, receipts_root,
-    tx_root, AccountId, Block, BlockHeader, ExecutionLog, ExecutionReceipt, Transaction,
-    TransactionPayload, AccessList, MAX_EXECUTION_LOG_DATA_BYTES, MAX_EXECUTION_LOGS_PER_TX,
+    contract_deploy_init_body, contract_deploy_uses_init_code, create2_contract_address,
+    nonce_derived_contract_address, receipt_leaf_hash, receipts_root, tx_root, AccountId, Block,
+    BlockHeader, ExecutionLog, ExecutionReceipt, Transaction, TransactionPayload, AccessList,
+    CONTRACT_DEPLOY_INIT_CODE_MARKER, MAX_EXECUTION_LOG_DATA_BYTES, MAX_EXECUTION_LOGS_PER_TX,
     MAX_EXECUTION_LOG_TOPICS, MAX_RECEIPT_ERROR_STRING_BYTES, MAX_RECEIPT_RETURN_DATA_BYTES,
 };
 pub use types::{Account, AccountState};
@@ -88,6 +89,17 @@ mod tests {
         assert!(!al1.conflicts_with(&al2));
         let al3 = AccessList::new(vec![b, c], vec![]);
         assert!(al1.conflicts_with(&al3));
+    }
+
+    #[test]
+    fn contract_deploy_init_marker_helpers() {
+        assert!(!contract_deploy_uses_init_code(&[0x00]));
+        assert!(contract_deploy_uses_init_code(&[CONTRACT_DEPLOY_INIT_CODE_MARKER, 0x00]));
+        assert_eq!(contract_deploy_init_body(&[0x60, 0]), &[0x60, 0]);
+        assert_eq!(
+            contract_deploy_init_body(&[CONTRACT_DEPLOY_INIT_CODE_MARKER, 0x60, 0]),
+            &[0x60, 0]
+        );
     }
 
     #[test]

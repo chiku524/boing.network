@@ -34,7 +34,7 @@
 The Boing blockchain is conceived as a **greenfield L1** with the following pillars:
 
 - **Authentic** — Your own architecture, not a fork or framework
-- **Independent** — Zero reliance on Solana, Cosmos, Ethereum, or other chains
+- **Independent** — Core protocol does not depend on another L1 for consensus, execution, or identity
 - **Optimal** — Adopt the best ideas from the ecosystem when they’re demonstrably superior
 - **Unique** — A distinct identity and technical story
 - **Decentralized** — Absolute decentralization as a foundational requirement
@@ -81,7 +81,7 @@ Boing aims to introduce **distinctive functionalities** that differentiate it fr
 
 | Innovation | Description | Differentiation |
 |------------|-------------|-----------------|
-| **Native AA** | Account abstraction built into the protocol (not a contract layer). Users can have programmable accounts (gasless, social recovery, session keys) without additional infrastructure. | Ethereum uses EIP-4337 (contract-based). Boing would make AA a first-class protocol primitive. |
+| **Native AA** | Account abstraction built into the protocol (not a contract layer). Users can have programmable accounts (gasless, social recovery, session keys) without additional infrastructure. | Many stacks implement AA in contracts or auxiliary mempools rather than the base protocol. Boing would make AA a first-class protocol primitive. |
 
 ### 2. Adaptive Gas Model
 
@@ -99,7 +99,7 @@ Boing aims to introduce **distinctive functionalities** that differentiate it fr
 
 | Innovation | Description | Differentiation |
 |------------|-------------|-----------------|
-| **Built-in QA automation** | Only deployments that meet defined standards (bytecode rules, security heuristics) are accepted. Reject at submit/mempool and execution; no “deploy anything” by default. | EVM and most chains allow any bytecode; standards are conventions only. Boing enforces at the protocol. |
+| **Built-in QA automation** | Only deployments that meet defined standards (bytecode rules, security heuristics) are accepted. Reject at submit/mempool and execution; no “deploy anything” by default. | Most contract L1s allow any bytecode; standards are conventions only. Boing enforces at the protocol. |
 | **Community QA pool** | When automation is unsure, a pool of community members votes Allow/Reject. Transparent, time-bounded, with clear outcomes. | Edge cases are handled without a single gatekeeper; aligns with decentralization. |
 | **Single source of truth** | A clear set of rules and attributes each asset type must satisfy; updatable via governance. | Developers and users know exactly what is allowed on-chain. |
 
@@ -628,7 +628,7 @@ Usage ↑ → Fees ↑ → Treasury ↑ → Ecosystem ↑ → Usage ↑
 
 ### Unlimited Supply Alternative: Bounded Inflation
 
-An uncapped supply is often frowned upon, but it **can work** if the system is designed for predictability, decentralization, and value preservation. Ethereum has no hard cap and remains sustainable via low issuance and fee burn. The key is **bounded inflation** and **on-chain guardrails**, not trust in any individual.
+An uncapped supply is often frowned upon, but it **can work** if the system is designed for predictability, decentralization, and value preservation. Some major L1s have no hard cap and remain sustainable via low issuance and fee burn. The key is **bounded inflation** and **on-chain guardrails**, not trust in any individual.
 
 | Principle | Implementation |
 |-----------|----------------|
@@ -736,9 +736,9 @@ flowchart TB
 
 | Model | Used By | Pros | Cons | Fit for Boing |
 |-------|---------|------|------|---------------|
-| **Account model** | Ethereum, Solana | Familiar, rich state, flexible | Harder to parallelize, state bloat | Good default for DeFi |
+| **Account model** | Typical account-model L1s | Familiar, rich state, flexible | Harder to parallelize, state bloat | Good default for DeFi |
 | **UTXO model** | Bitcoin, Cardano | Parallelizable, simpler proofs | Less expressive for smart contracts | Possible if you prioritize parallelism |
-| **Object-centric** | Sui | Natural parallel execution | Different mental model, no EVM | Strong if you want a novel UX |
+| **Object-centric** | Object-centric L1s (e.g. Sui) | Natural parallel execution | Different mental model, no stack-compatible bytecode | Strong if you want a novel UX |
 
 **Recommendation:** Account model with **explicit access lists** — familiar for DeFi while enabling parallelism without optimistic re-execution.
 
@@ -798,9 +798,9 @@ flowchart LR
 
 | Strategy | How It Works | Used By |
 |----------|--------------|---------|
-| **Declared dependencies** | Tx declares which accounts/objects it touches; scheduler runs independent txs in parallel | Solana, Sui, Fuel |
+| **Declared dependencies** | Tx declares which accounts/objects it touches; scheduler runs independent txs in parallel | High-throughput parallel L1s |
 | **Optimistic (Block-STM)** | Execute in parallel, detect conflicts, re-execute conflicted txs | Aptos, Monad |
-| **Sequential** | One tx at a time | Bitcoin, early Ethereum |
+| **Sequential** | One tx at a time | Bitcoin, early account-model L1s |
 
 **Recommendation:** **Declared dependencies** — predictable performance, no re-execution overhead; fits well with account model + access lists.
 
@@ -835,12 +835,12 @@ flowchart TB
 
 | Structure | Pros | Cons |
 |-----------|------|------|
-| **Merkle Patricia Trie** | Battle-tested, Ethereum-compatible | Large proofs (~3KB), slow sync |
+| **Merkle Patricia Trie** | Battle-tested; common on legacy account L1s | Large proofs (~3KB), slow sync |
 | **Verkle trees** | Tiny proofs (~200 bytes), enables stateless clients | Newer, complex crypto |
 | **Sparse Merkle** | Simpler, compact | Less advanced than Verkle |
 | **Custom** | Can optimize for your exact use case | R&D cost |
 
-**Recommendation:** **Verkle trees** — Ethereum’s direction; enables stateless validation and lighter nodes → **better decentralization**.
+**Recommendation:** **Verkle trees** — aligns with stateless-client research on major L1s; enables stateless validation and lighter nodes → **better decentralization**.
 
 ---
 
@@ -863,9 +863,9 @@ You can adopt **concepts** from other chains without depending on their codebase
 | Domain | Idea | Source | Why It's Optimal |
 |--------|------|--------|------------------|
 | Consensus | HotStuff / 2-chain BFT | Research / Diem | Simpler than PBFT, provably correct |
-| Ordering | Proof of History / VDF | Solana | Enables parallel scheduling at scale |
-| State | Verkle trees | Ethereum research | Tiny proofs, stateless clients |
-| Parallelism | Declared dependencies | Solana, Sui | No rollbacks, predictable |
+| Ordering | Proof of History / VDF | Parallel L1 research | Enables parallel scheduling at scale |
+| State | Verkle trees | Public L1 research | Tiny proofs, stateless clients |
+| Parallelism | Declared dependencies | Parallel-oriented L1s | No rollbacks, predictable |
 | Language design | Resource-oriented types | Move | Prevents double-spend bugs |
 | Networking | libp2p | Many chains | Battle-tested P2P |
 | Cryptography | Ed25519, BLS, secp256k1 | Standards | Audited, no custom curves |
@@ -995,7 +995,7 @@ A coherent configuration that prioritizes **authenticity**, **efficiency**, and 
 | **State model** | Account model + explicit access lists | Familiar DeFi, enables parallelism |
 | **Consensus** | PoS + HotStuff-style BFT | Decentralized, permissionless validators |
 | **Ordering** | VDF or BFT-based ordering | Independent of PoH; still parallel-friendly |
-| **VM** | Custom deterministic VM | Authentic; no EVM or SVM dependency |
+| **VM** | Custom deterministic VM | Authentic; no foreign VM dependency |
 | **Parallelism** | Declared dependencies (access lists) | Predictable, no re-execution |
 | **State tree** | Verkle trees | Stateless clients, lighter nodes |
 | **Language** | Rust | Performance, safety, tooling |
@@ -1018,7 +1018,7 @@ A coherent configuration that prioritizes **authenticity**, **efficiency**, and 
 | **Scope** | Multi-year effort; consensus + VM + networking + crypto |
 | **Team** | Requires distributed systems, crypto, and systems programming expertise |
 | **Security** | Audits essential before mainnet; **continuous** independent audits (not one-time). See [DEVELOPMENT-AND-ENHANCEMENTS.md](DEVELOPMENT-AND-ENHANCEMENTS.md). |
-| **Compatibility** | Non-EVM = full design freedom; plan for bridges if needed |
+| **Compatibility** | Boing-native VM = full design freedom; plan for bridges if needed |
 | **DeFi Integration** | Align with boing.finance as primary use case |
 | **Community** | Actively foster validators, developers, users; clear documentation; educational programs; grant programs and hackathons. Make it easy to run nodes and contribute. |
 

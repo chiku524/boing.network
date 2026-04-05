@@ -189,7 +189,7 @@ boing-network/
 
 - [x] DDoS resistance: RPC rate-limiting (RateLimitConfig, governor crate)
 - [x] Disk persistence (chain + state via --data-dir)
-- [ ] Connection management at P2P layer
+- [x] P2P connection cap per remote IP (`RateLimitConfig.connections_per_ip`, `--max-connections-per-ip`; signed tx gossip + mempool admit on receive — see [RUNBOOK.md](RUNBOOK.md) §8.1)
 - [ ] Formal verification pipeline for critical contracts (staking, DeFi, automation)
 - [ ] Bug bounty program
 - [x] Incident response runbook (RUNBOOK.md §6)

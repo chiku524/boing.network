@@ -1,0 +1,4 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.33s
+     Running `C:\Users\chiku\Desktop\vibe-code\boing.network\target\debug\examples\dump_native_amm_pool.exe`
+// v1_ledger_only: 6913 bytes
+// v2_token_hooks: 8728 bytes

@@ -58,9 +58,10 @@
 | Measure | Description | Status |
 |---------|-------------|--------|
 | **Decentralized Bootstrapping** | DHT + gossip-first; bootnode rotation | Roadmap |
-| **Encrypted Transport** | Noise over TCP/QUIC (libp2p) | ✓ libp2p |
-| **DDoS Resistance** | Rate-limiting, peer scoring, connection management | Partial (PeerScore) |
-| **Sybil / Eclipse Mitigation** | Reputation, stake requirements, diverse connections | Roadmap |
+| **Encrypted Transport** | Noise + TLS over TCP (libp2p) | ✓ libp2p |
+| **DDoS Resistance** | HTTP RPC rate limits (`RateLimitConfig`); P2P **per-IP connection cap** (`--max-connections-per-ip`); gossip payload signature verification before mempool | ✓ See [RUNBOOK.md](RUNBOOK.md) §8.1, [TECHNICAL-SPECIFICATION.md](TECHNICAL-SPECIFICATION.md) §12.3 |
+| **Gossip integrity** | Signed tx gossip (`SignedTransaction`); invalid signatures dropped | ✓ `boing-node` P2P ingest |
+| **Sybil / Eclipse Mitigation** | Reputation, stake requirements, diverse connections; partial relief via per-IP connection limits | Partial / roadmap |
 
 ### 2.2 Client Diversity
 

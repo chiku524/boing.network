@@ -1,13 +1,13 @@
 # Boing Network — Testnet
 
 > **Purpose:** Single guide for joining the testnet, using the Testnet Portal, and the incentivized testnet program (readiness, promotion, mainnet migration).  
-> **References:** [RUNBOOK.md](RUNBOOK.md), [READINESS.md](READINESS.md), [RPC-API-SPEC.md](RPC-API-SPEC.md), [INFRASTRUCTURE-SETUP.md](INFRASTRUCTURE-SETUP.md), [VIBEMINER-INTEGRATION.md](VIBEMINER-INTEGRATION.md)
+> **References:** [TESTNET-RPC-INFRA.md](TESTNET-RPC-INFRA.md) (single map: testnet ops + public RPC + infra), [RUNBOOK.md](RUNBOOK.md), [READINESS.md](READINESS.md), [RPC-API-SPEC.md](RPC-API-SPEC.md), [INFRASTRUCTURE-SETUP.md](INFRASTRUCTURE-SETUP.md), [VIBEMINER-INTEGRATION.md](VIBEMINER-INTEGRATION.md)
 
 ---
 
 ## Table of Contents
 
-- [Part 1 — Join Testnet](#part-1--join-testnet) — Run nodes, bootnodes, faucet, single vs multi-node
+- [Part 1 — Join Testnet](#part-1--join-testnet) — Run nodes, bootnodes, faucet, single vs multi-node ([§9 release tags](#9-ship-a-new-testnet-node-binary-release-tags))
 - [Part 2 — Testnet Portal](#part-2--testnet-portal) — Registration, dashboards, community quests
 - [Part 3 — Incentivized Testnet](#part-3--incentivized-testnet) — Readiness, promotion, mainnet migration
 
@@ -21,8 +21,8 @@ Run nodes on the testnet, get testnet BOING from the faucet, and join as a valid
 
 | Mode | Use case | How to run |
 |------|----------|------------|
-| **Single node** | Local dev, trying the chain alone, no P2P | Run `boing-node` **without** `--p2p_listen`. The node runs in isolation: it produces blocks if `--validator`, and serves RPC. No other peers. |
-| **Multi-node testnet** | Public testnet: many nodes syncing and validating together | Run `boing-node` **with** `--p2p_listen` and `--bootnodes`. Your node joins the P2P network, syncs blocks from peers, and (if `--validator`) can produce blocks when it's the leader. |
+| **Single node** | Local dev, trying the chain alone, no P2P | Run `boing-node` **without** `--p2p-listen`. The node runs in isolation: it produces blocks if `--validator`, and serves RPC. No other peers. |
+| **Multi-node testnet** | Public testnet: many nodes syncing and validating together | Run `boing-node` **with** `--p2p-listen` and `--bootnodes`. Your node joins the P2P network, syncs blocks from peers, and (if `--validator`) can produce blocks when it's the leader. |
 
 **Summary:**  
 - **Single node** = one machine, one chain, no peer discovery. Good for "run a chain on my laptop."  
@@ -39,7 +39,7 @@ Run nodes on the testnet, get testnet BOING from the faucet, and join as a valid
 Example (replace with real testnet bootnodes):
 
 ```bash
-./boing-node --p2p_listen /ip4/0.0.0.0/tcp/4001 \
+./boing-node --p2p-listen /ip4/0.0.0.0/tcp/4001 \
   --bootnodes /ip4/testnet.boing.network/tcp/4001 \
   --validator --rpc-port 8545 --data-dir ./data
 ```
@@ -67,7 +67,7 @@ RPC: `http://127.0.0.1:8545/`. No bootnodes needed.
 
    ```bash
    ./target/release/boing-node \
-     --p2p_listen /ip4/0.0.0.0/tcp/4001 \
+     --p2p-listen /ip4/0.0.0.0/tcp/4001 \
      --bootnodes "<BOOTNODE_1>,<BOOTNODE_2>" \
      --validator \
      --rpc-port 8545 \
@@ -125,6 +125,16 @@ The website provides a **dedicated faucet page** at [boing.network/faucet](https
 
 **Testnet RPC URL:** `https://testnet-rpc.boing.network/` (also on the [Testnet](https://boing.network/testnet/join) page).
 
+### 5.3 Native constant-product AMM pool (chain 6913)
+
+The in-ledger **MVP constant-product pool** is a normal **32-byte contract `AccountId`**. Integrators set it in dApp config — on **boing.finance**: **`frontend/src/config/boingCanonicalTestnetPool.js`** (constant **`CANONICAL_BOING_TESTNET_NATIVE_CP_POOL_HEX`**) and/or **`REACT_APP_BOING_NATIVE_AMM_POOL`** for Pages builds, plus **`nativeConstantProductPool`** in `contracts.js` for chain **6913**. The **canonical public testnet** hex is the table below and in [RPC-API-SPEC.md](RPC-API-SPEC.md) § Native constant-product AMM; optional TypeScript mirror: **`CANONICAL_BOING_TESTNET_NATIVE_CP_POOL_HEX`** in **`boing-sdk`**. New pool rotations: [OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md).
+
+| | |
+|--|--|
+| **Canonical public testnet pool `AccountId`** | **`0xffaa1290614441902ba813bf3bd8bf057624e0bd4f16160a9d32cd65d3f4d0c2`** — same as [RPC-API-SPEC.md](RPC-API-SPEC.md) § Native constant-product AMM; **v1** + CREATE2 (**`NATIVE_CP_POOL_CREATE2_SALT_V1`**). Also on the website [Join Testnet](https://boing.network/testnet/join#native-amm-pool) page (`website/src/config/testnet.ts`). |
+
+Storage keys and calldata: [NATIVE-AMM-CALLDATA.md](NATIVE-AMM-CALLDATA.md). SDK examples: **`BOING_POOL_HEX`** in [examples/native-boing-tutorial](../examples/native-boing-tutorial/).
+
 ## 6. Bootnode list (testnet)
 
 When the testnet is live, the canonical list will be kept at:
@@ -140,7 +150,7 @@ When the testnet is live, the canonical list will be kept at:
 
 **Launch checklist (to open testnet):**
 
-1. **Bootnodes:** Run at least 2 nodes with stable IPs and `--p2p_listen /ip4/0.0.0.0/tcp/4001`. Add their multiaddrs to the table above and to `website/src/config/testnet.ts` (or set `PUBLIC_BOOTNODES` when building the website).
+1. **Bootnodes:** Run at least 2 nodes with stable IPs and `--p2p-listen /ip4/0.0.0.0/tcp/4001`. Add their multiaddrs to the table above and to `website/src/config/testnet.ts` (or set `PUBLIC_BOOTNODES` when building the website).
 2. **Public RPC:** Run a node with `--faucet-enable` behind a public URL (e.g. `https://testnet-rpc.boing.network/`). Set `PUBLIC_TESTNET_RPC_URL` when building the website so the [faucet page](https://boing.network/faucet) defaults to it.
 3. **Genesis:** All nodes must use the same genesis so the faucet account has 10M testnet BOING.
 4. **Docs:** For the full pre-launch checklist and incentive program see [Part 3 — Incentivized Testnet](#part-3--incentivized-testnet) below. For the critical path (bootnodes → RPC → VibeMiner / boing.observer), see [READINESS.md](READINESS.md) §3.
@@ -150,13 +160,13 @@ Until then, you can run a multi-node testnet locally by starting two nodes and h
 **Terminal 1 (first node):**
 
 ```bash
-./target/release/boing-node --p2p_listen /ip4/127.0.0.1/tcp/4001 --validator --rpc-port 8545
+./target/release/boing-node --p2p-listen /ip4/127.0.0.1/tcp/4001 --validator --rpc-port 8545
 ```
 
 **Terminal 2 (second node, dials the first):**
 
 ```bash
-./target/release/boing-node --p2p_listen /ip4/127.0.0.1/tcp/4002 \
+./target/release/boing-node --p2p-listen /ip4/127.0.0.1/tcp/4002 \
   --bootnodes /ip4/127.0.0.1/tcp/4001 \
   --rpc-port 8546
 ```
@@ -168,6 +178,34 @@ For users who prefer a **desktop UI** instead of the terminal, Boing testnet can
 ## 8. Incentivized testnet (summary)
 
 When the Boing team runs an **incentivized testnet** (rewarding validators, developers, and users), the same testnet setup applies: use the published bootnodes and public RPC, get testnet BOING from the faucet, and stake to validate. For incentive rules, duration (e.g. 2–4 weeks), launch checklist, promotion, and mainnet migration, see [Part 3 — Incentivized Testnet](#part-3--incentivized-testnet) below. Check the website and announcements for the current phase and any leaderboards or reward criteria.
+
+## 9. Ship a new testnet node binary (release tags)
+
+GitHub Actions builds **`release-{linux-x86_64,macos-aarch64,windows-x86_64}.zip`** when you push a tag matching `testnet*` or `v*` (see `.github/workflows/release.yml`).
+
+1. Ensure `main` has the code you want shipped.
+2. Create and push an **annotated** tag (example `testnet-v0.1.7`):
+
+   ```bash
+   git checkout main
+   git pull
+   git tag -a testnet-v0.1.7 -m "Testnet node: describe changes"
+   git push origin testnet-v0.1.7
+   ```
+
+3. Wait for workflow **Release binaries** to finish. For **`testnet*`** tags the workflow **publishes** the release immediately so `https://github.com/.../releases/download/<tag>/...` works. For **`v*`** tags it may create a **draft** until you click **Publish release** in GitHub → Releases.
+4. If downloads return HTTP **404**, the release is usually still a **draft** or uploads are incomplete — open **Releases** and confirm the assets exist.
+5. Refresh Boing website D1 listing SHAs (from repo root or `website/`):
+
+   ```bash
+   node scripts/network-listings-release-sql.mjs testnet-v0.1.7
+   node scripts/network-listings-release-sql.mjs testnet-v0.1.7 --apply
+   # or: cd website && node scripts/network-listings-release-sql.mjs testnet-v0.1.7 [--apply]
+   ```
+
+6. Bump **`BOING_TESTNET_DOWNLOAD_TAG`** in **`website/functions/api/networks.js`** (and **`BOING_ZIP_SHA`** if you use URL rewrite helpers) so **`GET /api/networks`** returns the new **`meta.boing_testnet_download_tag`**. Deploy **boing.network**. Then align **VibeMiner** defaults with **`meta`** — [VIBEMINER-INTEGRATION.md](VIBEMINER-INTEGRATION.md) §6.
+
+**Also:** [WEBSITE-AND-DEPLOYMENT.md](WEBSITE-AND-DEPLOYMENT.md) (D1 / listings), [PUBLIC-RPC-NODE-UPGRADE-CHECKLIST.md](PUBLIC-RPC-NODE-UPGRADE-CHECKLIST.md) before pointing users at a new RPC surface.
 
 ---
 
@@ -418,7 +456,7 @@ Use this draft to promote the incentivized testnet on Reddit. Fill in **[PLACEHO
 ### Subreddit tips
 
 - **r/cryptocurrency** / **r/CryptoCurrency:** Use flair; respect karma rules; no referral links.
-- **r/ethereum:** Keep it technical and factual.
+- **Large general forums:** Keep it technical and factual; avoid hype.
 - **r/altcoin:** Focus on participation, not price.
 - Post once per subreddit; answer comments; add a short comment after posting to seed discussion.
 

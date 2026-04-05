@@ -85,6 +85,18 @@ function buildNetworksMeta() {
     public_testnet_rpc_url: DEVNET_BASE.rpc_url,
     official_bootnodes: [...DEVNET_BASE.bootnodes],
     cli_long_flags: 'kebab-case',
+    /** Canonical URLs for wallet, explorer, and alignment docs (see THREE-CODEBASE-ALIGNMENT.md). */
+    ecosystem: {
+      wallet_url: 'https://boing.express',
+      explorer_url: 'https://boing.observer',
+      website_url: DEVNET_BASE.website,
+      wallet_docs:
+        'https://github.com/chiku524/boing.network/blob/main/docs/BOING-EXPRESS-WALLET.md',
+      explorer_and_wallet_spec:
+        'https://github.com/chiku524/boing.network/blob/main/docs/BOING-OBSERVER-AND-EXPRESS.md',
+      three_codebase_alignment:
+        'https://github.com/chiku524/boing.network/blob/main/docs/THREE-CODEBASE-ALIGNMENT.md',
+    },
     docs: {
       vibeminer_integration:
         'https://github.com/chiku524/boing.network/blob/main/docs/VIBEMINER-INTEGRATION.md',

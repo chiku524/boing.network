@@ -1,0 +1,44 @@
+# Public RPC node — upgrade checklist (operators)
+
+**Routing:** [TESTNET-RPC-INFRA.md](TESTNET-RPC-INFRA.md) — where this checklist sits relative to **infra** and **testnet** guides.
+
+Use this when you are about to **replace or restart** the `boing-node` process behind **public testnet JSON-RPC** (direct or Cloudflare Tunnel). It complements [NETWORK-GO-LIVE-CHECKLIST.md](NETWORK-GO-LIVE-CHECKLIST.md) and [TESTNET-OPS-RUNBOOK.md](TESTNET-OPS-RUNBOOK.md).
+
+---
+
+## Before the change
+
+1. **Note current height** (for sanity after upgrade):  
+   `curl` **`boing_chainHeight`** against the public URL or use **`npm run check-testnet-rpc`** with **`BOING_RPC_URL`**.
+2. **Build from the commit** you intend to ship: `cargo build --release -p boing-node` (or use CI artifacts).
+3. **Run tests** on that tree: `cargo test` (and `boing-sdk` **`npm test`** if RPC or SDK behavior changed).
+
+---
+
+## Deploy / restart
+
+1. **Same genesis / data dir** as the rest of the testnet (unless this is an intentional reset — coordinate if so).
+2. **Flags** aligned with prior ops: **`--validator`** (if this node produces blocks), **`--faucet-enable`**, **`--p2p-listen`**, **`--bootnodes`**, **`BOING_RATE_PROFILE`**, **`--pending-txs-per-sender`**, **`--max-connections-per-ip`** (P2P), etc. See [RUNBOOK.md](RUNBOOK.md) §8.1 for **signed tx gossip** and per-IP caps when P2P is enabled.
+3. **Chain metadata for dApps (required for public testnet):** set **`BOING_CHAIN_ID=6913`** and **`BOING_CHAIN_NAME=Boing Testnet`** on the **`boing-node`** process so **`boing_getNetworkInfo`** returns them ([RPC-API-SPEC.md](RPC-API-SPEC.md) § **boing_getNetworkInfo**). Copy-paste template: [`tools/boing-node-public-testnet.env.example`](../tools/boing-node-public-testnet.env.example). **systemd example:** `Environment=BOING_CHAIN_ID=6913` and `Environment=BOING_CHAIN_NAME=Boing Testnet` in the **`[Service]`** section (or **`EnvironmentFile=`** pointing at a file with those lines).
+4. **Tunnel** — if using Cloudflare: confirm **`cloudflared`** still points to the RPC port where `boing-node` listens ([RUNBOOK.md](RUNBOOK.md) §8.3).
+
+---
+
+## After the change (from the internet)
+
+1. **`npm run preflight-rpc`** from repo root (or **`examples/native-boing-tutorial`**) with **`BOING_RPC_URL=https://your-public-rpc/`** — runs **`check-testnet-rpc`** plus a one-shot **`boing_chainHeight` / `boing_getSyncState`** sample. Optional **`BOING_PROBE_FULL=1`**. Or run **`npm run check-testnet-rpc`** only.
+2. **`boing_getNetworkInfo`** — confirm **`result.chain_id`** is **6913** and **`chain_name`** matches your operator string ( **`curl`** JSON-RPC or **`npm run rpc-endpoint-check`** from repo root).
+3. **Smoke methods** you rely on (faucet, **`boing_getLogs`**, receipts) — see [RPC-API-SPEC.md](RPC-API-SPEC.md).
+4. If **HTTP 530** / **error code 1033** appears, the problem is **tunnel or origin**, not clients — [RUNBOOK.md](RUNBOOK.md) §8.3.
+
+---
+
+## Rollback
+
+Keep the **previous binary** (or Docker image tag) available; restore the prior **`boing-node`** version and restart. Re-run **After the change** checks.
+
+---
+
+## Repo CI parity
+
+**`.github/workflows/boing-sdk-rpc-integration.yml`** runs (against a local **`boing-node`** on **8545** with **`BOING_CHAIN_ID=6913`** / **`BOING_CHAIN_NAME=Boing Testnet`**): **`check-testnet-rpc`**, **`boing-sdk`** **`verify`** with **`BOING_EXPECT_CHAIN_ID`**, **`indexer-ingest-tick`**, then **`BOING_POLL_ONCE=1 node scripts/observer-chain-tip-poll.mjs`** and **`node scripts/native-amm-print-contract-call-tx.mjs`** with dummy accounts (JSON **`ok`** check). Match that flow on your staging host when possible.

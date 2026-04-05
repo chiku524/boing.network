@@ -1,14 +1,14 @@
-# E2 — Partner apps: native Boing deploy / call (no ethers)
+# E2 — Partner apps: native Boing deploy / call (no foreign chain client SDK)
 
 **Roadmap:** [BOING-VM-CAPABILITY-PARITY-ROADMAP.md](BOING-VM-CAPABILITY-PARITY-ROADMAP.md) track **E2**.
 
-This is the **canonical pattern** for apps (e.g. **boing.finance**) that already support **EVM** flows but need a **native Boing** path when users connect **Boing Express** with a **32-byte AccountId**.
+This is the **canonical pattern** for apps (e.g. **boing.finance**) that already support **20-byte-address / injected-provider** flows but need a **native Boing** path when users connect **Boing Express** with a **32-byte AccountId**.
 
 ---
 
 ## Why a separate path exists
 
-- **ethers.js `BrowserProvider.getSigner()`** expects **20-byte Ethereum addresses** and EVM signing.
+- Typical **`BrowserProvider.getSigner()`** stacks expect **20-byte addresses** and secp256k1-oriented signing.
 - Boing Express exposes **Ed25519** accounts and **`boing_sendTransaction`** / **`boing_signTransaction`** for **Boing VM** payloads ([BOING-EXPRESS-WALLET.md](BOING-EXPRESS-WALLET.md)).
 
 ---
@@ -35,15 +35,23 @@ Tutorial repo: [examples/native-boing-tutorial](../examples/native-boing-tutoria
 
 ## Token deploy on native Boing
 
-- **Not** ERC-20 bytecode: implement or reuse a **Boing VM** contract that follows the **reference token** calldata layout for interoperability.
+- **Not** foreign fungible-token bytecode: implement or reuse a **Boing VM** contract that follows the **reference token** calldata layout for interoperability.
 - Pre-flight **`boing_qaCheck`** with category **`token`** when appropriate.
-- UI copy should distinguish **“ERC-20 (EVM)”** vs **“Native Boing token (VM)”** to avoid user confusion.
+- UI copy should distinguish **“Token on another network”** vs **“Native Boing token (VM)”** to avoid user confusion.
+- **Form parity:** pin bytecode + **`buildContractDeployMetaTx`** — [BOING-CANONICAL-DEPLOY-ARTIFACTS.md](BOING-CANONICAL-DEPLOY-ARTIFACTS.md).
+
+---
+
+## NFT deploy on native Boing
+
+- Use **reference NFT** calldata ([BOING-REFERENCE-NFT.md](BOING-REFERENCE-NFT.md)) and purpose **`NFT`** / **`nft`** for collection contracts.
+- **Pinned collection bytecode** is versioned like fungibles; roadmap for marketplace / royalties: **F2** in [BOING-VM-CAPABILITY-PARITY-ROADMAP.md](BOING-VM-CAPABILITY-PARITY-ROADMAP.md).
 
 ---
 
 ## boing.finance note
 
-The **Deploy Token** page’s **EVM** path remains for MetaMask / Sepolia / other EVM chains. When the user is on **native Boing**, show a **CTA** that links here and/or **Boing Native VM** in-product, until a full in-app **`boing_sendTransaction`** flow ships.
+The **Deploy Token** page’s **EVM** path stays for MetaMask-style wallets. For **Boing L1 + Boing Express**, prefer **one form** (name/symbol/…) with **internal bytecode** (`resolveReferenceFungibleTemplateBytecodeHex` + **`buildContractDeployMetaTx`**), and keep **paste bytecode** under **Advanced**. See [BOING-CANONICAL-DEPLOY-ARTIFACTS.md](BOING-CANONICAL-DEPLOY-ARTIFACTS.md) § Handoff.
 
 ---
 

@@ -37,6 +37,9 @@
 
 - `libp2p` provides a strong foundation for P2P networking (TCP, noise, yamux).
 - mDNS and bootstrap lists are typical discovery mechanisms.
+- **Gossipsub** topics: `boing/blocks` (blocks) and `boing/transactions` (**`SignedTransaction`**, bincode). Peers verify signatures before mempool insert; see [TECHNICAL-SPECIFICATION.md](TECHNICAL-SPECIFICATION.md) §12.3 and [RUNBOOK.md](RUNBOOK.md) §8.1.
+- **Mesh:** Default gossipsub mesh targets assume **multiple** peers; two-node LAN tests may not propagate topic traffic reliably without tuning — see `cargo test -p boing-node --test p2p_tx_gossip_rpc` (four-node mesh) and `boing-p2p` gossip config.
+- **Per-IP connection cap:** `boing-node` can limit simultaneous connections from the same remote IPv4/IPv6 address (`--max-connections-per-ip`, rate-limit profile defaults) to reduce Sybil-style fan-in.
 - **Risk:** Initial peer discovery that depends on a small set of bootnodes creates a single point of failure and censorship vector.
 
 ### Target Architecture

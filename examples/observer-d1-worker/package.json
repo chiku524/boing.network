@@ -1,0 +1,22 @@
+{
+  "name": "observer-d1-worker",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "vitest run",
+    "deploy": "wrangler deploy",
+    "d1:apply:local": "wrangler d1 migrations apply boing-observer-indexer --local",
+    "d1:apply:remote": "wrangler d1 migrations apply boing-observer-indexer --remote"
+  },
+  "dependencies": {
+    "boing-sdk": "file:../../boing-sdk"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250214.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0",
+    "wrangler": "^3.114.0"
+  }
+}

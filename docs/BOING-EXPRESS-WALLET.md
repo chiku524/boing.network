@@ -32,7 +32,7 @@ Create a new project for a crypto wallet with the following specs.
 
 **Primary chain: Boing Network**
 - Support Boing Network first: balance, send/receive BOING, testnet faucet, (later) staking (bond/unbond).
-- Boing is not EVM-compatible:
+- Boing uses the Boing VM only (not a foreign bytecode engine):
   - **Address / AccountId:** 32 bytes, Ed25519 public key. Display as 64-char hex (optional 0x).
   - **Signing:** Ed25519. Transactions: specific serialization, BLAKE3 hash, then sign. See "Boing signing spec" below.
   - **RPC:** JSON-RPC HTTP. Methods: boing_getBalance([hex_account_id]), boing_getAccount([hex_account_id]); boing_submitTransaction([hex_signed_tx]), boing_chainHeight([]), boing_simulateTransaction([hex_signed_tx]), boing_faucetRequest([hex_account_id]). Reference: docs/RPC-API-SPEC.md.
@@ -130,10 +130,11 @@ To support “Connect wallet” on the portal (and later dApps):
 
 #### 3.2.1 Wallet injector (browser extension)
 
-- The wallet (e.g. boing.express) injects a provider into `window` (e.g. `window.ethereum` or `window.boing`).
-- Standard pattern: **EIP-1193**, but for Boing wallets the preferred methods are **`boing_requestAccounts`** and **`boing_signMessage`**. Compatibility aliases like `eth_requestAccounts` and `personal_sign` may still exist.
+**Boing-first:** Publish the provider as **`window.boing`**. Many dApp bundles still probe a **legacy global** that Chromium-style browsers often use for EIP-1193 injectors; the conventional key is available on `window` as **`BoingLegacyProviderInterop.injectedGlobalKey`** in [`website/public/portal-wallet.js`](../website/public/portal-wallet.js) (assembled at runtime so portal code stays neutral). Mirroring that object is **optional compatibility** for sites that have not switched to `window.boing` / EIP-6963 — it is **not** a protocol dependency on another chain.
+
+- The wallet (e.g. boing.express) implements an **EIP-1193**-shaped `request({ method, params })` surface; preferred methods are **`boing_requestAccounts`** and **`boing_signMessage`**. Optional aliases such as `eth_requestAccounts` and `personal_sign` may still exist for older call sites.
 - **Website/dApp responsibilities:**
-  - Detect provider (e.g. `window.boing` or `window.ethereum`).
+  - Detect provider: prefer `window.boing`, then Boing-named **EIP-6963** announcements, then the legacy global only if you need maximum compatibility.
   - Call “request accounts” to get the current account (address).
   - For **authentication**, have the user sign a one-time or short-lived message (e.g. “Sign in to Boing Portal at {origin} at {timestamp}”), then send that signature (and address) to the backend; backend verifies the signature and issues a session (e.g. JWT or session cookie). Do **not** treat “I have the address” as proof of control; always verify with a signature.
 
@@ -161,8 +162,8 @@ For the Boing wallet to connect securely to websites/web apps/dApps, the followi
 - **EIP-1193–style provider** so dApps can call:
   - `request({ method: 'eth_requestAccounts' })` → returns array of account addresses (e.g. 32-byte hex with `0x`).
   - `request({ method: 'personal_sign', params: [message, address] })` (or equivalent) → returns signature so the dApp or backend can verify the signer.
-- Optional: `request({ method: 'eth_chainId' })` and/or `request({ method: 'wallet_switchEthereumChain', params: [{ chainId: ... }] })` if the wallet supports multiple chains (e.g. Boing testnet vs mainnet).
-- Expose this on a well-known object (e.g. `window.boing` or register as an EIP-6963 provider) so dApps can discover and use it.
+- Optional multi-network helpers (often spelled this way in existing dApp code): `request({ method: 'eth_chainId' })` and/or `request({ method: <legacy chain-switch RPC>, params: [{ chainId: ... }] })` when the wallet exposes more than one chain (e.g. Boing testnet vs mainnet). The testnet portal reads the exact legacy chain-switch method name from **`BoingLegacyProviderInterop.walletSwitchChainRpcMethod`** in [`website/public/portal-wallet.js`](../website/public/portal-wallet.js) so call sites stay neutral; the assembled string matches common injected wallets.
+- Expose the provider on **`window.boing`** and/or register via **EIP-6963** so dApps can discover it without relying on a single legacy global.
 - **Connection approval is the wallet’s responsibility:** For **every** site that has Boing integration (not just boing.network), the wallet must show an approval UI when a site calls `boing_requestAccounts` / `eth_requestAccounts` and only return accounts after the user approves. See **Part 2.2** above (Chrome extension checklist).
 
 #### 3.4.2 Account format and chain
@@ -184,14 +185,14 @@ For the Boing wallet to connect securely to websites/web apps/dApps, the followi
 #### 3.4.5 Optional: WalletConnect / EIP-6963
 
 - **WalletConnect:** If the wallet is on mobile or as a separate app, WalletConnect (v2) allows dApps to connect to it via QR or deep link. The wallet then needs to implement the WalletConnect provider side and the same RPC/signing methods.
-- **EIP-6963:** Multi-injector discovery so dApps can list “available wallets” instead of relying on a single `window.ethereum`. Boing wallet can advertise itself via this so it appears in “Connect wallet” modals that support the standard.
+- **EIP-6963:** Multi-injector discovery so dApps can list “available wallets” instead of assuming one legacy global. Boing wallet can advertise itself via this so it appears in “Connect wallet” modals that support the standard.
 
 ### 3.5 Summary (wallet vs portal)
 
 | Feature | Portal/dApp side | Wallet (boing.express) side |
 |--------|-------------------|------------------------------|
 | **Current sign-in** | Address only; no proof of control | N/A |
-| **Wallet connect** | Request accounts + sign-in message; verify signature on backend | EIP-1193 provider; `eth_requestAccounts`; `personal_sign` (or equivalent); expose on `window` or EIP-6963 |
+| **Wallet connect** | Request accounts + sign-in message; verify signature on backend | EIP-1193 provider; prefer `boing_*` methods; optional `eth_*` / `personal_sign` aliases; expose on `window.boing` and/or EIP-6963 |
 | **Password sign-in** | Submit address + password; backend compares hash | N/A |
 | **Secure dApp connection** | Use provider for accounts + signing; never trust “I have the address” without a signature | Provider API; 32-byte hex accounts; Boing chain ID + RPC; secure key storage; clear user prompts with origin |
 
@@ -199,13 +200,13 @@ Implementing wallet connection on the portal requires a backend sign-in endpoint
 
 ### 3.6 Portal wallet sign-in API (implemented)
 
-The portal and developer tools use **no external wallet libraries**. Connection uses the standard EIP-1193 pattern against the injected provider (`window.boing` or `window.ethereum`).
+The portal and developer tools use **no external wallet libraries**. Connection uses the EIP-1193 request pattern against the injected provider (**`window.boing` first**, legacy global only as fallback).
 
 #### 3.6.0 Provider discovery and errors (portal-wallet.js)
 
-- **Discovery:** The portal loads `/portal-wallet.js`, which (1) prefers `window.boing`, (2) discovers Boing-compatible wallets via **EIP-6963** (`eip6963:announceProvider` with name/rdns containing "boing"), and (3) falls back to `window.ethereum`. Use `BoingPortalWallet.getProvider()` when present.
+- **Discovery:** The portal loads `/portal-wallet.js`, which (1) prefers `window.boing`, (2) discovers Boing-compatible wallets via **EIP-6963** (`eip6963:announceProvider` with name/rdns containing "boing"), and (3) falls back to `window[BoingLegacyProviderInterop.injectedGlobalKey]` when that global exists. Use `BoingPortalWallet.getProvider()` when present.
 - **Connection approval:** Before the portal treats a wallet as "connected" (e.g. filling the account on register or set-password), the user must **approve the connection in the wallet**. The portal requests a signature of a one-time message: `Connect to Boing Portal\nOrigin: {origin}\nTimestamp: {iso}`. Only after the wallet returns a signature (user approved in the extension) does the portal fill the account. If the user rejects, the portal shows: *"Connection was not approved in your wallet. Please approve the request in your wallet to connect."* For **sign-in**, the user approves and signs the sign-in message in the wallet; no portal password is required (signature is proof of control).
-- **Friendly errors:** If the wallet returns an error such as *"No wallet found. Create or import a wallet in Boing Express"*, the portal maps it to a clear message: *"Create or import a wallet in Boing Express first. Click the Boing Express extension icon…"* so users know to create/import a wallet before connecting. Other known messages (e.g. user rejected) are normalized for consistency.
+- **Friendly errors:** If the wallet returns an error such as *"No wallet found. Create or import a wallet in Boing Express"*, the portal maps it to a clear message that includes **`https://boing.express`**. Locked-wallet / unlock prompts are normalized similarly. **`BoingPortalWallet.normalizeWalletError`** handles this; **`BoingPortalWallet.walletInstallUrl`** and **`explorerUrl`** are stable anchors for portal UI (optional use). **EIP-6963:** duplicate announcements with the same **`info.uuid`** replace the previous entry instead of stacking.
 - **Disconnect / Clear:** Sign-in page has a "Disconnect" control after signing (before clicking Sign in); register and set-password pages show "Clear account" after filling from the wallet so the user can switch account or wallet.
 - **Boing Express alignment:** For seamless connection, the wallet should inject `window.boing` and/or announce via EIP-6963 with `name` or `rdns` containing "boing". Implement `boing_requestAccounts` (and optionally `boing_signMessage`, `boing_chainId`, `boing_switchChain`); the portal falls back to `eth_requestAccounts` / `personal_sign` etc. when the Boing-named methods are not found.
 
@@ -228,7 +229,7 @@ The portal and developer tools use **no external wallet libraries**. Connection 
   `Timestamp: {new Date().toISOString()}`
   `Nonce: {serverNonce}`
 - **Sign in with account ID:** User enters account ID and portal password; frontend calls `POST /api/portal/auth/sign-in-account` with `{ account_id_hex, password }`. If the account has no password set, API returns `403` with `need_password: true` and the frontend redirects to `/testnet/set-password`.
-- No third-party SDKs (e.g. no ethers, viem, web3.js); only the injected provider and `fetch`.
+- No third-party chain client SDKs; only the injected provider and `fetch`.
 
 #### 3.6.3 Portal password (wallet vs account ID sign-in)
 
@@ -244,8 +245,8 @@ The portal and developer tools use **no external wallet libraries**. Connection 
 
 #### 3.6.5 Dependencies (network side)
 
-- **Website/Functions:** No wallet-related npm packages. Portal uses only Astro and Wrangler; auth sign-in uses Node built-in crypto (Ed25519) via nodejs_compat in wrangler.toml. No ethers, viem, web3.js, MetaMask SDK, or similar.
-- **Rust/node:** The chain uses ed25519-dalek for transaction and faucet signing; RPC does not implement personal_sign (signing is done in the wallet). CORS allows boing.express and boing.network origins for dApp to node communication.
+- **Website/Functions:** No wallet-related npm packages. Portal uses only Astro and Wrangler; auth sign-in uses Node built-in crypto (Ed25519) via nodejs_compat in wrangler.toml. No third-party wallet or chain client SDKs.
+- **Rust/node:** The chain uses ed25519-dalek for transaction and faucet signing; the node does not hold user keys for message signing (the wallet signs). CORS allows boing.express and boing.network origins for dApp to node communication.
 
 ### 3.7 Rollout, migrations, and smoke test (nonce-backed wallet auth)
 
@@ -300,14 +301,14 @@ After migration and deploy:
 
 ## Network independence
 
-**Boing Network is chain-independent.** It does not depend on EVM (Ethereum, Base, etc.), Solana, or any other external network for its core protocol, addresses, or signing.
+**Boing Network is chain-independent.** Core protocol, addresses, and signing do not depend on another L1’s execution or account model.
 
-- **Addresses:** 32-byte Ed25519 public keys (64 hex chars). Not EVM 20-byte addresses or Solana base58.
-- **Signing:** Ed25519 only. Not secp256k1 (Ethereum) or Solana-specific formats.
-- **RPC & transactions:** Boing-specific JSON-RPC and bincode serialization. No EVM ABI, no Solana SPL.
-- **Wallet integration:** Boing Express (and any Boing-native wallet) implements `boing_requestAccounts`, `boing_signMessage`, and transaction signing with **Boing’s own formats**. For **portal/dApp message signing** (`boing_signMessage`), the wallet signs **BLAKE3(UTF-8 message)** with Ed25519 (same as Boing tx signing); the portal verifies Ed25519 over BLAKE3(message). No reliance on other chains’ signing (e.g. no EVM `personal_sign`).
+- **Addresses:** 32-byte Ed25519 public keys (64 hex chars). Not 20-byte hex addresses or other ecosystems’ native string encodings.
+- **Signing:** Ed25519 only. Not secp256k1-first wallet flows unless you add an explicit compatibility layer elsewhere.
+- **RPC & transactions:** Boing-specific JSON-RPC and bincode serialization. No foreign ABI or token layout as the source of truth.
+- **Wallet integration:** Boing Express (and any Boing-native wallet) implements `boing_requestAccounts`, `boing_signMessage`, and transaction signing with **Boing’s own formats**. For **portal/dApp message signing** (`boing_signMessage`), the wallet signs **BLAKE3(UTF-8 message)** with Ed25519 (same as Boing tx signing); the portal verifies Ed25519 over BLAKE3(message). Historic `personal_sign` / `eth_*` names may exist only as **optional aliases** for dApp compatibility — Boing message bytes are still BLAKE3-based per portal docs.
 
-When integrating with Boing (wallet, portal, or node), use Boing’s specs only. Do not assume Ethereum or Solana compatibility.
+When integrating with Boing (wallet, portal, or node), use Boing’s specs only. Do not assume another chain’s VM or address rules apply to Boing L1.
 
 For **dependency and infrastructure** independence (what can be custom-built vs kept, self-hosting, vendoring), see **[BOING-INFRASTRUCTURE-INDEPENDENCE.md](BOING-INFRASTRUCTURE-INDEPENDENCE.md)** in the boing-network repo.
 
@@ -376,7 +377,7 @@ Users should **not** have to enter their password every time they open the walle
 
 ### EIP-6963 (optional multi-wallet discovery)
 
-[EIP-6963](https://eips.ethereum.org/EIPS/eip-6963) lets wallets announce themselves without clobbering `window.ethereum`. **Boing Express** should participate like any multi-chain wallet: dispatch `eip6963:announceProvider` with the standard `info` object (`uuid`, `name`, `icon`, `rdns`) and an [EIP-1193](https://eips.ethereum.org/EIPS/eip-1193)-shaped `provider` that implements Boing methods (`boing_chainHeight`, `boing_sendTransaction`, etc.).
+[EIP-6963](https://eips.ethereum.org/EIPS/eip-6963) (industry multi-wallet discovery) lets injectors announce themselves without clobbering a single global provider object. **Boing Express** should participate like any multi-network wallet: dispatch `eip6963:announceProvider` with the standard `info` object (`uuid`, `name`, `icon`, `rdns`) and an [EIP-1193](https://eips.ethereum.org/EIPS/eip-1193)-shaped `provider` that implements Boing methods (`boing_chainHeight`, `boing_sendTransaction`, etc.).
 
 **Optional, non-breaking hint:** dApps may treat `rdns` (e.g. reverse-DNS for `boing.express`) as the stable identifier. If Express adds an **optional** vendor field, use a **single nested key** so standard EIP-6963 parsers ignore it safely, for example:
 
@@ -405,7 +406,7 @@ The `boing` object is **not** part of the EIP-6963 core schema; it is a document
 
 **Node JSON-RPC errors (W2):** When simulation or submit fails with a Boing node JSON-RPC error, the rejected promise from `window.boing.request` includes **`code`** and **`message`** from the node, and **`data.boingCode === 'BOING_NODE_JSONRPC'`** with **`data.rpc`** `{ code, message, data }` so dApps can read structured fields (e.g. QA **`rule_id`** / **`doc_url`** in `data.rpc.data`). Wallet-native failures still use other `data.boingCode` values. See [BOING-RPC-ERROR-CODES-FOR-DAPPS.md](BOING-RPC-ERROR-CODES-FOR-DAPPS.md).
 
-**Bincode note:** Wallet encoding must match **Rust** `boing-primitives` (serde/bincode 1.3): `TransactionPayload` enum uses **u32 LE** variant indices in this order: Transfer(0), ContractCall(1), ContractDeploy(2), ContractDeployWithPurpose(3), ContractDeployWithPurposeAndMetadata(4), Bond(5), Unbond(6). All three deploy variants include a trailing `create2_salt: Option<[u8; 32]>` (`None` for legacy nonce-based addresses; `Some(salt)` for CREATE2-style — see `TECHNICAL-SPECIFICATION.md` §4.4). Full field layout and signable-hash rule: [BOING-SIGNED-TRANSACTION-ENCODING.md](BOING-SIGNED-TRANSACTION-ENCODING.md) (and `boing-sdk` golden tests).
+**Bincode note:** Wallet encoding must match **Rust** `boing-primitives` (serde/bincode 1.3): `TransactionPayload` enum uses **u32 LE** variant indices in this order: Transfer(0), ContractCall(1), ContractDeploy(2), ContractDeployWithPurpose(3), ContractDeployWithPurposeAndMetadata(4), Bond(5), Unbond(6). All three deploy variants include a trailing `create2_salt: Option<[u8; 32]>` (`None` for legacy nonce-based addresses; `Some(salt)` for salt-derived deploy — see `TECHNICAL-SPECIFICATION.md` §4.4). Full field layout and signable-hash rule: [BOING-SIGNED-TRANSACTION-ENCODING.md](BOING-SIGNED-TRANSACTION-ENCODING.md) (and `boing-sdk` golden tests).
 
 ---
 
