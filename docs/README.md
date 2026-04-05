@@ -43,6 +43,7 @@ Start with [BOING-NETWORK-ESSENTIALS.md](BOING-NETWORK-ESSENTIALS.md) for the si
 | [BOING-DESIGN-SYSTEM.md](BOING-DESIGN-SYSTEM.md) | Site variants, tokens, accessibility |
 | [BUILD-ROADMAP.md](BUILD-ROADMAP.md) | Implementation phases |
 | [BOING-VM-CAPABILITY-PARITY-ROADMAP.md](BOING-VM-CAPABILITY-PARITY-ROADMAP.md) | **Full-stack capability plan:** native Boing VM, SDK, wallet, indexer (pairs with [EXECUTION-PARITY-TASK-LIST.md](EXECUTION-PARITY-TASK-LIST.md); comparisons in-doc are non-normative) |
+| [BOING-L1-DEX-ENGINEERING.md](BOING-L1-DEX-ENGINEERING.md) | **DEX on L1 (non-EVM):** Boing VM bytecode for factory/router/locker vs Solidity reference; QA/deploy checklist; pairs with **boing.finance** `docs/boing-l1-*.md` |
 | [BOING-PATTERN-AMM-LIQUIDITY.md](BOING-PATTERN-AMM-LIQUIDITY.md) | Constant-product AMM pattern (VM contracts, access lists, QA) |
 | [BOING-PATTERN-ORACLE-PRICE-FEEDS.md](BOING-PATTERN-ORACLE-PRICE-FEEDS.md) | Oracle / price feeds (app layer, TWAP, multisig) |
 | [BOING-PATTERN-UPGRADE-PROXY.md](BOING-PATTERN-UPGRADE-PROXY.md) | Upgradeable / hub-pointer patterns vs QA |
