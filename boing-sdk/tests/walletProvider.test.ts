@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  BOING_WALLET_RPC_METHODS_NATIVE_DAPP,
   boingSendTransaction,
+  explainEthSendTransactionInsufficientForBoingNativeCall,
   providerSupportsBoingNativeRpc,
   readChainIdHex,
   requestAccounts,
@@ -8,6 +10,14 @@ import {
 import type { Eip1193Requester } from '../src/walletProvider.js';
 
 describe('walletProvider', () => {
+  it('BOING_WALLET_RPC_METHODS_NATIVE_DAPP lists boing_sendTransaction', () => {
+    expect(BOING_WALLET_RPC_METHODS_NATIVE_DAPP).toContain('boing_sendTransaction');
+  });
+
+  it('explainEthSendTransactionInsufficientForBoingNativeCall mentions contract_call', () => {
+    expect(explainEthSendTransactionInsufficientForBoingNativeCall()).toContain('contract_call');
+  });
+
   it('providerSupportsBoingNativeRpc true when boing_chainId returns hex', async () => {
     const provider: Eip1193Requester = {
       request: vi.fn().mockResolvedValue('0x1b01'),

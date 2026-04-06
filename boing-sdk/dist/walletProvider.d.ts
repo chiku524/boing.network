@@ -2,6 +2,13 @@
  * Thin **EIP-1193** helpers for **Boing Express** and compatible injected providers.
  * Reduces branching in dApps that call **`boing_sendTransaction`**, **`boing_requestAccounts`**, **`boing_chainId`**.
  */
+/**
+ * EIP-1193 methods Boing-native dApps typically rely on (Boing Express implements these).
+ * Generic `eth_sendTransaction` alone is **not** enough for Boing **`contract_call`** (32-byte ids + access lists).
+ */
+export declare const BOING_WALLET_RPC_METHODS_NATIVE_DAPP: readonly ["boing_chainId", "boing_requestAccounts", "boing_sendTransaction"];
+/** Explains why **`eth_sendTransaction`**-centric wallets are insufficient for native Boing **`contract_call`**. */
+export declare function explainEthSendTransactionInsufficientForBoingNativeCall(): string;
 /** Minimal provider surface (MetaMask / Boing Express). */
 export type Eip1193Requester = {
     request: (args: {

@@ -53,8 +53,9 @@ export { REFERENCE_FUNGIBLE_TEMPLATE_ARTIFACT_ID, REFERENCE_FUNGIBLE_TEMPLATE_VE
 export { BOING_TESTNET_CHAIN_ID_DECIMAL, BOING_TESTNET_CHAIN_ID_HEX, normalizeBoingChainIdHex, isBoingTestnetChainId, } from './chainIds.js';
 export { BOING_QA_PLACEHOLDER_DESCRIPTION_HASH_HEX, preflightContractDeployMetaQa, describeContractDeployMetaQaResponse, preflightContractDeployMetaWithUi, buildAndPreflightReferenceFungibleDeploy, buildAndPreflightReferenceNftCollectionDeployMeta, } from './dappDeploy.js';
 export { mergeNativeDexIntegrationDefaults, fetchNativeDexIntegrationDefaults, fetchNativeDexFactoryRegisterLogs, } from './dexIntegration.js';
-export { nativeDexPairKey, buildNativeDexRegisterLogPoolIndex, pickNativeDexPoolFromRegisterLogs, fetchNativeDexDirectorySnapshot, resolveNativeDexPoolForTokens, } from './nativeDexDirectory.js';
-export { getInjectedEip1193Provider, providerSupportsBoingNativeRpc, boingSendTransaction, requestAccounts, readChainIdHex, } from './walletProvider.js';
+export { nativeDexPairKey, buildNativeDexRegisterLogPoolIndex, pickNativeDexPoolFromRegisterLogs, fetchNativeDexDirectorySnapshot, resolveNativeDexPoolForTokens, suggestNativeDexRegisterLogCatchUpRange, } from './nativeDexDirectory.js';
+export { BOING_NATIVE_DEX_NOT_EVM_TAGLINE, BOING_NATIVE_DEX_NOT_EVM_BULLETS, BOING_NATIVE_DEX_TOOLKIT_RPC_METHODS, formatBoingNativeDexNotEvmDisclaimer, describeNativeDexDefaultGaps, assertBoingNativeDexToolkitRpc, formatNativeDexToolkitPreflightForUi, buildNativeCpPoolSwapExpressTx, } from './nativeDexSeamless.js';
+export { getInjectedEip1193Provider, providerSupportsBoingNativeRpc, boingSendTransaction, requestAccounts, readChainIdHex, BOING_WALLET_RPC_METHODS_NATIVE_DAPP, explainEthSendTransactionInsufficientForBoingNativeCall, } from './walletProvider.js';
 /**
  * Create a Boing RPC client.
  * @param config - Node URL string (e.g. "http://localhost:8545") or config object (baseUrl, fetch?, timeoutMs?, maxRetries?, …).

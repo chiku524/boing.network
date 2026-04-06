@@ -6,6 +6,7 @@ import {
   nativeDexPairKey,
   pickNativeDexPoolFromRegisterLogs,
   resolveNativeDexPoolForTokens,
+  suggestNativeDexRegisterLogCatchUpRange,
 } from '../src/nativeDexDirectory.js';
 import { NATIVE_DEX_FACTORY_TOPIC_REGISTER_HEX } from '../src/nativeDexFactory.js';
 import type { NativeDexFactoryRegisterRpcParsed } from '../src/nativeDexFactoryLogs.js';
@@ -79,6 +80,22 @@ function regRow(
 }
 
 describe('nativeDexDirectory', () => {
+  it('suggestNativeDexRegisterLogCatchUpRange', () => {
+    expect(suggestNativeDexRegisterLogCatchUpRange({ headHeight: 5, lastScannedBlockInclusive: null })).toEqual({
+      fromBlock: 0,
+      toBlock: 5,
+    });
+    expect(suggestNativeDexRegisterLogCatchUpRange({ headHeight: 5, lastScannedBlockInclusive: -1 })).toEqual({
+      fromBlock: 0,
+      toBlock: 5,
+    });
+    expect(suggestNativeDexRegisterLogCatchUpRange({ headHeight: 5, lastScannedBlockInclusive: 5 })).toBeNull();
+    expect(suggestNativeDexRegisterLogCatchUpRange({ headHeight: 10, lastScannedBlockInclusive: 8 })).toEqual({
+      fromBlock: 9,
+      toBlock: 10,
+    });
+  });
+
   it('nativeDexPairKey is order-independent', () => {
     expect(nativeDexPairKey(T0, T1)).toBe(nativeDexPairKey(T1, T0));
   });

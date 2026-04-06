@@ -14,6 +14,27 @@ function clampBlock(n, lo, hi) {
         return hi;
     return n;
 }
+/**
+ * Plan the next inclusive **`register_pair`** log scan for an indexer (Boing RPC only).
+ * Returns **`null`** when already caught up (**`lastScannedBlockInclusive` ≥ `headHeight`**).
+ */
+export function suggestNativeDexRegisterLogCatchUpRange(opts) {
+    if (!Number.isInteger(opts.headHeight) || opts.headHeight < 0) {
+        throw new RangeError('headHeight must be a non-negative integer');
+    }
+    if (opts.lastScannedBlockInclusive != null) {
+        if (!Number.isInteger(opts.lastScannedBlockInclusive) || opts.lastScannedBlockInclusive < -1) {
+            throw new RangeError('lastScannedBlockInclusive must be null or an integer >= -1');
+        }
+    }
+    if (opts.lastScannedBlockInclusive == null || opts.lastScannedBlockInclusive < 0) {
+        return { fromBlock: 0, toBlock: opts.headHeight };
+    }
+    const next = opts.lastScannedBlockInclusive + 1;
+    if (next > opts.headHeight)
+        return null;
+    return { fromBlock: next, toBlock: opts.headHeight };
+}
 /** Canonical map key for an unordered token pair (lowercased **32-byte** hex ids). */
 export function nativeDexPairKey(tokenAHex32, tokenBHex32) {
     const a = validateHex32(tokenAHex32).toLowerCase();

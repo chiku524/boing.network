@@ -7,6 +7,23 @@ const BOING_ACCOUNTS = 'boing_requestAccounts';
 const BOING_CHAIN = 'boing_chainId';
 const ETH_CHAIN = 'eth_chainId';
 const ETH_ACCOUNTS = 'eth_requestAccounts';
+/**
+ * EIP-1193 methods Boing-native dApps typically rely on (Boing Express implements these).
+ * Generic `eth_sendTransaction` alone is **not** enough for Boing **`contract_call`** (32-byte ids + access lists).
+ */
+export const BOING_WALLET_RPC_METHODS_NATIVE_DAPP = [
+    BOING_CHAIN,
+    BOING_ACCOUNTS,
+    BOING_SEND,
+];
+/** Explains why **`eth_sendTransaction`**-centric wallets are insufficient for native Boing **`contract_call`**. */
+export function explainEthSendTransactionInsufficientForBoingNativeCall() {
+    return [
+        'Boing `contract_call` transactions use 32-byte account ids, explicit access lists, and bincode signing—not the implicit 20-byte `to`/`data` shape most `eth_sendTransaction` wallets assume.',
+        'Use Boing Express (or an injected provider that implements `boing_sendTransaction` / `boing_chainId`) or sign server-side with `boing-sdk` and `boing_submitTransaction`.',
+        `Methods to look for: ${BOING_WALLET_RPC_METHODS_NATIVE_DAPP.join(', ')}.`,
+    ].join('\n');
+}
 function asRequester(v) {
     if (v != null && typeof v === 'object' && typeof v.request === 'function') {
         return v;

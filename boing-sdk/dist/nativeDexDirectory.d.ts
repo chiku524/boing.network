@@ -32,6 +32,17 @@ export type FetchNativeDexDirectorySnapshotOptions = {
         toBlock?: number;
     };
 };
+/**
+ * Plan the next inclusive **`register_pair`** log scan for an indexer (Boing RPC only).
+ * Returns **`null`** when already caught up (**`lastScannedBlockInclusive` ≥ `headHeight`**).
+ */
+export declare function suggestNativeDexRegisterLogCatchUpRange(opts: {
+    headHeight: number;
+    lastScannedBlockInclusive: number | null;
+}): {
+    fromBlock: number;
+    toBlock: number;
+} | null;
 /** Canonical map key for an unordered token pair (lowercased **32-byte** hex ids). */
 export declare function nativeDexPairKey(tokenAHex32: string, tokenBHex32: string): string;
 /**

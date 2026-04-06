@@ -167,6 +167,7 @@ Boing’s **automated quality assurance** is a core differentiator: **no asset d
 - If the RPC or block/transaction structure ever includes QA metadata (e.g. `rule_id`, `purpose_category`), display it.
 - Dedicated “QA Overview” page summarizing how many deployments have passed and linking to the QA doc.
 - Stats such as “X contract deployments, all QA-verified” on the home or block listing.
+- **Native DEX pair directory (read-only):** not required for MVP. If you want a “Pools” or “DEX directory” view on **boing.observer**, use **`boing-sdk`** (`fetchNativeDexDirectorySnapshot`, optional `registerLogs` range, `suggestNativeDexRegisterLogCatchUpRange` for indexer-style backfill) against the public RPC, or serve the same data from a durable indexer ([OBSERVER-HOSTED-SERVICE.md](OBSERVER-HOSTED-SERVICE.md)) so the explorer does not scrape the full chain on every page load. This is a **product choice**, not a protocol requirement.
 
 ### 5. Core features (MVP)
 

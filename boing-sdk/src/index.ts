@@ -518,17 +518,30 @@ export {
   pickNativeDexPoolFromRegisterLogs,
   fetchNativeDexDirectorySnapshot,
   resolveNativeDexPoolForTokens,
+  suggestNativeDexRegisterLogCatchUpRange,
   type NativeDexDirectorySnapshot,
   type FetchNativeDexDirectorySnapshotOptions,
   type ResolveNativeDexPoolForTokensResult,
   type ResolveNativeDexPoolForTokensOptions,
 } from './nativeDexDirectory.js';
 export {
+  BOING_NATIVE_DEX_NOT_EVM_TAGLINE,
+  BOING_NATIVE_DEX_NOT_EVM_BULLETS,
+  BOING_NATIVE_DEX_TOOLKIT_RPC_METHODS,
+  formatBoingNativeDexNotEvmDisclaimer,
+  describeNativeDexDefaultGaps,
+  assertBoingNativeDexToolkitRpc,
+  formatNativeDexToolkitPreflightForUi,
+  buildNativeCpPoolSwapExpressTx,
+} from './nativeDexSeamless.js';
+export {
   getInjectedEip1193Provider,
   providerSupportsBoingNativeRpc,
   boingSendTransaction,
   requestAccounts,
   readChainIdHex,
+  BOING_WALLET_RPC_METHODS_NATIVE_DAPP,
+  explainEthSendTransactionInsufficientForBoingNativeCall,
   type Eip1193Requester,
 } from './walletProvider.js';
 
