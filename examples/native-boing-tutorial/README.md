@@ -205,6 +205,29 @@ Deploys the **pair directory** VM program (CREATE2 by default), then optionally 
 | `BOING_EXPECT_SENDER_HEX` | no |
 | **Optional `register_pair` second tx** | Set all of: **`BOING_DEX_POOL_HEX`**, **`BOING_DEX_TOKEN_A_HEX`**, **`BOING_DEX_TOKEN_B_HEX`**; **`BOING_DEX_FACTORY_HEX`** defaults to predicted directory address |
 
+### 7c3. Print native DEX routes (`npm run print-native-dex-routes`)
+
+Read-only: **`fetchCpRoutingFromDirectoryLogs`** — scans **`register_pair`** logs in a block range, hydrates pool reserves over JSON-RPC, prints ranked constant-product **routes** (single- and multi-hop). No keys. See **`boing-sdk`** `nativeDexRouting.ts` and [HANDOFF-DEPENDENT-PROJECTS.md](../../docs/HANDOFF-DEPENDENT-PROJECTS.md).
+
+| Variable | Required |
+|----------|----------|
+| `TOKEN_IN`, `TOKEN_OUT` | yes — 32-byte token account ids (`0x` + 64 hex) |
+| `BOING_RPC_URL` | no — default public testnet |
+| `AMOUNT_IN` | no — default **`1000000`** (integer string, smallest units) |
+| `BOING_FROM_BLOCK` | no — default **`0`** |
+| `BOING_TO_BLOCK` | no — default chain head from **`getNetworkInfo`** |
+| `BOING_MAX_HOPS`, `BOING_MAX_ROUTES`, `BOING_HYDRATE_CONCURRENCY` | no |
+| `BOING_DEX_FACTORY_HEX` | no — merge override if the node omits **`canonical_native_dex_factory`** |
+| `BOING_OVERRIDE_CANONICAL_POOL_HEX` | no — optional merge override for canonical pool hint |
+
+```bash
+export TOKEN_IN=0x…
+export TOKEN_OUT=0x…
+export AMOUNT_IN=1000000
+export BOING_FROM_BLOCK=0
+npm run print-native-dex-routes
+```
+
 ### 7d. Print native AMM `contract_call` JSON (`npm run native-amm-print-contract-call-tx`)
 
 Read-only helper: prints **`{ ok, action, tx }`** where **`tx`** matches **`buildNativeConstantProductContractCallTx`** (for Boing Express / wallet paste). No keys, no RPC.

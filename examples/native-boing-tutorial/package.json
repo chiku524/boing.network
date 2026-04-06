@@ -25,6 +25,7 @@
     "native-lp-share-print-contract-call-tx": "node scripts/native-lp-share-print-contract-call-tx.mjs",
     "native-lp-share-submit-contract-call": "node scripts/native-lp-share-submit-contract-call.mjs",
     "observer-chain-tip-poll": "node scripts/observer-chain-tip-poll.mjs",
+    "print-native-dex-routes": "node scripts/print-native-dex-routes.mjs",
     "probe-rpc": "node ../../boing-sdk/scripts/probe-rpc.mjs"
   },
   "dependencies": {

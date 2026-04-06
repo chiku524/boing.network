@@ -28,6 +28,7 @@
     "observer-ingest-ref-tick": "npm run ingest-tick --prefix examples/observer-ingest-reference",
     "observer-ingest-sqlite-tick": "npm run ingest-sqlite-tick --prefix examples/observer-ingest-reference",
     "preflight-rpc": "npm run preflight-rpc --prefix examples/native-boing-tutorial",
+    "print-native-dex-routes": "npm run print-native-dex-routes --prefix examples/native-boing-tutorial",
     "probe-rpc": "node boing-sdk/scripts/probe-rpc.mjs",
     "rpc-endpoint-check": "node scripts/rpc-endpoint-check.mjs",
     "transfer": "npm run transfer --prefix examples/native-boing-tutorial"

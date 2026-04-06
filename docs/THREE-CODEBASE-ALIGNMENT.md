@@ -2,6 +2,8 @@
 
 This document is the **single source of truth** for keeping **boing.network** (website + portal), **boing.express** (wallet), and **boing.observer** (block explorer) in sync with the Boing Network and with each other.
 
+**Dependent-project backlog:** for recommended implementation work outside this repo (wallet UX, explorer features, partner integration), see **[HANDOFF-DEPENDENT-PROJECTS.md](HANDOFF-DEPENDENT-PROJECTS.md)**.
+
 ---
 
 ## 1. Canonical URLs

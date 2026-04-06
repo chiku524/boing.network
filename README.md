@@ -20,7 +20,9 @@ curl -s -X POST http://127.0.0.1:8545/ -H "Content-Type: application/json" \
 
 **dApp / TypeScript:** the in-repo SDK is **`boing-sdk/`** (`npm install` / `npm run build` there, or use it as a workspace package). See **`boing-sdk/README.md`** and [docs/BOING-DAPP-INTEGRATION.md](docs/BOING-DAPP-INTEGRATION.md).
 
-**Tutorial CLI from repo root:** with **`boing-sdk`** built and **`examples/native-boing-tutorial`** installed, you can run the same scripts as from the tutorial directory — e.g. **`npm run preflight-rpc`**, **`npm run deploy-native-dex-directory`**, **`npm run fetch-native-amm-reserves`**, **`npm run indexer-ingest-tick`** — without changing directory. Wrappers live in the root **`package.json`**; full command map: [docs/PRE-VIBEMINER-NODE-COMMANDS.md](docs/PRE-VIBEMINER-NODE-COMMANDS.md) §4.
+**Tutorial CLI from repo root:** with **`boing-sdk`** built and **`examples/native-boing-tutorial`** installed, you can run the same scripts as from the tutorial directory — e.g. **`npm run preflight-rpc`**, **`npm run deploy-native-dex-directory`**, **`npm run fetch-native-amm-reserves`**, **`npm run print-native-dex-routes`**, **`npm run indexer-ingest-tick`** — without changing directory. Wrappers live in the root **`package.json`**; full command map: [docs/PRE-VIBEMINER-NODE-COMMANDS.md](docs/PRE-VIBEMINER-NODE-COMMANDS.md) §4.
+
+**Wallet / explorer / partner workstreams:** see [docs/HANDOFF-DEPENDENT-PROJECTS.md](docs/HANDOFF-DEPENDENT-PROJECTS.md) (complements [docs/THREE-CODEBASE-ALIGNMENT.md](docs/THREE-CODEBASE-ALIGNMENT.md)).
 
 **Browser dApps:** additional CORS origins can be set without rebuilding via **`BOING_RPC_CORS_EXTRA_ORIGINS`** (comma-separated list, e.g. `http://localhost:9999,https://my-preview.pages.dev`). **`GET /ws`** supports a **newHeads** WebSocket (handshake in **`boing_getNetworkInfo.developer`**). Machine-readable API: **`boing_getRpcMethodCatalog`** and **`boing_getRpcOpenApi`** (see [docs/RPC-API-SPEC.md](docs/RPC-API-SPEC.md)).
 
@@ -47,6 +49,7 @@ All project documentation lives in **[docs/](docs/)**. **Canonical index:** [doc
 | Doc | Description |
 |-----|-------------|
 | [**docs/README.md**](docs/README.md) | **Index of all `docs/*.md` files** |
+| [**HANDOFF-DEPENDENT-PROJECTS.md**](docs/HANDOFF-DEPENDENT-PROJECTS.md) | **Cross-repo handoff** for boing.express, boing.observer, partner dApps |
 | [**BOING-NETWORK-ESSENTIALS.md**](docs/BOING-NETWORK-ESSENTIALS.md) | **Six pillars, design philosophy, priorities, tech stack, key docs — start here** |
 | [**TECHNICAL-SPECIFICATION.md**](docs/TECHNICAL-SPECIFICATION.md) | **Single source of truth: crypto, data formats, bytecode, gas, RPC, QA rules** |
 | [READINESS.md](docs/READINESS.md) | Beta checklist, six-pillar readiness, launch-blocking path, verification commands |

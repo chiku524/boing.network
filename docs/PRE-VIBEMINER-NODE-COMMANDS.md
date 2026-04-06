@@ -154,6 +154,7 @@ cd ../examples/native-boing-tutorial && npm install
 | `npm run observer-chain-tip-poll` | JSON-RPC poll: height + **`boing_getSyncState`**; **`BOING_POLL_ONCE=1`** for one sample (exit **1** on error) — [TESTNET-OPS-RUNBOOK.md](TESTNET-OPS-RUNBOOK.md) §3 |
 | `npm run fetch-native-amm-reserves` | Needs **`BOING_POOL_HEX`** |
 | `npm run fetch-native-amm-logs` | Needs **`BOING_POOL_HEX`** |
+| `npm run print-native-dex-routes` | Off-chain CP routes: **`TOKEN_IN`**, **`TOKEN_OUT`**, optional **`AMOUNT_IN`**, **`BOING_FROM_BLOCK`**, **`BOING_TO_BLOCK`**, factory/pool overrides — [HANDOFF-DEPENDENT-PROJECTS.md](HANDOFF-DEPENDENT-PROJECTS.md); tutorial README §7c3 |
 
 Example (public RPC sanity check, no keys):
 
