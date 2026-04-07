@@ -34,15 +34,6 @@ type Props = { onNavigate: (view: HubView) => void; lastUsedAppId: HubView | nul
 export function HomeView({ onNavigate, lastUsedAppId }: Props) {
   return (
     <div className="home-root">
-      <div className="home-bg" aria-hidden="true">
-        <div className="home-bg-gradient" />
-        <div className="home-bg-grid" />
-        <div className="home-bg-orb home-bg-orb--a" />
-        <div className="home-bg-orb home-bg-orb--b" />
-        <div className="home-bg-orb home-bg-orb--c" />
-        <div className="home-bg-shimmer" />
-      </div>
-
       <div className="home">
         <header className="home-header">
           <div className="home-kicker">Desktop hub</div>

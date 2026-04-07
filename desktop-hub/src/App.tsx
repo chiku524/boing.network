@@ -25,6 +25,7 @@ import { HomeView } from "./views/HomeView";
 import { EmbedView } from "./views/EmbedView";
 import { QaOperatorView } from "./views/QaOperatorView";
 import { WelcomeView } from "./views/WelcomeView";
+import { HubEngraveBackground } from "./components/HubEngraveBackground";
 import "./styles.css";
 
 const NAV_ITEMS: { id: HubView; label: string; description: string }[] = [
@@ -41,7 +42,7 @@ const NAV_ITEMS: { id: HubView; label: string; description: string }[] = [
 ];
 
 function isValidView(v: string): v is HubView {
-  return ["home", "observer", "express", "finance", "network"].includes(v);
+  return ["home", "observer", "express", "finance", "network", "qa"].includes(v);
 }
 
 const WINDOW_TITLE_BASE = "Boing Network Hub";
@@ -210,6 +211,7 @@ function App() {
 
   return (
     <div className="hub">
+      <HubEngraveBackground />
       <HubRpcConfigProvider>
       <UpdateOverlay
         status={updateStatus}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { HubEngraveBackground } from "./HubEngraveBackground";
 
 /** Match VibeMiner splash minimum display time (SPLASH_MIN_MS) */
 const INTRO_DURATION_MS = 1800;
@@ -42,6 +43,7 @@ export function IntroView({ onComplete }: Props) {
       className={`intro-view ${phase === "fadeout" ? "intro-view--fadeout" : ""}`}
       aria-hidden="true"
     >
+      <HubEngraveBackground />
       <button
         type="button"
         className="intro-view__skip"

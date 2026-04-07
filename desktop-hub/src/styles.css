@@ -1,13 +1,19 @@
-/* Boing Network Hub — shell styles (Cosmic Foundation) */
+/* Boing Network Hub — shell (stone slab + neon, parity with boing.network) */
 :root {
-  --bg-primary: #0a1e2e;
-  --bg-secondary: #0d2e42;
-  --bg-tertiary: #122a3d;
+  color-scheme: dark;
+  --stone-deep: #06080c;
+  --stone-mid: #0c1018;
+  --stone-vein: #121a24;
+  --surface: #0f1419;
+  --surface-2: #151c24;
+  --bg-primary: #070a0e;
+  --bg-secondary: var(--stone-mid);
+  --bg-tertiary: var(--surface-2);
   --text-primary: #f0f4f8;
   --text-secondary: rgba(240, 244, 248, 0.85);
   --text-tertiary: rgba(240, 244, 248, 0.6);
   --accent-teal: #00d9ff;
-  --border-color: rgba(0, 217, 255, 0.2);
+  --border-color: rgba(36, 48, 66, 0.85);
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
   --sidebar-width: 200px;
@@ -65,9 +71,13 @@ body,
 }
 
 .hub-sidebar {
+  position: relative;
+  z-index: 2;
   width: var(--sidebar-width);
   min-width: var(--sidebar-width);
-  background: var(--bg-secondary);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -361,11 +371,13 @@ body,
 }
 
 .hub-main {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  background: var(--bg-primary);
+  background: transparent;
   outline: none;
   transition: opacity var(--transition-view);
 }
@@ -626,12 +638,13 @@ body,
   transition: opacity var(--transition-view);
 }
 
-/* Home view — full-bleed animated backdrop + centered column */
+/* Home view — centered column (stone BG is hub-level HubEngraveBackground) */
 .home-root {
   flex: 1;
   min-height: 0;
   width: 100%;
   position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -651,140 +664,7 @@ body,
   border-radius: 3px;
 }
 
-.home-bg {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
-  background: var(--bg-primary);
-}
-
-.home-bg-gradient {
-  position: absolute;
-  inset: -40%;
-  background:
-    radial-gradient(ellipse 80% 60% at 20% 20%, rgba(0, 217, 255, 0.18) 0%, transparent 55%),
-    radial-gradient(ellipse 70% 50% at 85% 15%, rgba(52, 211, 153, 0.12) 0%, transparent 50%),
-    radial-gradient(ellipse 60% 70% at 50% 100%, rgba(99, 102, 241, 0.1) 0%, transparent 45%);
-  animation: home-bg-drift 22s ease-in-out infinite alternate;
-}
-
-.home-bg-grid {
-  position: absolute;
-  inset: 0;
-  opacity: 0.22;
-  background-image:
-    linear-gradient(rgba(0, 217, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 217, 255, 0.06) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse 85% 75% at 50% 45%, black 15%, transparent 70%);
-  animation: home-grid-pan 36s linear infinite;
-}
-
-.home-bg-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(60px);
-  opacity: 0.45;
-  mix-blend-mode: screen;
-  animation: home-orb-float 18s ease-in-out infinite;
-}
-.home-bg-orb--a {
-  width: min(55vw, 420px);
-  height: min(55vw, 420px);
-  left: -8%;
-  top: 10%;
-  background: radial-gradient(circle, rgba(0, 217, 255, 0.55) 0%, transparent 70%);
-  animation-delay: 0s;
-  animation-duration: 19s;
-}
-.home-bg-orb--b {
-  width: min(45vw, 340px);
-  height: min(45vw, 340px);
-  right: -5%;
-  bottom: 15%;
-  background: radial-gradient(circle, rgba(52, 211, 153, 0.4) 0%, transparent 70%);
-  animation-delay: -6s;
-  animation-duration: 24s;
-}
-.home-bg-orb--c {
-  width: min(40vw, 280px);
-  height: min(40vw, 280px);
-  left: 35%;
-  bottom: -10%;
-  background: radial-gradient(circle, rgba(129, 140, 248, 0.35) 0%, transparent 70%);
-  animation-delay: -12s;
-  animation-duration: 21s;
-}
-
-.home-bg-shimmer {
-  position: absolute;
-  inset: -50% -20%;
-  background: linear-gradient(
-    105deg,
-    transparent 40%,
-    rgba(255, 255, 255, 0.03) 48%,
-    rgba(0, 217, 255, 0.06) 50%,
-    rgba(255, 255, 255, 0.03) 52%,
-    transparent 60%
-  );
-  animation: home-shimmer 14s ease-in-out infinite;
-}
-
-@keyframes home-bg-drift {
-  0% {
-    transform: translate(0, 0) scale(1);
-  }
-  100% {
-    transform: translate(3%, 2%) scale(1.05);
-  }
-}
-
-@keyframes home-grid-pan {
-  0% {
-    transform: translate(0, 0);
-  }
-  100% {
-    transform: translate(48px, 48px);
-  }
-}
-
-@keyframes home-orb-float {
-  0%,
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
-  33% {
-    transform: translate(4%, -3%) scale(1.06);
-  }
-  66% {
-    transform: translate(-3%, 4%) scale(0.96);
-  }
-}
-
-@keyframes home-shimmer {
-  0%,
-  100% {
-    transform: translateX(-15%) rotate(0deg);
-    opacity: 0.5;
-  }
-  50% {
-    transform: translateX(15%) rotate(0.5deg);
-    opacity: 1;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .home-bg-gradient,
-  .home-bg-grid,
-  .home-bg-orb,
-  .home-bg-shimmer {
-    animation: none;
-  }
-  .home-bg-gradient {
-    transform: none;
-  }
   .home-title {
     animation: none;
     background: none;
@@ -879,11 +759,11 @@ body,
   display: block;
   padding: 1rem 1.15rem;
   border-radius: 12px;
-  border: 1px solid rgba(0, 217, 255, 0.18);
-  background: rgba(13, 46, 66, 0.45);
+  border: 1px solid rgba(0, 217, 255, 0.14);
+  background: rgba(15, 20, 28, 0.55);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
   text-decoration: none;
   color: var(--text-primary);
   transition:
@@ -908,8 +788,8 @@ body,
 }
 
 .home-card:hover {
-  border-color: rgba(0, 217, 255, 0.45);
-  background: rgba(13, 46, 66, 0.65);
+  border-color: rgba(0, 217, 255, 0.38);
+  background: rgba(18, 26, 36, 0.72);
   box-shadow:
     0 0 0 1px rgba(0, 217, 255, 0.08),
     0 12px 32px rgba(0, 0, 0, 0.2);
@@ -975,7 +855,7 @@ body,
   text-align: left;
 }
 
-/* ========== Intro (main window) — dice.express / BountyHub canvas ========== */
+/* ========== Intro (main window) — stone shell ========== */
 .intro-view {
   position: fixed;
   inset: 0;
@@ -984,13 +864,7 @@ body,
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: #0a0a0f;
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.028) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.028) 1px, transparent 1px),
-    radial-gradient(ellipse 70% 45% at 50% 0%, rgba(99, 102, 241, 0.08), transparent 55%),
-    radial-gradient(ellipse 55% 40% at 80% 100%, rgba(20, 184, 166, 0.06), transparent 50%);
-  background-size: 32px 32px, 32px 32px, 100% 100%, 100% 100%;
+  background: transparent;
   transition: opacity 0.4s ease;
 }
 .intro-view--fadeout {
@@ -1002,6 +876,7 @@ body,
   position: absolute;
   top: 16px;
   right: 20px;
+  z-index: 2;
   padding: 6px 12px;
   font-size: 0.8rem;
   font-family: var(--font-sans);
@@ -1022,6 +897,8 @@ body,
 }
 
 .intro-view__content {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1035,7 +912,8 @@ body,
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(20, 184, 166, 0.2) 100%);
+  background: linear-gradient(135deg, rgba(0, 217, 255, 0.18) 0%, rgba(90, 176, 255, 0.14) 100%);
+  border: 1px solid rgba(0, 217, 255, 0.2);
   border-radius: 1.25rem;
   animation: intro-symbol-fade 0.8s ease-out;
 }
@@ -1050,7 +928,7 @@ body,
   margin-top: 1rem;
   font-size: 1.5rem;
   font-weight: 700;
-  background: linear-gradient(90deg, #8b5cf6, #14b8a6);
+  background: linear-gradient(90deg, #00d9ff, #5ab0ff, #7c6cf0);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -1068,6 +946,8 @@ body,
 }
 
 .intro-view__checkbox {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1091,6 +971,7 @@ body,
   bottom: 32px;
   left: 50%;
   transform: translateX(-50%);
+  z-index: 1;
   width: 160px;
   height: 3px;
   background: var(--bg-tertiary);
@@ -1322,7 +1203,7 @@ body,
   outline-offset: 2px;
 }
 
-/* ========== Desktop update UI (dice.express / BountyHub) — splash + in-app ========== */
+/* ========== Desktop update UI — splash + in-app (stone shell) ========== */
 .desktop-update-overlay {
   position: fixed;
   inset: 0;
@@ -1370,7 +1251,8 @@ body,
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(20, 184, 166, 0.2) 100%);
+  background: linear-gradient(135deg, rgba(0, 217, 255, 0.18) 0%, rgba(90, 176, 255, 0.14) 100%);
+  border: 1px solid rgba(0, 217, 255, 0.2);
   border-radius: 1rem;
   animation: hubDesktopUpdateSymbolFadeIn 0.5s ease-out;
 }
@@ -1396,7 +1278,7 @@ body,
   margin-top: 0.75rem;
   font-size: 1.25rem;
   font-weight: 700;
-  background: linear-gradient(90deg, #8b5cf6, #14b8a6);
+  background: linear-gradient(90deg, #00d9ff, #5ab0ff, #7c6cf0);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -1546,6 +1428,7 @@ body,
 
 /* ========== Welcome (sign-in / register / guest) ========== */
 .welcome-view {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1556,13 +1439,17 @@ body,
 }
 
 .welcome-view__card {
+  position: relative;
+  z-index: 1;
   width: 100%;
   max-width: 380px;
   padding: 32px;
-  background: var(--bg-secondary);
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
 }
 
 .welcome-view__logo {

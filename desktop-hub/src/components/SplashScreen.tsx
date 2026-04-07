@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { isTauri as isTauriApp, isWindowsWebview } from "../lib/tauri";
 import SplashDesktopUpdateOverlay from "./SplashUpdateOverlay";
 import { BoingLoaderDots } from "./BoingLoaderDots";
+import { HubEngraveBackground } from "./HubEngraveBackground";
 import "./SplashScreen.css";
 
 const INTRO_DURATION_MS = 1800;
@@ -107,6 +108,7 @@ export function SplashScreen() {
   return (
     <>
       <div className="splash-screen splash-screen--intro">
+        <HubEngraveBackground />
         <div className="splash-screen__content">
           <div className="splash-screen__symbol" aria-hidden>
             <img src="/favicon.svg" alt="" width={72} height={72} />

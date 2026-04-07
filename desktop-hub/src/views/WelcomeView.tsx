@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { HubEngraveBackground } from "../components/HubEngraveBackground";
 
 const TESTNET_URL = "https://boing.network/testnet";
 const EXPRESS_URL = "https://boing.express";
@@ -31,6 +32,7 @@ export function WelcomeView({ onSignIn, onRegister, onContinueAsGuest }: Props) 
 
   return (
     <div className="welcome-view" role="main" aria-label="Welcome">
+      <HubEngraveBackground />
       <div className="welcome-view__card">
         <img src="/favicon.svg" alt="" className="welcome-view__logo" />
         <h1 className="welcome-view__title">Welcome to Boing Network Hub</h1>

@@ -9,7 +9,6 @@ import {
   encodeSignedTransaction,
   signableTransactionHash,
   type TransactionInput,
-  type TransactionPayloadInput,
 } from './bincode.js';
 import { bytesToHex, hexToAccountId, validateHex32 } from './hex.js';
 
