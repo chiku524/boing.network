@@ -65,12 +65,12 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
     <h2 class="display-title font-display font-bold text-neon-cyan text-shadow-glow section-reveal">The Pillars of the Boing Network</h2>
     <p class="section-lead section-reveal delay-1">Six foundational principles that define who we are.</p>
     <div class="pillars-grid">
-      <div class="pillar-card bg-gradient-ocean border border-cyan-transparent section-reveal delay-2"><img src="/assets/pillar-security.png" alt="Security" class="pillar-img" width="200" height="280" /><h3 class="text-neon-cyan font-display font-bold">Security</h3><p>Safety and correctness first — always over speed.</p></div>
-      <div class="pillar-card bg-gradient-ocean border border-cyan-transparent section-reveal delay-3"><img src="/assets/pillar-scalability.png" alt="Scalability" class="pillar-img" width="200" height="280" /><h3 class="text-neon-cyan font-display font-bold">Scalability</h3><p>High throughput without compromising the other pillars.</p></div>
-      <div class="pillar-card bg-gradient-ocean border border-cyan-transparent section-reveal delay-4"><img src="/assets/pillar-decentralization.png" alt="Decentralization" class="pillar-img" width="200" height="280" /><h3 class="text-neon-cyan font-display font-bold">Decentralization</h3><p>Anyone can participate. No one can shut the door.</p></div>
-      <div class="pillar-card bg-gradient-ocean border border-cyan-transparent section-reveal delay-5"><img src="/assets/pillar-authenticity.png" alt="Authenticity" class="pillar-img" width="200" height="280" /><h3 class="text-neon-cyan font-display font-bold">Authenticity</h3><p>One chain, one identity — authentic and independent.</p></div>
-      <div class="pillar-card bg-gradient-ocean border border-cyan-transparent section-reveal delay-6"><img src="/assets/pillar-transparency.png" alt="Transparency" class="pillar-img" width="200" height="280" /><h3 class="text-neon-cyan font-display font-bold">Transparency</h3><p>100% open — design, governance, operations. Trust through verifiability.</p></div>
-      <div class="pillar-card bg-gradient-ocean border border-cyan-transparent section-reveal delay-7"><img src="/assets/pillar-quality.png" alt="Quality Assurance" class="pillar-img" width="200" height="280" /><h3 class="text-neon-cyan font-display font-bold">True Quality Assurance</h3><p>Only quality assets on-chain. Automated checks; community pool for edge cases. No scams, no single gatekeeper.</p></div>
+      <div class="pillar-card bg-gradient-ocean border border-cyan-transparent section-reveal delay-2"><img src="/assets/pillar-security.svg" alt="" class="pillar-img" width="200" height="280" loading="lazy" decoding="async" /><h3 class="text-neon-cyan font-display font-bold">Security</h3><p>Safety and correctness first — always over speed.</p></div>
+      <div class="pillar-card bg-gradient-ocean border border-cyan-transparent section-reveal delay-3"><img src="/assets/pillar-scalability.svg" alt="" class="pillar-img" width="200" height="280" loading="lazy" decoding="async" /><h3 class="text-neon-cyan font-display font-bold">Scalability</h3><p>High throughput without compromising the other pillars.</p></div>
+      <div class="pillar-card bg-gradient-ocean border border-cyan-transparent section-reveal delay-4"><img src="/assets/pillar-decentralization.svg" alt="" class="pillar-img" width="200" height="280" loading="lazy" decoding="async" /><h3 class="text-neon-cyan font-display font-bold">Decentralization</h3><p>Anyone can participate. No one can shut the door.</p></div>
+      <div class="pillar-card bg-gradient-ocean border border-cyan-transparent section-reveal delay-5"><img src="/assets/pillar-authenticity.svg" alt="" class="pillar-img" width="200" height="280" loading="lazy" decoding="async" /><h3 class="text-neon-cyan font-display font-bold">Authenticity</h3><p>One chain, one identity — authentic and independent.</p></div>
+      <div class="pillar-card bg-gradient-ocean border border-cyan-transparent section-reveal delay-6"><img src="/assets/pillar-transparency.svg" alt="" class="pillar-img" width="200" height="280" loading="lazy" decoding="async" /><h3 class="text-neon-cyan font-display font-bold">Transparency</h3><p>100% open — design, governance, operations. Trust through verifiability.</p></div>
+      <div class="pillar-card bg-gradient-ocean border border-cyan-transparent section-reveal delay-7"><img src="/assets/pillar-quality.svg" alt="" class="pillar-img" width="200" height="280" loading="lazy" decoding="async" /><h3 class="text-neon-cyan font-display font-bold">True Quality Assurance</h3><p>Only quality assets on-chain. Automated checks; community pool for edge cases. No scams, no single gatekeeper.</p></div>
     </div>
     <div class="pillars-unique section-reveal delay-8">
       <h3 class="pillars-unique-title">The Boing difference</h3>
@@ -503,7 +503,17 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
   }
   .pillar-card { background: rgba(18, 24, 41, 0.88); border: 1px solid var(--border-color); border-radius: 16px; padding: 0.875rem 1rem; text-align: center; transition: border-color 0.2s ease-out, box-shadow 0.2s ease-out, transform 0.2s ease-out; transition-delay: 0; display: flex; flex-direction: column; align-items: center; }
   .pillar-card:hover { border-color: var(--border-hover); box-shadow: 0 4px 30px var(--glow-cyan); transform: translateY(-2px); }
-  .pillar-img { width: 100%; height: auto; max-height: 160px; object-fit: contain; border-radius: 8px; display: block; margin: 0 auto 0.5rem; }
+  .pillar-img {
+    width: 100%;
+    height: auto;
+    max-height: 168px;
+    object-fit: contain;
+    object-position: center;
+    border-radius: 10px;
+    display: block;
+    margin: 0 auto 0.5rem;
+    filter: drop-shadow(0 0 14px rgba(0, 217, 255, 0.12));
+  }
   .pillar-card h3 { font-size: 0.95rem; margin: 0 0 0.25rem; color: var(--text-primary); }
   .pillar-card p { font-size: 0.78rem; color: var(--text-secondary); margin: 0; line-height: 1.35; }
   .pillars-unique { margin-top: 2.5rem; padding: 1.75rem 1.5rem; background: rgba(18, 24, 41, 0.88); border: 1px solid var(--border-color); border-radius: 16px; max-width: 800px; margin-left: auto; margin-right: auto; }
@@ -534,7 +544,11 @@ import GenesisBlockIntro from '../components/GenesisBlockIntro.astro';
   .section-reveal.delay-12 { animation-delay: 0.72s; }
   .section-reveal.delay-13 { animation-delay: 0.78s; }
   @keyframes section-reveal { to { opacity: 1; transform: translateY(0); } }
-  @media (prefers-reduced-motion: reduce) { .section-reveal { animation: none; opacity: 1; transform: none; } .pillar-card:hover { transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .section-reveal { animation: none; opacity: 1; transform: none; }
+    .pillar-card:hover { transform: none; }
+    .pillar-img { filter: none; }
+  }
 
   /* Sections: full viewport width with inner max-width for readability */
   .section {

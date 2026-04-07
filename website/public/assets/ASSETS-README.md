@@ -9,12 +9,12 @@ Place the following assets in this directory (`/public/assets/`) so they resolve
 | **icon-only-transparent.png** | Boing icon/logo (transparent). Used in header nav and hero. Single asset for all contexts. |
 | **mascot-default.png** | Corner mascot (fixed bottom-right). Default pose. |
 | **mascot-excited.png** | Hero section mascot. Energetic pose. |
-| **pillar-security.png** | Pillars section — Security. |
-| **pillar-scalability.png** | Pillars section — Scalability. |
-| **pillar-decentralization.png** | Pillars section — Decentralization. |
-| **pillar-authenticity.png** | Pillars section — Authenticity. |
-| **pillar-transparency.png** | Pillars section — Transparency. |
-| **pillar-quality.png** | Pillars section — Quality Assurance. |
+| **pillar-security.svg** | Pillars — Security (vector, neon gradient shield). |
+| **pillar-scalability.svg** | Pillars — Scalability (bars + growth path). |
+| **pillar-decentralization.svg** | Pillars — Decentralization (mesh nodes). |
+| **pillar-authenticity.svg** | Pillars — Authenticity (verified identity badge). |
+| **pillar-transparency.svg** | Pillars — Transparency (document + lens). |
+| **pillar-quality.svg** | Pillars — Quality Assurance (shield + check). |
 
 ## Optional (for future use)
 
