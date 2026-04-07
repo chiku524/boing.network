@@ -59,6 +59,7 @@ Goal: Contracts can implement patterns that need **who called** and **current co
 - [x] **C4** — `TECHNICAL-SPECIFICATION.md` §7.2; reference token doc for wallet calldata.
 - [x] **C5** — Nested **`Call`** wiring: `Interpreter::run_nested`, `VmError::{CallDepthExceeded, CallBufferTooLarge}`; `StateStore` implements `get_contract_code` for sub-calls.
 - [x] **C6** — **Canonical reference fungible template bytecode:** implement balances + `transfer` / `mint_first` (or documented subset) in `boing-execution`, `check_contract_deploy_full` **Allow/Unsure** for purpose **`token`**, export hex from `dump_reference_token_artifacts`, pin default in **`boing-sdk`** and [BOING-CANONICAL-DEPLOY-ARTIFACTS.md](BOING-CANONICAL-DEPLOY-ARTIFACTS.md). *(Partner UIs: [E2-PARTNER-APP-NATIVE-BOING.md](E2-PARTNER-APP-NATIVE-BOING.md).)*
+- [x] **C6b** — **Secured reference fungible:** `reference_fungible_secured` (`0xFD` init + runtime) with optional denylist, pause, caps, anti-bot, cooldown, transfer-unlock, no-mint, admin ops; **fourth** stdout line from `dump_reference_token_artifacts`; pinned default + resolvers in **`boing-sdk`**; VM **deploy-init gas** budget for large init; docs in [BOING-REFERENCE-TOKEN.md](BOING-REFERENCE-TOKEN.md) / [BOING-CANONICAL-DEPLOY-ARTIFACTS.md](BOING-CANONICAL-DEPLOY-ARTIFACTS.md).
 
 ---
 

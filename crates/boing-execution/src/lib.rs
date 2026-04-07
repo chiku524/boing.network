@@ -15,13 +15,14 @@ mod native_amm_lp_vault;
 mod parallel;
 pub mod reference_nft;
 pub mod reference_token;
+pub mod reference_fungible_secured;
 mod scheduler;
 mod vm;
 
 pub use bytecode::{gas as bytecode_gas, Opcode};
 pub use executor::{BlockExecutor, ExecutionError};
 pub use gas::GasConfig;
-pub use interpreter::{Interpreter, StorageAccess, MAX_CALL_DEPTH};
+pub use interpreter::{Interpreter, StorageAccess, VmExecutionContext, MAX_CALL_DEPTH};
 pub use parallel::ExecutionView;
 pub use scheduler::TransactionScheduler;
 pub use reference_nft::{
@@ -34,6 +35,14 @@ pub use reference_token::{
     encode_mint_first_calldata, encode_transfer_calldata, ref_fungible_admin_key,
     ref_fungible_mint_once_key, reference_fungible_template_bytecode, smoke_contract_bytecode,
     REF_FUNGIBLE_BALANCE_XOR, SELECTOR_MINT_FIRST, SELECTOR_TRANSFER,
+};
+pub use reference_fungible_secured::{
+    encode_secured_set_deny_calldata, ref_sec_admin_key, ref_sec_flags_key,
+    reference_fungible_secured_deploy_bytecode, reference_fungible_secured_pinned_default_deploy_bytecode,
+    reference_fungible_secured_runtime_bytecode, ReferenceFungibleSecuredConfig,
+    FLAG_ANTI_BOT, FLAG_COOLDOWN, FLAG_DENYLIST, FLAG_MAX_TX, FLAG_MAX_WALLET, FLAG_NO_MINT,
+    FLAG_TRANSFER_UNLOCK, REF_SECURED_BALANCE_XOR, REF_SECURED_COOLDOWN_XOR, REF_SECURED_DENY_XOR,
+    SELECTOR_RENOUNCE_ADMIN, SELECTOR_SET_DENY, SELECTOR_SET_PAUSE, SELECTOR_SET_TRANSFER_UNLOCK,
 };
 pub use native_amm::{
     constant_product_amount_out, constant_product_amount_out_after_fee,
@@ -90,5 +99,7 @@ pub use native_amm_lp_vault::{
     NATIVE_AMM_LP_VAULT_KEY_POOL, NATIVE_AMM_LP_VAULT_KEY_SHARE_TOKEN, SELECTOR_NATIVE_AMM_LP_VAULT_CONFIGURE,
     SELECTOR_NATIVE_AMM_LP_VAULT_DEPOSIT_ADD,
 };
-pub use vm::{TransferState, Vm, VmError, VmExecutionResult};
+pub use vm::{
+    GAS_PER_CONTRACT_DEPLOY_INIT, TransferState, Vm, VmError, VmExecutionResult,
+};
 pub use boing_primitives::{Transaction, AccessList};

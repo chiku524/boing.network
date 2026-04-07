@@ -30,7 +30,12 @@ pub fn validate_and_execute_block(
     // 3. Execute on snapshot
     let mut state = parent_state.snapshot();
     let (_gas, receipts) = executor
-        .execute_block(block.header.height, &block.transactions, &mut state)
+        .execute_block(
+            block.header.height,
+            block.header.timestamp,
+            &block.transactions,
+            &mut state,
+        )
         .map_err(|e| BlockValidationError::ExecutionFailed(e.to_string()))?;
 
     // 4. Block reward

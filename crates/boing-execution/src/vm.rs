@@ -9,11 +9,13 @@ use boing_qa::{check_contract_deploy_full, check_contract_deploy_full_with_metad
 use boing_state::StateStore;
 
 use crate::gas::base;
-use super::interpreter::Interpreter;
+use super::interpreter::{Interpreter, VmExecutionContext};
 
 /// Gas used by a transaction.
 pub const GAS_PER_TRANSFER: u64 = 21_000;
 pub const GAS_PER_CONTRACT_CALL: u64 = 100_000;
+/// Gas budget for **`0xFD` init** that runs at deploy (SSTORE bootstrap + `MSTORE`/`RETURN` of large runtime).
+pub const GAS_PER_CONTRACT_DEPLOY_INIT: u64 = 5_000_000;
 pub const GAS_PER_CONTRACT_DEPLOY: u64 = 200_000;
 
 /// Successful VM / tx application outcome (for receipts and simulation).
@@ -128,8 +130,18 @@ impl Vm {
         })
     }
 
-    /// Execute a single transaction against the state.
+    /// Execute a single transaction against the state (block height / timestamp default to zero).
     pub fn execute(&self, tx: &Transaction, state: &mut StateStore) -> Result<VmExecutionResult, VmError> {
+        self.execute_with_context(tx, state, VmExecutionContext::default())
+    }
+
+    /// Execute with block context for **`BlockHeight` (`0x40`)** / **`Timestamp` (`0x41`)** opcodes inside contract code.
+    pub fn execute_with_context(
+        &self,
+        tx: &Transaction,
+        state: &mut StateStore,
+        exec_ctx: VmExecutionContext,
+    ) -> Result<VmExecutionResult, VmError> {
         // Nonce validation
         let sender_state = state.get(&tx.sender).ok_or(VmError::AccountNotFound)?;
         if sender_state.nonce != tx.nonce {
@@ -196,12 +208,12 @@ impl Vm {
                 GAS_PER_TRANSFER
             }
             TransactionPayload::ContractCall { contract, calldata } => {
-                return self.execute_contract_call(state, tx, contract, calldata);
+                return self.execute_contract_call(state, tx, contract, calldata, exec_ctx);
             }
             TransactionPayload::ContractDeploy { .. }
             | TransactionPayload::ContractDeployWithPurpose { .. }
             | TransactionPayload::ContractDeployWithPurposeAndMetadata { .. } => {
-                return self.execute_contract_deploy(state, tx);
+                return self.execute_contract_deploy(state, tx, exec_ctx);
             }
         };
         Ok(VmExecutionResult {
@@ -211,7 +223,12 @@ impl Vm {
         })
     }
 
-    fn execute_contract_deploy(&self, state: &mut StateStore, tx: &Transaction) -> Result<VmExecutionResult, VmError> {
+    fn execute_contract_deploy(
+        &self,
+        state: &mut StateStore,
+        tx: &Transaction,
+        exec_ctx: VmExecutionContext,
+    ) -> Result<VmExecutionResult, VmError> {
         // Defense in depth: same full QA path as mempool (`Mempool::insert`), using payload fields.
         // Malicious blocks must not apply deploys that honest mempools would reject.
         let Some((bytecode, purpose, desc_hash, asset_name, asset_symbol)) = tx.payload.as_contract_deploy()
@@ -270,9 +287,15 @@ impl Vm {
         let uses_init = contract_deploy_uses_init_code(bytecode);
         let init_body = contract_deploy_init_body(bytecode);
         let (gas_used, logs, stored_code) = if uses_init {
-            let mut interpreter = Interpreter::new(init_body.to_vec(), GAS_PER_CONTRACT_CALL);
-            let g_init =
-                interpreter.run_with_qa(tx.sender, contract_addr, &[], state, &self.qa_registry)?;
+            let mut interpreter = Interpreter::new(init_body.to_vec(), GAS_PER_CONTRACT_DEPLOY_INIT);
+            let g_init = interpreter.run_with_qa(
+                tx.sender,
+                contract_addr,
+                &[],
+                state,
+                &self.qa_registry,
+                exec_ctx,
+            )?;
             let runtime = interpreter.return_data.take().unwrap_or_default();
             let logs = std::mem::take(&mut interpreter.logs);
             let gas = GAS_PER_CONTRACT_DEPLOY.saturating_add(g_init);
@@ -299,6 +322,7 @@ impl Vm {
         tx: &Transaction,
         contract: &AccountId,
         calldata: &[u8],
+        exec_ctx: VmExecutionContext,
     ) -> Result<VmExecutionResult, VmError> {
         let sender_state = state.get_mut(&tx.sender).ok_or(VmError::AccountNotFound)?;
         sender_state.nonce = sender_state
@@ -308,8 +332,14 @@ impl Vm {
 
         let code = state.get_contract_code(contract).ok_or(VmError::AccountNotFound)?.clone();
         let mut interpreter = Interpreter::new(code, GAS_PER_CONTRACT_CALL);
-        let gas_used =
-            interpreter.run_with_qa(tx.sender, *contract, calldata, state, &self.qa_registry)?;
+        let gas_used = interpreter.run_with_qa(
+            tx.sender,
+            *contract,
+            calldata,
+            state,
+            &self.qa_registry,
+            exec_ctx,
+        )?;
         let return_data = interpreter.return_data.take().unwrap_or_default();
         let logs = std::mem::take(&mut interpreter.logs);
         Ok(VmExecutionResult {
@@ -743,6 +773,7 @@ pub(crate) fn apply_in_tx_create2(
     init_gas_limit: u64,
     parent_logs: &mut Vec<ExecutionLog>,
     parent_call_depth: u8,
+    exec_ctx: VmExecutionContext,
 ) -> Result<(AccountId, u64), VmError> {
     if bytecode.is_empty() {
         return Err(VmError::Create2InitCodeEmpty);
@@ -791,6 +822,7 @@ pub(crate) fn apply_in_tx_create2(
             state,
             qa_registry,
             init_depth,
+            exec_ctx,
         )?;
         Interpreter::merge_child_logs(parent_logs, &interpreter)?;
         let runtime = interpreter.return_data.take().unwrap_or_default();

@@ -18,6 +18,21 @@ use super::vm::VmError;
 /// Maximum nested [`Opcode::Call`] depth (root frame = 0).
 pub const MAX_CALL_DEPTH: u8 = 64;
 
+/// Block-level execution context supplied by the host ([`Vm`](crate::vm::Vm)) for every transaction.
+///
+/// Drives [`Opcode::BlockHeight`] and [`Opcode::Timestamp`]. Defaults to zeros when omitted (tests / legacy callers).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct VmExecutionContext {
+    pub block_height: u64,
+    pub block_timestamp: u64,
+}
+
+fn word_u64_env(n: u64) -> [u8; 32] {
+    let mut w = [0u8; 32];
+    w[24..32].copy_from_slice(&n.to_be_bytes());
+    w
+}
+
 fn u256_be_to_biguint(w: &[u8; 32]) -> BigUint {
     BigUint::from_bytes_be(w)
 }
@@ -83,6 +98,7 @@ pub struct Interpreter {
     pub logs: Vec<ExecutionLog>,
     caller_id: AccountId,
     contract_id: AccountId,
+    exec_ctx: VmExecutionContext,
 }
 
 /// Storage interface for SLOAD/SSTORE, nested [`Opcode::Call`], and [`Opcode::Create2`].
@@ -102,6 +118,7 @@ pub trait StorageAccess {
         _init_gas_limit: u64,
         _parent_logs: &mut Vec<ExecutionLog>,
         _parent_call_depth: u8,
+        _exec_ctx: VmExecutionContext,
     ) -> Result<(AccountId, u64), VmError> {
         Err(VmError::Create2NotSupported)
     }
@@ -120,6 +137,7 @@ impl Interpreter {
             logs: Vec::new(),
             caller_id: AccountId([0u8; 32]),
             contract_id: AccountId([0u8; 32]),
+            exec_ctx: VmExecutionContext::default(),
         }
     }
 
@@ -275,7 +293,15 @@ impl Interpreter {
         storage: &mut S,
     ) -> Result<u64, VmError> {
         let default_reg = RuleRegistry::new();
-        self.run_nested(caller_id, contract_id, calldata, storage, &default_reg, 0)
+        self.run_nested(
+            caller_id,
+            contract_id,
+            calldata,
+            storage,
+            &default_reg,
+            0,
+            VmExecutionContext::default(),
+        )
     }
 
     /// Same as [`Self::run`], but uses `qa_registry` for in-contract [`Opcode::Create2`] (must match mempool / block executor policy).
@@ -286,8 +312,17 @@ impl Interpreter {
         calldata: &[u8],
         storage: &mut S,
         qa_registry: &RuleRegistry,
+        exec_ctx: VmExecutionContext,
     ) -> Result<u64, VmError> {
-        self.run_nested(caller_id, contract_id, calldata, storage, qa_registry, 0)
+        self.run_nested(
+            caller_id,
+            contract_id,
+            calldata,
+            storage,
+            qa_registry,
+            0,
+            exec_ctx,
+        )
     }
 
     pub(crate) fn run_nested<S: StorageAccess>(
@@ -298,9 +333,11 @@ impl Interpreter {
         storage: &mut S,
         qa_registry: &RuleRegistry,
         call_depth: u8,
+        exec_ctx: VmExecutionContext,
     ) -> Result<u64, VmError> {
         self.caller_id = caller_id;
         self.contract_id = contract_id;
+        self.exec_ctx = exec_ctx;
         self.logs.clear();
         self.ensure_memory(0, calldata.len());
         self.memory[..calldata.len()].copy_from_slice(calldata);
@@ -517,6 +554,14 @@ impl Interpreter {
                     self.spend_gas(gas::ADDRESS)?;
                     self.push(self.contract_id.0);
                 }
+                Opcode::BlockHeight => {
+                    self.spend_gas(gas::BLOCKCTX)?;
+                    self.push(word_u64_env(self.exec_ctx.block_height));
+                }
+                Opcode::Timestamp => {
+                    self.spend_gas(gas::BLOCKCTX)?;
+                    self.push(word_u64_env(self.exec_ctx.block_timestamp));
+                }
                 Opcode::Caller => {
                     self.spend_gas(gas::CALLER)?;
                     self.push(self.caller_id.0);
@@ -595,6 +640,7 @@ impl Interpreter {
                         storage,
                         qa_registry,
                         call_depth.saturating_add(1),
+                        exec_ctx,
                     )?;
                     self.gas_used = self.gas_used.saturating_add(child.gas_used);
                     Self::merge_child_logs(&mut self.logs, &child)?;
@@ -637,6 +683,7 @@ impl Interpreter {
                         remaining,
                         &mut self.logs,
                         call_depth,
+                        exec_ctx,
                     )?;
                     self.gas_used = self.gas_used.saturating_add(g_init);
                     self.push(addr.0);
@@ -701,6 +748,7 @@ impl StorageAccess for StateStore {
         init_gas_limit: u64,
         parent_logs: &mut Vec<ExecutionLog>,
         parent_call_depth: u8,
+        exec_ctx: VmExecutionContext,
     ) -> Result<(AccountId, u64), VmError> {
         crate::vm::apply_in_tx_create2(
             self,
@@ -711,6 +759,7 @@ impl StorageAccess for StateStore {
             init_gas_limit,
             parent_logs,
             parent_call_depth,
+            exec_ctx,
         )
     }
 }

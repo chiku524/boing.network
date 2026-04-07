@@ -1613,18 +1613,28 @@ async fn dispatch_jsonrpc_request(
             match hex::decode(hex_tx.trim_start_matches("0x")) {
                 Ok(bytes) => match bincode::deserialize::<SignedTransaction>(&bytes) {
                     Ok(signed) => {
-                        let (mut state_copy, vm) = {
+                        let (mut state_copy, vm, exec_ctx) = {
                             let n = node.read().await;
+                            let h = n.chain.height();
+                            let ts = n
+                                .chain
+                                .get_block_by_height(h)
+                                .map(|b| b.header.timestamp)
+                                .unwrap_or(0);
                             (
                                 n.state.snapshot(),
                                 boing_execution::Vm::with_qa_registry(
                                     n.mempool.qa_registry().clone(),
                                 ),
+                                boing_execution::VmExecutionContext {
+                                    block_height: h,
+                                    block_timestamp: ts,
+                                },
                             )
                         };
                         let sug = signed.tx.suggested_parallel_access_list();
                         let covers = signed.tx.access_list_covers_parallel_suggestion();
-                        match vm.execute(&signed.tx, &mut state_copy) {
+                        match vm.execute_with_context(&signed.tx, &mut state_copy, exec_ctx) {
                             Ok(out) => rpc_ok(
                                 id,
                                 serde_json::json!({

@@ -55,11 +55,15 @@ impl BlockProducer {
 
         let parent_hash = chain.parent_hash();
         let height = chain.height() + 1;
+        let block_timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
         let tx_root = tx_root(&txs);
 
         // Execute transactions; revert on failure and re-insert txs so they can be retried
         let checkpoint = state.checkpoint();
-        let receipts = match executor.execute_block(height, &txs, state) {
+        let receipts = match executor.execute_block(height, block_timestamp, &txs, state) {
             Ok((_gas, r)) => r,
             Err(e) => {
                 boing_telemetry::component_warn(
@@ -99,10 +103,7 @@ impl BlockProducer {
             header: BlockHeader {
                 parent_hash,
                 height,
-                timestamp: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs(),
+                timestamp: block_timestamp,
                 proposer: self.proposer,
                 tx_root,
                 receipts_root: rr,

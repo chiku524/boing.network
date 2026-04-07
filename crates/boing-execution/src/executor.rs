@@ -9,6 +9,7 @@ use boing_state::StateStore;
 
 use boing_qa::RuleRegistry;
 
+use super::interpreter::VmExecutionContext;
 use super::parallel::ExecutionView;
 use super::{TransactionScheduler, Vm, VmError};
 
@@ -41,9 +42,14 @@ impl BlockExecutor {
     pub fn execute_block(
         &self,
         block_height: u64,
+        block_timestamp: u64,
         txs: &[Transaction],
         state: &mut StateStore,
     ) -> Result<(u64, Vec<ExecutionReceipt>), ExecutionError> {
+        let exec_ctx = VmExecutionContext {
+            block_height,
+            block_timestamp,
+        };
         let batches = self.scheduler.schedule(txs);
         let mut total_gas = 0u64;
         let mut receipts: Vec<Option<ExecutionReceipt>> = vec![None; txs.len()];
@@ -112,7 +118,7 @@ impl BlockExecutor {
                 // Sequential path
                 for &idx in &batch {
                     let tx = &txs[idx];
-                    match self.vm.execute(tx, state) {
+                    match self.vm.execute_with_context(tx, state, exec_ctx) {
                         Ok(out) => {
                             total_gas = total_gas.saturating_add(out.gas_used);
                             receipts[idx] = Some(ExecutionReceipt::from_tx_outcome(
@@ -187,7 +193,7 @@ mod tests {
             state: AccountState { balance: 0, nonce: 0, stake: 0 },
         });
         let txs = vec![tx(a, b, 0, 100)];
-        let (gas, receipts) = exec.execute_block(1, &txs, &mut state).unwrap();
+        let (gas, receipts) = exec.execute_block(1, 0, &txs, &mut state).unwrap();
         assert_eq!(gas, super::super::vm::GAS_PER_TRANSFER);
         assert_eq!(receipts.len(), 1);
         assert!(receipts[0].success);
@@ -212,7 +218,7 @@ mod tests {
             tx(a, b, 0, 100),
             tx(c, d, 0, 50),
         ];
-        let (gas, receipts) = exec.execute_block(1, &txs, &mut state).unwrap();
+        let (gas, receipts) = exec.execute_block(1, 0, &txs, &mut state).unwrap();
         assert_eq!(receipts.len(), 2);
         assert!(receipts.iter().all(|r| r.success));
         assert_eq!(state.get(&a).unwrap().balance, 900);

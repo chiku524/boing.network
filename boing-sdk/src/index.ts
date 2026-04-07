@@ -471,24 +471,50 @@ export {
   type BlockHeightGapInsertRow,
 } from './indexerGaps.js';
 export { DEFAULT_REFERENCE_FUNGIBLE_TEMPLATE_BYTECODE_HEX } from './defaultReferenceFungibleTemplateBytecodeHex.js';
+export { DEFAULT_REFERENCE_FUNGIBLE_SECURED_TEMPLATE_BYTECODE_HEX } from './defaultReferenceFungibleSecuredTemplateBytecodeHex.js';
 export {
   REFERENCE_FUNGIBLE_TEMPLATE_ARTIFACT_ID,
   REFERENCE_FUNGIBLE_TEMPLATE_VERSION,
+  REFERENCE_FUNGIBLE_SECURED_TEMPLATE_ARTIFACT_ID,
+  REFERENCE_FUNGIBLE_SECURED_TEMPLATE_VERSION,
   REFERENCE_NFT_COLLECTION_TEMPLATE_ARTIFACT_ID,
   REFERENCE_NFT_COLLECTION_TEMPLATE_VERSION,
   ensure0xHex,
   resolveReferenceFungibleTemplateBytecodeHex,
+  resolveReferenceFungibleSecuredTemplateBytecodeHex,
   resolveReferenceNftCollectionTemplateBytecodeHex,
   buildContractDeployMetaTx,
   buildReferenceFungibleDeployMetaTx,
+  buildReferenceFungibleSecuredDeployMetaTx,
   buildReferenceNftCollectionDeployMetaTx,
   resolveNativeConstantProductPoolBytecodeHex,
   buildNativeConstantProductPoolDeployMetaTx,
   type ContractDeployMetaTxObject,
   type BuildReferenceFungibleDeployMetaTxInput,
+  type BuildReferenceFungibleSecuredDeployMetaTxInput,
   type BuildReferenceNftCollectionDeployMetaTxInput,
   type BuildNativeConstantProductPoolDeployMetaTxInput,
 } from './canonicalDeployArtifacts.js';
+export {
+  normalizeNativeTokenSecurity,
+  descriptionHashHexFromNativeTokenSecurity,
+  type NativeTokenSecurityFeaturesInput,
+  type NativeTokenSecurityFeaturesNormalized,
+} from './nativeTokenSecurity.js';
+export {
+  FLAG_ANTI_BOT,
+  FLAG_COOLDOWN,
+  FLAG_DENYLIST,
+  FLAG_MAX_TX,
+  FLAG_MAX_WALLET,
+  FLAG_NO_MINT,
+  FLAG_TRANSFER_UNLOCK,
+  buildReferenceFungibleSecuredDeployBytecodeHexFromNativeTokenSecurity,
+  referenceFungibleSecuredConfigFromNativeTokenSecurity,
+  referenceFungibleSecuredDeployBytecodeHex,
+  type ReferenceFungibleSecuredConfigBytes,
+  type SecuredWizardBuildContext,
+} from './referenceFungibleSecuredDeployBytecode.js';
 export {
   BOING_TESTNET_CHAIN_ID_DECIMAL,
   BOING_TESTNET_CHAIN_ID_HEX,

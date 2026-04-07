@@ -7,12 +7,24 @@
  */
 
 import { DEFAULT_REFERENCE_FUNGIBLE_TEMPLATE_BYTECODE_HEX } from './defaultReferenceFungibleTemplateBytecodeHex.js';
+import { DEFAULT_REFERENCE_FUNGIBLE_SECURED_TEMPLATE_BYTECODE_HEX } from './defaultReferenceFungibleSecuredTemplateBytecodeHex.js';
+import {
+  descriptionHashHexFromNativeTokenSecurity,
+  type NativeTokenSecurityFeaturesInput,
+} from './nativeTokenSecurity.js';
+import { buildReferenceFungibleSecuredDeployBytecodeHexFromNativeTokenSecurity } from './referenceFungibleSecuredDeployBytecode.js';
 
 /** Logical id for the fungible template line item (docs + telemetry). */
 export const REFERENCE_FUNGIBLE_TEMPLATE_ARTIFACT_ID = 'boing.reference_fungible.v0' as const;
 
 /** Bump when default pinned hex in this package changes. */
 export const REFERENCE_FUNGIBLE_TEMPLATE_VERSION = '1' as const;
+
+/** Logical id for the secured fungible template (`0xFD` init + runtime toggles). */
+export const REFERENCE_FUNGIBLE_SECURED_TEMPLATE_ARTIFACT_ID = 'boing.reference_fungible_secured.v0' as const;
+
+/** Bump when default pinned secured hex in this package changes. */
+export const REFERENCE_FUNGIBLE_SECURED_TEMPLATE_VERSION = '1' as const;
 
 /** Logical id for the NFT collection template. */
 export const REFERENCE_NFT_COLLECTION_TEMPLATE_ARTIFACT_ID = 'boing.reference_nft_collection.v0' as const;
@@ -40,6 +52,12 @@ const DEFAULT_FUNGIBLE_ENV_KEYS = [
   'BOING_REFERENCE_FUNGIBLE_TEMPLATE_BYTECODE_HEX',
   'VITE_BOING_REFERENCE_FUNGIBLE_TEMPLATE_BYTECODE_HEX',
   'REACT_APP_BOING_REFERENCE_FUNGIBLE_TEMPLATE_BYTECODE_HEX',
+] as const;
+
+const DEFAULT_FUNGIBLE_SECURED_ENV_KEYS = [
+  'BOING_REFERENCE_FUNGIBLE_SECURED_TEMPLATE_BYTECODE_HEX',
+  'VITE_BOING_REFERENCE_FUNGIBLE_SECURED_TEMPLATE_BYTECODE_HEX',
+  'REACT_APP_BOING_REFERENCE_FUNGIBLE_SECURED_TEMPLATE_BYTECODE_HEX',
 ] as const;
 
 type NodeishGlobal = { process?: { env?: Record<string, string | undefined> } };
@@ -92,6 +110,29 @@ export function resolveReferenceFungibleTemplateBytecodeHex(opts?: {
     }
   }
   return ensure0xHex(DEFAULT_REFERENCE_FUNGIBLE_TEMPLATE_BYTECODE_HEX);
+}
+
+/**
+ * Resolve pinned **secured** fungible deploy bytecode (`0xFD` init + runtime): explicit → env → embedded default.
+ */
+export function resolveReferenceFungibleSecuredTemplateBytecodeHex(opts?: {
+  explicitHex?: string | undefined;
+  extraEnvKeys?: readonly string[];
+}): `0x${string}` {
+  if (opts?.explicitHex?.trim()) {
+    return ensure0xHex(opts.explicitHex);
+  }
+  for (const k of DEFAULT_FUNGIBLE_SECURED_ENV_KEYS) {
+    const v = readProcessEnv(k);
+    if (v) return ensure0xHex(v);
+  }
+  if (opts?.extraEnvKeys) {
+    for (const k of opts.extraEnvKeys) {
+      const v = readProcessEnv(k);
+      if (v) return ensure0xHex(v);
+    }
+  }
+  return ensure0xHex(DEFAULT_REFERENCE_FUNGIBLE_SECURED_TEMPLATE_BYTECODE_HEX);
 }
 
 /**
@@ -157,6 +198,11 @@ export type BuildReferenceFungibleDeployMetaTxInput = {
   assetSymbol: string;
   purposeCategory?: string;
   descriptionHashHex?: string;
+  /**
+   * When set and **`descriptionHashHex`** is omitted, commits wizard security toggles into **`description_hash`**
+   * (Blake3 over canonical JSON — see {@link descriptionHashHexFromNativeTokenSecurity}).
+   */
+  nativeTokenSecurity?: NativeTokenSecurityFeaturesInput;
   /** Override pinned template (advanced); default uses {@link resolveReferenceFungibleTemplateBytecodeHex}. */
   bytecodeHexOverride?: string;
   extraEnvKeys?: readonly string[];
@@ -172,12 +218,70 @@ export function buildReferenceFungibleDeployMetaTx(
   const bytecodeHex = input.bytecodeHexOverride?.trim()
     ? ensure0xHex(input.bytecodeHexOverride)
     : resolveReferenceFungibleTemplateBytecodeHex({ extraEnvKeys: input.extraEnvKeys });
+  const explicitDh = input.descriptionHashHex?.trim();
+  const securityDh =
+    !explicitDh && input.nativeTokenSecurity
+      ? descriptionHashHexFromNativeTokenSecurity(input.nativeTokenSecurity)
+      : undefined;
   return buildContractDeployMetaTx({
     bytecodeHex,
     assetName: input.assetName,
     assetSymbol: input.assetSymbol,
     purposeCategory: input.purposeCategory,
-    descriptionHashHex: input.descriptionHashHex,
+    descriptionHashHex: explicitDh || securityDh,
+  });
+}
+
+export type BuildReferenceFungibleSecuredDeployMetaTxInput = {
+  assetName: string;
+  assetSymbol: string;
+  purposeCategory?: string;
+  descriptionHashHex?: string;
+  nativeTokenSecurity?: NativeTokenSecurityFeaturesInput;
+  /**
+   * When `nativeTokenSecurity` is set, deploy bytecode encodes enforcement flags/limits on-chain.
+   * Provide **`chainHeight`** from `boing_chainHeight` when **`timelock`** is enabled.
+   */
+  chainContext?: { chainHeight: bigint };
+  /**
+   * Initial `mint_first` supply (base units) for deriving **`maxWalletPercentage`** → `max_wallet` cap.
+   */
+  mintFirstTotalSupplyWei?: bigint;
+  bytecodeHexOverride?: string;
+  extraEnvKeys?: readonly string[];
+};
+
+/**
+ * Same as {@link buildReferenceFungibleDeployMetaTx} but uses the secured fungible template.
+ * When **`nativeTokenSecurity`** is passed, bytecode is built so wizard toggles map to on-chain
+ * `reference_fungible_secured` init storage (not only `description_hash`). When omitted, uses the
+ * pinned default secured template (flags off).
+ */
+export function buildReferenceFungibleSecuredDeployMetaTx(
+  input: BuildReferenceFungibleSecuredDeployMetaTxInput,
+): ContractDeployMetaTxObject {
+  const bytecodeHex = input.bytecodeHexOverride?.trim()
+    ? ensure0xHex(input.bytecodeHexOverride)
+    : input.nativeTokenSecurity !== undefined
+      ? buildReferenceFungibleSecuredDeployBytecodeHexFromNativeTokenSecurity(
+          input.nativeTokenSecurity,
+          {
+            chainHeight: input.chainContext?.chainHeight,
+            mintFirstTotalSupplyWei: input.mintFirstTotalSupplyWei,
+          },
+        )
+      : resolveReferenceFungibleSecuredTemplateBytecodeHex({ extraEnvKeys: input.extraEnvKeys });
+  const explicitDh = input.descriptionHashHex?.trim();
+  const securityDh =
+    !explicitDh && input.nativeTokenSecurity
+      ? descriptionHashHexFromNativeTokenSecurity(input.nativeTokenSecurity)
+      : undefined;
+  return buildContractDeployMetaTx({
+    bytecodeHex,
+    assetName: input.assetName,
+    assetSymbol: input.assetSymbol,
+    purposeCategory: input.purposeCategory,
+    descriptionHashHex: explicitDh || securityDh,
   });
 }
 

@@ -5,10 +5,15 @@
  * ships from `boing-execution` for **NFT collections** (`REFERENCE_NFT_COLLECTION_TEMPLATE_VERSION`);
  * the **fungible** template ships a pinned default (`DEFAULT_REFERENCE_FUNGIBLE_TEMPLATE_BYTECODE_HEX`).
  */
+import { type NativeTokenSecurityFeaturesInput } from './nativeTokenSecurity.js';
 /** Logical id for the fungible template line item (docs + telemetry). */
 export declare const REFERENCE_FUNGIBLE_TEMPLATE_ARTIFACT_ID: "boing.reference_fungible.v0";
 /** Bump when default pinned hex in this package changes. */
 export declare const REFERENCE_FUNGIBLE_TEMPLATE_VERSION: "1";
+/** Logical id for the secured fungible template (`0xFD` init + runtime toggles). */
+export declare const REFERENCE_FUNGIBLE_SECURED_TEMPLATE_ARTIFACT_ID: "boing.reference_fungible_secured.v0";
+/** Bump when default pinned secured hex in this package changes. */
+export declare const REFERENCE_FUNGIBLE_SECURED_TEMPLATE_VERSION: "1";
 /** Logical id for the NFT collection template. */
 export declare const REFERENCE_NFT_COLLECTION_TEMPLATE_ARTIFACT_ID: "boing.reference_nft_collection.v0";
 /** Matches `reference_nft_collection_template_bytecode()` in `boing-execution` (regenerate via `dump_reference_token_artifacts`). */
@@ -36,6 +41,13 @@ export declare function resolveReferenceFungibleTemplateBytecodeHex(opts?: {
     extraEnvKeys?: readonly string[];
 }): `0x${string}`;
 /**
+ * Resolve pinned **secured** fungible deploy bytecode (`0xFD` init + runtime): explicit → env → embedded default.
+ */
+export declare function resolveReferenceFungibleSecuredTemplateBytecodeHex(opts?: {
+    explicitHex?: string | undefined;
+    extraEnvKeys?: readonly string[];
+}): `0x${string}`;
+/**
  * Resolve pinned **reference NFT collection** template bytecode (same pattern as fungible).
  */
 export declare function resolveReferenceNftCollectionTemplateBytecodeHex(opts?: {
@@ -58,6 +70,11 @@ export type BuildReferenceFungibleDeployMetaTxInput = {
     assetSymbol: string;
     purposeCategory?: string;
     descriptionHashHex?: string;
+    /**
+     * When set and **`descriptionHashHex`** is omitted, commits wizard security toggles into **`description_hash`**
+     * (Blake3 over canonical JSON — see {@link descriptionHashHexFromNativeTokenSecurity}).
+     */
+    nativeTokenSecurity?: NativeTokenSecurityFeaturesInput;
     /** Override pinned template (advanced); default uses {@link resolveReferenceFungibleTemplateBytecodeHex}. */
     bytecodeHexOverride?: string;
     extraEnvKeys?: readonly string[];
@@ -67,6 +84,33 @@ export type BuildReferenceFungibleDeployMetaTxInput = {
  * Pass the result to **`boing_sendTransaction`** / **`boing_signTransaction`** (Boing Express).
  */
 export declare function buildReferenceFungibleDeployMetaTx(input: BuildReferenceFungibleDeployMetaTxInput): ContractDeployMetaTxObject;
+export type BuildReferenceFungibleSecuredDeployMetaTxInput = {
+    assetName: string;
+    assetSymbol: string;
+    purposeCategory?: string;
+    descriptionHashHex?: string;
+    nativeTokenSecurity?: NativeTokenSecurityFeaturesInput;
+    /**
+     * When `nativeTokenSecurity` is set, deploy bytecode encodes enforcement flags/limits on-chain.
+     * Provide **`chainHeight`** from `boing_chainHeight` when **`timelock`** is enabled.
+     */
+    chainContext?: {
+        chainHeight: bigint;
+    };
+    /**
+     * Initial `mint_first` supply (base units) for deriving **`maxWalletPercentage`** → `max_wallet` cap.
+     */
+    mintFirstTotalSupplyWei?: bigint;
+    bytecodeHexOverride?: string;
+    extraEnvKeys?: readonly string[];
+};
+/**
+ * Same as {@link buildReferenceFungibleDeployMetaTx} but uses the secured fungible template.
+ * When **`nativeTokenSecurity`** is passed, bytecode is built so wizard toggles map to on-chain
+ * `reference_fungible_secured` init storage (not only `description_hash`). When omitted, uses the
+ * pinned default secured template (flags off).
+ */
+export declare function buildReferenceFungibleSecuredDeployMetaTx(input: BuildReferenceFungibleSecuredDeployMetaTxInput): ContractDeployMetaTxObject;
 export type BuildReferenceNftCollectionDeployMetaTxInput = {
     collectionName: string;
     collectionSymbol: string;

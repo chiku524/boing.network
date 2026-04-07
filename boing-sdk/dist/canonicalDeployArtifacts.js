@@ -6,10 +6,17 @@
  * the **fungible** template ships a pinned default (`DEFAULT_REFERENCE_FUNGIBLE_TEMPLATE_BYTECODE_HEX`).
  */
 import { DEFAULT_REFERENCE_FUNGIBLE_TEMPLATE_BYTECODE_HEX } from './defaultReferenceFungibleTemplateBytecodeHex.js';
+import { DEFAULT_REFERENCE_FUNGIBLE_SECURED_TEMPLATE_BYTECODE_HEX } from './defaultReferenceFungibleSecuredTemplateBytecodeHex.js';
+import { descriptionHashHexFromNativeTokenSecurity, } from './nativeTokenSecurity.js';
+import { buildReferenceFungibleSecuredDeployBytecodeHexFromNativeTokenSecurity } from './referenceFungibleSecuredDeployBytecode.js';
 /** Logical id for the fungible template line item (docs + telemetry). */
 export const REFERENCE_FUNGIBLE_TEMPLATE_ARTIFACT_ID = 'boing.reference_fungible.v0';
 /** Bump when default pinned hex in this package changes. */
 export const REFERENCE_FUNGIBLE_TEMPLATE_VERSION = '1';
+/** Logical id for the secured fungible template (`0xFD` init + runtime toggles). */
+export const REFERENCE_FUNGIBLE_SECURED_TEMPLATE_ARTIFACT_ID = 'boing.reference_fungible_secured.v0';
+/** Bump when default pinned secured hex in this package changes. */
+export const REFERENCE_FUNGIBLE_SECURED_TEMPLATE_VERSION = '1';
 /** Logical id for the NFT collection template. */
 export const REFERENCE_NFT_COLLECTION_TEMPLATE_ARTIFACT_ID = 'boing.reference_nft_collection.v0';
 /** Matches `reference_nft_collection_template_bytecode()` in `boing-execution` (regenerate via `dump_reference_token_artifacts`). */
@@ -23,6 +30,11 @@ const DEFAULT_FUNGIBLE_ENV_KEYS = [
     'BOING_REFERENCE_FUNGIBLE_TEMPLATE_BYTECODE_HEX',
     'VITE_BOING_REFERENCE_FUNGIBLE_TEMPLATE_BYTECODE_HEX',
     'REACT_APP_BOING_REFERENCE_FUNGIBLE_TEMPLATE_BYTECODE_HEX',
+];
+const DEFAULT_FUNGIBLE_SECURED_ENV_KEYS = [
+    'BOING_REFERENCE_FUNGIBLE_SECURED_TEMPLATE_BYTECODE_HEX',
+    'VITE_BOING_REFERENCE_FUNGIBLE_SECURED_TEMPLATE_BYTECODE_HEX',
+    'REACT_APP_BOING_REFERENCE_FUNGIBLE_SECURED_TEMPLATE_BYTECODE_HEX',
 ];
 function readProcessEnv(name) {
     try {
@@ -69,6 +81,27 @@ export function resolveReferenceFungibleTemplateBytecodeHex(opts) {
         }
     }
     return ensure0xHex(DEFAULT_REFERENCE_FUNGIBLE_TEMPLATE_BYTECODE_HEX);
+}
+/**
+ * Resolve pinned **secured** fungible deploy bytecode (`0xFD` init + runtime): explicit → env → embedded default.
+ */
+export function resolveReferenceFungibleSecuredTemplateBytecodeHex(opts) {
+    if (opts?.explicitHex?.trim()) {
+        return ensure0xHex(opts.explicitHex);
+    }
+    for (const k of DEFAULT_FUNGIBLE_SECURED_ENV_KEYS) {
+        const v = readProcessEnv(k);
+        if (v)
+            return ensure0xHex(v);
+    }
+    if (opts?.extraEnvKeys) {
+        for (const k of opts.extraEnvKeys) {
+            const v = readProcessEnv(k);
+            if (v)
+                return ensure0xHex(v);
+        }
+    }
+    return ensure0xHex(DEFAULT_REFERENCE_FUNGIBLE_SECURED_TEMPLATE_BYTECODE_HEX);
 }
 /**
  * Resolve pinned **reference NFT collection** template bytecode (same pattern as fungible).
@@ -126,12 +159,43 @@ export function buildReferenceFungibleDeployMetaTx(input) {
     const bytecodeHex = input.bytecodeHexOverride?.trim()
         ? ensure0xHex(input.bytecodeHexOverride)
         : resolveReferenceFungibleTemplateBytecodeHex({ extraEnvKeys: input.extraEnvKeys });
+    const explicitDh = input.descriptionHashHex?.trim();
+    const securityDh = !explicitDh && input.nativeTokenSecurity
+        ? descriptionHashHexFromNativeTokenSecurity(input.nativeTokenSecurity)
+        : undefined;
     return buildContractDeployMetaTx({
         bytecodeHex,
         assetName: input.assetName,
         assetSymbol: input.assetSymbol,
         purposeCategory: input.purposeCategory,
-        descriptionHashHex: input.descriptionHashHex,
+        descriptionHashHex: explicitDh || securityDh,
+    });
+}
+/**
+ * Same as {@link buildReferenceFungibleDeployMetaTx} but uses the secured fungible template.
+ * When **`nativeTokenSecurity`** is passed, bytecode is built so wizard toggles map to on-chain
+ * `reference_fungible_secured` init storage (not only `description_hash`). When omitted, uses the
+ * pinned default secured template (flags off).
+ */
+export function buildReferenceFungibleSecuredDeployMetaTx(input) {
+    const bytecodeHex = input.bytecodeHexOverride?.trim()
+        ? ensure0xHex(input.bytecodeHexOverride)
+        : input.nativeTokenSecurity !== undefined
+            ? buildReferenceFungibleSecuredDeployBytecodeHexFromNativeTokenSecurity(input.nativeTokenSecurity, {
+                chainHeight: input.chainContext?.chainHeight,
+                mintFirstTotalSupplyWei: input.mintFirstTotalSupplyWei,
+            })
+            : resolveReferenceFungibleSecuredTemplateBytecodeHex({ extraEnvKeys: input.extraEnvKeys });
+    const explicitDh = input.descriptionHashHex?.trim();
+    const securityDh = !explicitDh && input.nativeTokenSecurity
+        ? descriptionHashHexFromNativeTokenSecurity(input.nativeTokenSecurity)
+        : undefined;
+    return buildContractDeployMetaTx({
+        bytecodeHex,
+        assetName: input.assetName,
+        assetSymbol: input.assetSymbol,
+        purposeCategory: input.purposeCategory,
+        descriptionHashHex: explicitDh || securityDh,
     });
 }
 /**

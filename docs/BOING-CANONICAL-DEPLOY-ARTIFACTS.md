@@ -23,6 +23,7 @@ Signing **always** uses **Boing Express** (or another native signer). MetaMask d
 | **Reference calldata** | **Defined** — `transfer` / `mint_first` ([BOING-REFERENCE-TOKEN.md](BOING-REFERENCE-TOKEN.md)) |
 | **SDK encoders** | **Shipped** — `encodeReferenceTransferCalldata`, `encodeReferenceMintFirstCalldata` |
 | **Canonical deploy bytecode (balances token)** | **Shipped** — `reference_fungible_template_bytecode()` (`boing-execution` / `reference_token.rs`), purpose **`token`** |
+| **Secured fungible (`0xFD` init + runtime)** | **Shipped** — `reference_fungible_secured_pinned_default_deploy_bytecode()` (`boing-execution` / `reference_fungible_secured.rs`), purpose **`token`**; init sets admin + optional enforcement flags ([BOING-REFERENCE-TOKEN.md](BOING-REFERENCE-TOKEN.md) § Secured template) |
 
 ### Versioning (fungible)
 
@@ -32,21 +33,36 @@ Signing **always** uses **Boing Express** (or another native signer). MetaMask d
 
 **SDK:** `resolveReferenceFungibleTemplateBytecodeHex` (embedded default + env overrides), `REFERENCE_FUNGIBLE_TEMPLATE_VERSION` = **`1`**. Regenerate TS hex: `node boing-sdk/scripts/embed-reference-fungible-template-hex.mjs`.
 
+### Versioning (secured fungible)
+
+| Version | Artifact id | BLAKE3 (deploy payload) | Notes |
+|---------|-------------|-------------------------|--------|
+| **1** | `boing.reference_fungible_secured.v0` | Run `cargo run -p boing-execution --example dump_reference_token_artifacts` and hash the **fourth** `0x` line | **`0xFD`** init bootstraps storage (admin = deployer, flags, caps, anti-bot window, cooldown, pause, etc.) and **`RETURN`s** the runtime. Same **96-byte** `transfer` / `mint_first` calldata as the minimal template; extra **admin** selectors **`0x03`–`0x07`** (deny, pause, renounce, transfer-unlock). Default pinned config has enforcement flags **off** (same rough UX as minimal fungible). **`buildReferenceFungibleSecuredDeployMetaTx`** with **`nativeTokenSecurity`** builds matching init bytecode on-chain; pass **`chainContext.chainHeight`** when **`timelock`** is enabled. |
+
+**SDK:** `resolveReferenceFungibleSecuredTemplateBytecodeHex`, `buildReferenceFungibleSecuredDeployMetaTx` (optional `nativeTokenSecurity`, `chainContext`, `mintFirstTotalSupplyWei`), `referenceFungibleSecuredConfigFromNativeTokenSecurity`, `DEFAULT_REFERENCE_FUNGIBLE_SECURED_TEMPLATE_BYTECODE_HEX`, `DEFAULT_REFERENCE_FUNGIBLE_SECURED_RUNTIME_BYTECODE_HEX` (fifth stdout line; init builder), `REFERENCE_FUNGIBLE_SECURED_TEMPLATE_VERSION` = **`1`**. Regenerate TS hex: `node boing-sdk/scripts/embed-reference-fungible-secured-template-hex.mjs`.
+
+**Env (optional override):** `BOING_REFERENCE_FUNGIBLE_SECURED_TEMPLATE_BYTECODE_HEX`, `VITE_BOING_REFERENCE_FUNGIBLE_SECURED_TEMPLATE_BYTECODE_HEX`, `REACT_APP_BOING_REFERENCE_FUNGIBLE_SECURED_TEMPLATE_BYTECODE_HEX`.
+
+**Execution note:** Deploy init runs with a **higher** interpreter gas budget than ordinary calls (`GAS_PER_CONTRACT_DEPLOY_INIT` in `boing-execution` `vm.rs`) so large **`MSTORE`/`RETURN`** of the runtime does not **`OutOfGas`**.
+
 When bytecode changes, ops should:
 
 1. Run `cargo test -p boing-execution` (including QA allow/unsure for purpose `token`).
 2. Regenerate `boing-sdk/src/defaultReferenceFungibleTemplateBytecodeHex.ts` via the script above (or paste stdout line 2).
 3. Bump `REFERENCE_FUNGIBLE_TEMPLATE_VERSION` if the pinned binary changes.
 
+For **secured** template changes, repeat with `cargo test -p boing-execution` (including `reference_fungible_secured` tests), regenerate `defaultReferenceFungibleSecuredTemplateBytecodeHex.ts`, and bump `REFERENCE_FUNGIBLE_SECURED_TEMPLATE_VERSION`.
+
 ### dApp wiring (today)
 
-1. **`boing-sdk`:** `buildContractDeployMetaTx`, `resolveReferenceFungibleTemplateBytecodeHex` — see package exports.
-2. **Wizard shortcut (recommended):** **`buildReferenceFungibleDeployMetaTx({ assetName, assetSymbol })`** — single call for **pinned bytecode + `contract_deploy_meta`** (same shape **boing.finance** should use inside a multi-chain **Deploy token** wizard). Collections: **`buildReferenceNftCollectionDeployMetaTx`** (needs NFT template env or **`bytecodeHexOverride`**).
+1. **`boing-sdk`:** `buildContractDeployMetaTx`, `resolveReferenceFungibleTemplateBytecodeHex`, **`resolveReferenceFungibleSecuredTemplateBytecodeHex`** — see package exports.
+2. **Wizard shortcut (recommended):** **`buildReferenceFungibleDeployMetaTx({ assetName, assetSymbol })`** — single call for **pinned minimal bytecode + `contract_deploy_meta`**. Use **`buildReferenceFungibleSecuredDeployMetaTx`** when you want the **secured** pinned default (same meta-tx shape; different bytecode). Collections: **`buildReferenceNftCollectionDeployMetaTx`** (needs NFT template env or **`bytecodeHexOverride`**).
 3. **Chain picker:** **`isBoingTestnetChainId(chainId)`** / **`normalizeBoingChainIdHex`** — branch the wizard when the user selects Boing testnet (**6913**).
 4. **QA on the review step:** **`preflightContractDeployMetaQa(client, tx)`** wraps **`boing_qaCheck`** with the correct optional params (uses a **placeholder `description_hash`** when the wizard has not committed one yet — [RPC-API-SPEC.md](RPC-API-SPEC.md) § **boing_qaCheck**).
 5. **Build-time env (optional override):**  
-   `BOING_REFERENCE_FUNGIBLE_TEMPLATE_BYTECODE_HEX` — `0x` + hex when you need a **non-default** ops-approved binary.
-6. **Browser:** inject the same via your bundler (`define` / `import.meta.env` pattern) and pass the string into `resolveReferenceFungibleTemplateBytecodeHex({ explicitHex: … })` or **`bytecodeHexOverride`** on the shortcut builders.
+   `BOING_REFERENCE_FUNGIBLE_TEMPLATE_BYTECODE_HEX` — `0x` + hex when you need a **non-default** ops-approved **minimal** binary.  
+   `BOING_REFERENCE_FUNGIBLE_SECURED_TEMPLATE_BYTECODE_HEX` (and `VITE_` / `REACT_APP_` variants) for the **secured** template.
+6. **Browser:** inject the same via your bundler (`define` / `import.meta.env` pattern) and pass the string into `resolveReferenceFungibleTemplateBytecodeHex({ explicitHex: … })`, **`resolveReferenceFungibleSecuredTemplateBytecodeHex`**, or **`bytecodeHexOverride`** on the shortcut builders.
 7. **Preflight:** `boing_qaCheck` / wallet flow — category **`token`** often yields **`unsure`** (community pool); handle like existing **boing.finance** “acknowledge pool” UX.
 
 ---
@@ -64,7 +80,7 @@ When bytecode changes, ops should:
 
 | Version | Artifact id | BLAKE3 (deploy payload) | Notes |
 |---------|-------------|-------------------------|--------|
-| **1** | `boing.reference_nft_collection.v0` | Run `cargo run -p boing-execution --example dump_reference_token_artifacts` and hash the **second** `0x` line | Lazy **admin** (first caller); `owner_of` / `transfer_nft` / `set_metadata_hash`; mint = admin-only when `owner_of` is zero. Purpose **`nft`** / **`NFT`**. |
+| **1** | `boing.reference_nft_collection.v0` | Run `cargo run -p boing-execution --example dump_reference_token_artifacts` and hash the **third** `0x` line | Lazy **admin** (first caller); `owner_of` / `transfer_nft` / `set_metadata_hash`; mint = admin-only when `owner_of` is zero. Purpose **`nft`** / **`NFT`**. |
 
 **SDK:** `resolveReferenceNftCollectionTemplateBytecodeHex`, env `BOING_REFERENCE_NFT_COLLECTION_TEMPLATE_BYTECODE_HEX` (and `VITE_` / `REACT_APP_` variants), `REFERENCE_NFT_COLLECTION_TEMPLATE_VERSION` = **`1`**.
 
@@ -84,14 +100,14 @@ Hex dump for debugging only:
 cargo run -p boing-execution --example dump_reference_token_artifacts
 ```
 
-Stdout: line **1** = smoke (not a token), line **2** = **fungible** template, line **3** = **NFT collection** template.
+Stdout: line **1** = smoke (not a token), line **2** = **minimal fungible** template, line **3** = **NFT collection** template, line **4** = **secured fungible** deploy (`0xFD` + init).
 
 ---
 
 ## Handoff: boing.finance (and similar apps)
 
 1. **Token deploy UX:** **boing.finance** routes **Boing testnet + Boing Express** through the same **Launch Wizard** as EVM (**Token Basics → Network & Plan → Security & Info → Review & Deploy**). The final **Deploy** button submits **`contract_deploy_meta`** via Express; **Advanced** (bytecode override, `description_hash`, explicit QA) lives on the review step only.
-2. **Default path:** If `resolveReferenceFungibleTemplateBytecodeHex()` returns a string, users see **no bytecode** on the main path — same rhythm as EVM **form → approve in wallet**. Prefer **`buildReferenceFungibleDeployMetaTx({ assetName, assetSymbol })`** in code so the wizard does not manually pair **`resolve` + `buildContractDeployMetaTx`**.
+2. **Default path:** If `resolveReferenceFungibleTemplateBytecodeHex()` (or the **secured** resolver) returns a string, users see **no bytecode** on the main path — same rhythm as EVM **form → approve in wallet**. Prefer **`buildReferenceFungibleDeployMetaTx`** or **`buildReferenceFungibleSecuredDeployMetaTx`** in code so the wizard does not manually pair **`resolve` + `buildContractDeployMetaTx`**.
 3. **Advanced:** Keep **paste bytecode** + `description_hash` + QA for power users.
 4. **Copy:** Native deploy uses **Boing Express**, not MetaMask; avoid implying an ERC-20 factory on L1.
 5. **NFT page:** The **Create NFT** wizard (collection → images → metadata → review) is shared; **on-chain native collection** deploy uses **Native VM** in the app with **`purpose_category: 'nft'`** when collection bytecode is configured (`resolveReferenceNftCollectionTemplateBytecodeHex` + `buildContractDeployMetaTx`). Export metadata JSON from the wizard for any toolchain.

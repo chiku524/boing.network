@@ -49,6 +49,10 @@ pub enum Opcode {
     Dup1 = 0x80,
     /// Push this contract's `AccountId` as a 32-byte word (0x30).
     Address = 0x30,
+    /// Push **current block height** (execution context) as a 32-byte word; value in low **8** bytes BE (0x40).
+    BlockHeight = 0x40,
+    /// Push **current block timestamp** (Unix seconds) as a 32-byte word; low **8** bytes BE (0x41).
+    Timestamp = 0x41,
     /// Push the transaction signer's `AccountId` (caller) as a 32-byte word (0x33).
     Caller = 0x33,
     /// Log with data only; pops `offset`, `size` (memory slice) (0xa0).
@@ -108,6 +112,8 @@ impl Opcode {
             0x1c => Some(Self::Shr),
             0x1d => Some(Self::Sar),
             0x30 => Some(Self::Address),
+            0x40 => Some(Self::BlockHeight),
+            0x41 => Some(Self::Timestamp),
             0x33 => Some(Self::Caller),
             0x80 => Some(Self::Dup1),
             0xa0 => Some(Self::Log0),
@@ -171,6 +177,7 @@ pub mod gas {
     pub const CREATE2_PER_INIT_BYTE: u64 = 200;
     pub const DUP1: u64 = 3;
     pub const ADDRESS: u64 = 2;
+    pub const BLOCKCTX: u64 = 2;
     pub const CALLER: u64 = 2;
     /// Base gas per log plus linear components (topic count and payload bytes).
     pub const LOG_BASE: u64 = 100;

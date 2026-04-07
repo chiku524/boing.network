@@ -6,12 +6,18 @@
 //! - [`boing_execution::reference_nft_collection_template_bytecode`] — minimal **collection**
 //!   implementing [BOING-REFERENCE-NFT.md](../../docs/BOING-REFERENCE-NFT.md) selectors (`owner_of`,
 //!   `transfer_nft`, `set_metadata_hash`) + lazy admin; deploy with purpose **`nft`** / **`NFT`**.
+//! - [`boing_execution::reference_fungible_secured_pinned_default_deploy_bytecode`] — **`0xFD`** init +
+//!   runtime with optional enforcement toggles; see [BOING-REFERENCE-TOKEN.md](../../docs/BOING-REFERENCE-TOKEN.md)
+//!   § Secured template and [BOING-CANONICAL-DEPLOY-ARTIFACTS.md](../../docs/BOING-CANONICAL-DEPLOY-ARTIFACTS.md).
 //!
 //! ```text
 //! cargo run -p boing-execution --example dump_reference_token_artifacts
 //! ```
 //!
-//! Stdout: line **1** = smoke, line **2** = fungible template, line **3** = NFT collection.
+//! Stdout: line **1** = smoke, line **2** = fungible template, line **3** = NFT collection,
+//! line **4** = secured fungible (`0xFD` init + runtime; `reference_fungible_secured_pinned_default_deploy_bytecode`),
+//! line **5** = secured fungible **runtime only** (`reference_fungible_secured_runtime_bytecode`; embedded as
+//! `DEFAULT_REFERENCE_FUNGIBLE_SECURED_RUNTIME_BYTECODE_HEX` for `boing-sdk` init bytecode builder).
 
 fn print_hex(label: &str, code: &[u8]) {
     eprintln!("// {label}: {} bytes", code.len());
@@ -34,5 +40,13 @@ fn main() {
     print_hex(
         "reference_nft_collection_template_bytecode (QA: purpose nft/NFT)",
         &boing_execution::reference_nft_collection_template_bytecode(),
+    );
+    print_hex(
+        "reference_fungible_secured_pinned_default_deploy_bytecode (QA: purpose token)",
+        &boing_execution::reference_fungible_secured_pinned_default_deploy_bytecode(),
+    );
+    print_hex(
+        "reference_fungible_secured_runtime_bytecode (SDK secured deploy init builder)",
+        &boing_execution::reference_fungible_secured_runtime_bytecode(),
     );
 }

@@ -61,7 +61,7 @@ Start with [BOING-NETWORK-ESSENTIALS.md](BOING-NETWORK-ESSENTIALS.md) for the si
 | [INDEXER-RECEIPT-AND-LOG-INGESTION.md](INDEXER-RECEIPT-AND-LOG-INGESTION.md) | Receipt + `LOG*` ingestion for indexers / explorers (I1–I3; replay vs `boing_getLogs`) |
 | [OBSERVER-HOSTED-SERVICE.md](OBSERVER-HOSTED-SERVICE.md) | **OBS-1:** hosted observer / durable indexer — architecture, schema, reorgs, read API, deployment |
 | [E2-PARTNER-APP-NATIVE-BOING.md](E2-PARTNER-APP-NATIVE-BOING.md) | Partner apps: native Boing path without foreign chain client SDKs (E2) |
-| [BOING-CANONICAL-DEPLOY-ARTIFACTS.md](BOING-CANONICAL-DEPLOY-ARTIFACTS.md) | Pinned native fungible + NFT bytecode versioning; form-parity with EVM; **`boing-sdk`** + env matrix |
+| [BOING-CANONICAL-DEPLOY-ARTIFACTS.md](BOING-CANONICAL-DEPLOY-ARTIFACTS.md) | Pinned native **minimal + secured** fungible + NFT bytecode versioning; form-parity with EVM; **`boing-sdk`** + env matrix |
 | [EXECUTION-PARITY-TASK-LIST.md](EXECUTION-PARITY-TASK-LIST.md) | VM / receipts / RPC code tasks (opcodes, QA, persistence) |
 | [DEVELOPMENT-AND-ENHANCEMENTS.md](DEVELOPMENT-AND-ENHANCEMENTS.md) | SDK, automation, enhancements; **appendix:** cryptographic verification for decentralized automation |
 | [NETWORK-COST-ESTIMATE.md](NETWORK-COST-ESTIMATE.md) | Cost overview |

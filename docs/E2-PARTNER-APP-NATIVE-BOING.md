@@ -52,7 +52,7 @@ Tutorial repo: [examples/native-boing-tutorial](../examples/native-boing-tutoria
 
 ## boing.finance note
 
-The **Deploy Token** page’s **EVM** path stays for MetaMask-style wallets. For **Boing L1 + Boing Express**, prefer **one form** (name/symbol/…) with **internal bytecode** (`resolveReferenceFungibleTemplateBytecodeHex` + **`buildContractDeployMetaTx`**), and keep **paste bytecode** under **Advanced**. See [BOING-CANONICAL-DEPLOY-ARTIFACTS.md](BOING-CANONICAL-DEPLOY-ARTIFACTS.md) § Handoff.
+The **Deploy Token** page’s **EVM** path stays for MetaMask-style wallets. For **Boing L1 + Boing Express**, prefer **one form** (name/symbol/…) with **internal bytecode** (`resolveReferenceFungibleTemplateBytecodeHex` + **`buildContractDeployMetaTx`**, or **`resolveReferenceFungibleSecuredTemplateBytecodeHex`** / **`buildReferenceFungibleSecuredDeployMetaTx`** for the secured pinned default), and keep **paste bytecode** under **Advanced**. See [BOING-CANONICAL-DEPLOY-ARTIFACTS.md](BOING-CANONICAL-DEPLOY-ARTIFACTS.md) § Handoff.
 
 ---
 
