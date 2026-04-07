@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "generate:brand-raster": "node scripts/generate-brand-raster.mjs",
-    "prebuild": "npm run generate:brand-raster",
+    "verify:site-layout": "node scripts/verify-site-pages-use-layout.mjs",
+    "prebuild": "npm run generate:brand-raster && npm run verify:site-layout",
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",

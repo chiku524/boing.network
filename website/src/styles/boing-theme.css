@@ -495,6 +495,7 @@ textarea::placeholder {
   }
   /* Hide decorative elements */
   .boing-canvas-bg,
+  .site-stone-engrave,
   .mascot-wrap,
   .boing-canvas-bg canvas,
   .boing-canvas-bg-fallback {
