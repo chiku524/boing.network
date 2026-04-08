@@ -4,13 +4,153 @@
  */
 
 import { mergeAccessListWithSimulation } from './accessList.js';
-import { bytesToHex, ensureHex, hexToBytes, validateHex32 } from './hex.js';
+import type { BoingClient } from './client.js';
+import {
+  bytesToHex,
+  decodeBoingStorageWordAccountId,
+  ensureHex,
+  hexToBytes,
+  validateHex32,
+} from './hex.js';
+import { decodeBoingStorageWordU128 } from './nativeAmmPool.js';
+import { fetchLpShareTokenMinterAccountHex } from './nativeLpShareToken.js';
 import type { SimulateResult } from './types.js';
 
 /** `configure(pool, share_token)` — **96** bytes. */
 export const SELECTOR_NATIVE_AMM_LP_VAULT_CONFIGURE = 0xc0;
 /** `deposit_add(inner_add_liquidity_128, min_lp)` — **192** bytes. */
 export const SELECTOR_NATIVE_AMM_LP_VAULT_DEPOSIT_ADD = 0xc1;
+
+function nativeAmmLpVaultStorageKeyHex(lastByte: number): `0x${string}` {
+  const k = new Uint8Array(32);
+  k[31] = lastByte & 0xff;
+  return validateHex32(bytesToHex(k)) as `0x${string}`;
+}
+
+/** `boing_getContractStorage` — non-zero after successful **`configure`**. */
+export const NATIVE_AMM_LP_VAULT_KEY_CONFIGURED_HEX = nativeAmmLpVaultStorageKeyHex(0xd1);
+/** Configured native CP **pool** `AccountId`. */
+export const NATIVE_AMM_LP_VAULT_KEY_POOL_HEX = nativeAmmLpVaultStorageKeyHex(0xd2);
+/** Configured **LP share token** `AccountId`. */
+export const NATIVE_AMM_LP_VAULT_KEY_SHARE_TOKEN_HEX = nativeAmmLpVaultStorageKeyHex(0xd3);
+
+export type NativeAmmLpVaultStorageSnapshot = {
+  /** `configure` has been executed (configured word ≠ 0). */
+  configured: boolean;
+  poolHex: `0x${string}` | null;
+  shareTokenHex: `0x${string}` | null;
+};
+
+/**
+ * Read vault **`configure`** state from **`boing_getContractStorage`** (three parallel reads).
+ */
+export async function fetchNativeAmmLpVaultStorageSnapshot(
+  client: BoingClient,
+  vaultHex32: string
+): Promise<NativeAmmLpVaultStorageSnapshot> {
+  const vault = validateHex32(vaultHex32);
+  const [wc, wp, ws] = await Promise.all([
+    client.getContractStorage(vault, NATIVE_AMM_LP_VAULT_KEY_CONFIGURED_HEX),
+    client.getContractStorage(vault, NATIVE_AMM_LP_VAULT_KEY_POOL_HEX),
+    client.getContractStorage(vault, NATIVE_AMM_LP_VAULT_KEY_SHARE_TOKEN_HEX),
+  ]);
+  const configured = decodeBoingStorageWordU128(wc.value) !== 0n;
+  return {
+    configured,
+    poolHex: decodeBoingStorageWordAccountId(wp.value),
+    shareTokenHex: decodeBoingStorageWordAccountId(ws.value),
+  };
+}
+
+export type NativeAmmLpVaultProductReadiness = {
+  /** False when **`boing_getContractStorage`** fails for the vault (missing account, RPC error, etc.). */
+  vaultRpcOk: boolean;
+  vaultRpcError?: string;
+  vault: NativeAmmLpVaultStorageSnapshot;
+  /** From share token minter slot. */
+  shareMinterHex: `0x${string}` | null;
+  /**
+   * Vault configured, share minter equals vault, stored share id matches **`shareHex32`**, and
+   * **`expectedPoolHex32`** when provided equals stored pool.
+   */
+  depositAddReady: boolean;
+  /** Human-readable blockers for UI (empty when **`depositAddReady`**). */
+  blockingReasons: string[];
+};
+
+/**
+ * Probe whether the **LP vault product path** is safe to expose (**`deposit_add`**): vault
+ * **`configure(pool, share)`** done and LP share **`set_minter_once`** set the vault as minter.
+ * Optional **`expectedPoolHex32`** enforces the configured pool matches integration defaults.
+ */
+export async function fetchNativeAmmLpVaultProductReadiness(
+  client: BoingClient,
+  input: {
+    vaultHex32: string;
+    shareHex32: string;
+    expectedPoolHex32?: string | undefined;
+  }
+): Promise<NativeAmmLpVaultProductReadiness> {
+  const vaultNorm = validateHex32(input.vaultHex32).toLowerCase() as `0x${string}`;
+  const shareNorm = validateHex32(input.shareHex32).toLowerCase() as `0x${string}`;
+  const expectedPool =
+    input.expectedPoolHex32 != null && String(input.expectedPoolHex32).trim()
+      ? (validateHex32(String(input.expectedPoolHex32).trim()).toLowerCase() as `0x${string}`)
+      : undefined;
+
+  let vaultRpcOk = true;
+  let vaultRpcError: string | undefined;
+  let vault: NativeAmmLpVaultStorageSnapshot = {
+    configured: false,
+    poolHex: null,
+    shareTokenHex: null,
+  };
+  let shareMinterHex: `0x${string}` | null = null;
+
+  try {
+    vault = await fetchNativeAmmLpVaultStorageSnapshot(client, vaultNorm);
+  } catch (e) {
+    vaultRpcOk = false;
+    vaultRpcError = e instanceof Error ? e.message : String(e);
+  }
+
+  let shareMinterReadError: string | undefined;
+  try {
+    shareMinterHex = await fetchLpShareTokenMinterAccountHex(client, shareNorm);
+  } catch (e) {
+    shareMinterReadError = e instanceof Error ? e.message : String(e);
+  }
+
+  const blockingReasons: string[] = [];
+  if (!vaultRpcOk) {
+    blockingReasons.push(vaultRpcError != null ? `vault_storage: ${vaultRpcError}` : 'vault_storage: error');
+  }
+  if (!vault.configured) {
+    blockingReasons.push('vault_not_configured');
+  }
+  if (vault.shareTokenHex == null || vault.shareTokenHex.toLowerCase() !== shareNorm) {
+    blockingReasons.push('vault_share_mismatch');
+  }
+  if (expectedPool != null && (vault.poolHex == null || vault.poolHex.toLowerCase() !== expectedPool)) {
+    blockingReasons.push('vault_pool_mismatch');
+  }
+  if (shareMinterReadError != null) {
+    blockingReasons.push(`share_minter_read: ${shareMinterReadError}`);
+  } else if (shareMinterHex == null || shareMinterHex.toLowerCase() !== vaultNorm) {
+    blockingReasons.push('share_minter_not_vault');
+  }
+
+  const depositAddReady = blockingReasons.length === 0;
+
+  return {
+    vaultRpcOk,
+    ...(vaultRpcError != null ? { vaultRpcError } : {}),
+    vault,
+    shareMinterHex,
+    depositAddReady,
+    blockingReasons: depositAddReady ? [] : blockingReasons,
+  };
+}
 
 function selectorWord(selector: number): Uint8Array {
   const w = new Uint8Array(32);

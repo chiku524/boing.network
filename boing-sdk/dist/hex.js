@@ -40,6 +40,23 @@ export function validateHex32(hex) {
         throw new Error('Invalid hex: expected 0-9, a-f, A-F');
     return normalized;
 }
+/**
+ * Decode a **32-byte** `boing_getContractStorage` **value** word as a Boing **`AccountId`**, or **`null`**
+ * if the word is all zero. Truncates/pads to 64 hex chars like other storage decoders.
+ */
+export function decodeBoingStorageWordAccountId(valueHex) {
+    const raw = ensureHex(valueHex).slice(2).toLowerCase();
+    if (raw.length % 2 !== 0) {
+        throw new Error('storage word AccountId: hex length must be even');
+    }
+    if (!HEX_RE.test(raw)) {
+        throw new Error('storage word AccountId: invalid hex');
+    }
+    const word64 = raw.length > 64 ? raw.slice(-64) : raw.padStart(64, '0');
+    if (word64 === '0'.repeat(64))
+        return null;
+    return validateHex32(`0x${word64}`);
+}
 /** True if **`hex`** is a valid **32-byte** Boing **`AccountId`** (`0x` + 64 hex). Use to branch wizards away from 20-byte EVM addresses. */
 export function isBoingNativeAccountIdHex(hex) {
     try {

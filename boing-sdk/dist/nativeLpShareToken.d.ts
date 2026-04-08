@@ -3,6 +3,7 @@
  * Matches `boing_execution::native_lp_share_token`.
  * See `docs/NATIVE-LP-SHARE-TOKEN.md`.
  */
+import type { BoingClient } from './client.js';
 import type { SimulateResult } from './types.js';
 /** `transfer(to, amount)` — **96** bytes. */
 export declare const SELECTOR_LP_SHARE_TRANSFER = 1;
@@ -12,6 +13,12 @@ export declare const SELECTOR_LP_SHARE_MINT = 6;
 export declare const SELECTOR_LP_SHARE_SET_MINTER_ONCE = 7;
 /** Storage key for minter slot (`k[31] == 0xb1`), 32-byte word. */
 export declare const LP_SHARE_MINTER_KEY_U8: Uint8Array;
+/** `boing_getContractStorage` key for LP share **minter** (`native_lp_share_token::LP_SHARE_MINTER_KEY`). */
+export declare const LP_SHARE_MINTER_KEY_HEX: `0x${string}`;
+/**
+ * Read designated **minter** `AccountId` for the LP share token, or **`null`** if unset (all-zero word).
+ */
+export declare function fetchLpShareTokenMinterAccountHex(client: BoingClient, shareHex32: string): Promise<`0x${string}` | null>;
 export declare function encodeLpShareTransferCalldata(toHex32: string, amount: bigint): Uint8Array;
 export declare function encodeLpShareTransferCalldataHex(toHex32: string, amount: bigint): string;
 export declare function encodeLpShareMintCalldata(toHex32: string, amount: bigint): Uint8Array;

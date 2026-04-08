@@ -88,6 +88,7 @@ export {
   accountIdToHex,
   hexToAccountId,
   validateHex32,
+  decodeBoingStorageWordAccountId,
   isBoingNativeAccountIdHex,
 } from './hex.js';
 export type {
@@ -272,6 +273,8 @@ export {
   SELECTOR_LP_SHARE_MINT,
   SELECTOR_LP_SHARE_SET_MINTER_ONCE,
   LP_SHARE_MINTER_KEY_U8,
+  LP_SHARE_MINTER_KEY_HEX,
+  fetchLpShareTokenMinterAccountHex,
   buildLpShareTokenAccessList,
   buildLpShareTokenContractCallTx,
   encodeLpShareTransferCalldata,
@@ -285,6 +288,13 @@ export {
 export {
   SELECTOR_NATIVE_AMM_LP_VAULT_CONFIGURE,
   SELECTOR_NATIVE_AMM_LP_VAULT_DEPOSIT_ADD,
+  NATIVE_AMM_LP_VAULT_KEY_CONFIGURED_HEX,
+  NATIVE_AMM_LP_VAULT_KEY_POOL_HEX,
+  NATIVE_AMM_LP_VAULT_KEY_SHARE_TOKEN_HEX,
+  fetchNativeAmmLpVaultStorageSnapshot,
+  fetchNativeAmmLpVaultProductReadiness,
+  type NativeAmmLpVaultStorageSnapshot,
+  type NativeAmmLpVaultProductReadiness,
   buildNativeAmmLpVaultConfigureAccessList,
   buildNativeAmmLpVaultConfigureContractCallTx,
   buildNativeAmmLpVaultDepositAddAccessList,

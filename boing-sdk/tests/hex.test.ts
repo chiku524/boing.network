@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isBoingNativeAccountIdHex, validateHex32 } from '../src/hex.js';
+import { decodeBoingStorageWordAccountId, isBoingNativeAccountIdHex, validateHex32 } from '../src/hex.js';
 
 describe('hex', () => {
   const valid =
@@ -14,5 +14,10 @@ describe('hex', () => {
     expect(isBoingNativeAccountIdHex(valid)).toBe(true);
     expect(isBoingNativeAccountIdHex('0x' + '00'.repeat(31))).toBe(false);
     expect(isBoingNativeAccountIdHex('0x' + 'ab'.repeat(20))).toBe(false);
+  });
+
+  it('decodeBoingStorageWordAccountId', () => {
+    expect(decodeBoingStorageWordAccountId('0x' + '00'.repeat(32))).toBe(null);
+    expect(decodeBoingStorageWordAccountId(valid)).toBe(valid);
   });
 });

@@ -26,6 +26,10 @@ For **`deposit_add`**, declare **signer**, **vault**, **pool**, and **share toke
 
 For **`configure`**, **signer** + **vault** suffice: `buildNativeAmmLpVaultConfigureAccessList`.
 
+## dApp readiness probe (**boing-sdk**)
+
+**`fetchNativeAmmLpVaultProductReadiness(client, { vaultHex32, shareHex32, expectedPoolHex32? })`** uses **`boing_getContractStorage`** on the vault (**configured** / **pool** / **share** slots) and the share token **minter** slot. When **`depositAddReady`** is **`true`**, vault **`configure`** has run, the stored share id matches **`shareHex32`**, the minter is the vault, and the stored pool matches **`expectedPoolHex32`** when you pass it (e.g. merged default pool from **`fetchNativeDexIntegrationDefaults`**). Use this in UIs to gate **`deposit_add`** until ops finish **`set_minter_once`** + **`configure`**. Lower-level: **`fetchNativeAmmLpVaultStorageSnapshot`**, **`fetchLpShareTokenMinterAccountHex`**, storage key exports **`NATIVE_AMM_LP_VAULT_KEY_*_HEX`**, **`LP_SHARE_MINTER_KEY_HEX`**.
+
 ## Tutorial (Node CLI)
 
 From [examples/native-boing-tutorial](../examples/native-boing-tutorial/README.md) (after `npm install` in that package and a built **`boing-sdk`**):

@@ -4,7 +4,7 @@
  * See `docs/NATIVE-LP-SHARE-TOKEN.md`.
  */
 import { mergeAccessListWithSimulation } from './accessList.js';
-import { bytesToHex, ensureHex, hexToBytes, validateHex32 } from './hex.js';
+import { bytesToHex, decodeBoingStorageWordAccountId, ensureHex, hexToBytes, validateHex32 } from './hex.js';
 /** `transfer(to, amount)` — **96** bytes. */
 export const SELECTOR_LP_SHARE_TRANSFER = 0x01;
 /** `mint(to, amount)` — **96** bytes; only minter may call. */
@@ -17,6 +17,16 @@ export const LP_SHARE_MINTER_KEY_U8 = (() => {
     k[31] = 0xb1;
     return k;
 })();
+/** `boing_getContractStorage` key for LP share **minter** (`native_lp_share_token::LP_SHARE_MINTER_KEY`). */
+export const LP_SHARE_MINTER_KEY_HEX = validateHex32(bytesToHex(LP_SHARE_MINTER_KEY_U8));
+/**
+ * Read designated **minter** `AccountId` for the LP share token, or **`null`** if unset (all-zero word).
+ */
+export async function fetchLpShareTokenMinterAccountHex(client, shareHex32) {
+    const share = validateHex32(shareHex32);
+    const w = await client.getContractStorage(share, LP_SHARE_MINTER_KEY_HEX);
+    return decodeBoingStorageWordAccountId(w.value);
+}
 function selectorWord(selector) {
     const w = new Uint8Array(32);
     w[31] = selector & 0xff;

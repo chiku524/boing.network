@@ -13,6 +13,11 @@ export declare function hexToBytes(hex: string): Uint8Array;
  * @throws if not valid hex or length is not 64
  */
 export declare function validateHex32(hex: string): string;
+/**
+ * Decode a **32-byte** `boing_getContractStorage` **value** word as a Boing **`AccountId`**, or **`null`**
+ * if the word is all zero. Truncates/pads to 64 hex chars like other storage decoders.
+ */
+export declare function decodeBoingStorageWordAccountId(valueHex: string): `0x${string}` | null;
 /** True if **`hex`** is a valid **32-byte** Boing **`AccountId`** (`0x` + 64 hex). Use to branch wizards away from 20-byte EVM addresses. */
 export declare function isBoingNativeAccountIdHex(hex: string): boolean;
 /** Assert 32-byte buffer; return as hex. */
