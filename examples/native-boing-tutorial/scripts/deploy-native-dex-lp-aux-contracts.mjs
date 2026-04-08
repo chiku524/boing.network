@@ -34,6 +34,15 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const tutorialRoot = path.resolve(scriptDir, '..');
 const artifactsDir = path.join(tutorialRoot, 'artifacts');
 
+/** Before `runMain()` — `main()` runs sync until first `await` and uses these. */
+const rpc = process.env.BOING_RPC_URL ?? 'https://testnet-rpc.boing.network';
+const noAutoNonce =
+  process.env.BOING_BOOTSTRAP_NO_AUTO_NONCE === '1' || process.env.BOING_BOOTSTRAP_NO_AUTO_NONCE === 'true';
+const userCreate2Off = process.env.BOING_USE_CREATE2 === '0' || process.env.BOING_USE_CREATE2 === 'false';
+const commitWaitMs = Number(
+  process.env.BOING_LP_AUX_COMMIT_WAIT_MS ?? process.env.BOING_AUX_COMMIT_WAIT_MS ?? 120_000
+);
+
 const secretHex = process.env.BOING_SECRET_HEX;
 if (!secretHex?.trim()) {
   console.error('Set BOING_SECRET_HEX (0x + 64 hex).');
@@ -49,14 +58,6 @@ function runMain() {
     scheduleExit(1);
   });
 }
-
-const rpc = process.env.BOING_RPC_URL ?? 'https://testnet-rpc.boing.network';
-const noAutoNonce =
-  process.env.BOING_BOOTSTRAP_NO_AUTO_NONCE === '1' || process.env.BOING_BOOTSTRAP_NO_AUTO_NONCE === 'true';
-const userCreate2Off = process.env.BOING_USE_CREATE2 === '0' || process.env.BOING_USE_CREATE2 === 'false';
-const commitWaitMs = Number(
-  process.env.BOING_LP_AUX_COMMIT_WAIT_MS ?? process.env.BOING_AUX_COMMIT_WAIT_MS ?? 120_000
-);
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
