@@ -362,6 +362,7 @@ export {
   encodeSignature,
   encodeSignedTransaction,
   signableTransactionHash,
+  transactionIdFromSignedTransactionHex,
 } from './bincode.js';
 export type { TransactionInput, TransactionPayloadInput } from './bincode.js';
 export {

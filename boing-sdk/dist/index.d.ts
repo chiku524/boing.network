@@ -43,7 +43,7 @@ export { SELECTOR_OWNER_OF, SELECTOR_TRANSFER_NFT, SELECTOR_SET_METADATA_HASH, e
 export { accountsFromSuggestedAccessList, mergeAccessListWithSimulation, accessListFromSimulation, simulationCoversSuggestedAccessList, } from './accessList.js';
 export { normalizeTopicWord, normalizeExecutionLog, logTopic0, iterReceiptLogs, logMatchesTopicFilter, filterReceiptLogsByTopic0, iterBlockReceiptLogs, } from './receiptLogs.js';
 export type { ReceiptLogRef } from './receiptLogs.js';
-export { PayloadVariant, concatBytes, writeU32Le, writeU64Le, writeU128Le, encodeAccessList, encodeByteVec, encodeBincodeString, encodeOptionFixed32, encodeOptionByteVec, encodeOptionString, encodeTransactionPayload, encodeTransaction, encodeSignature, encodeSignedTransaction, signableTransactionHash, } from './bincode.js';
+export { PayloadVariant, concatBytes, writeU32Le, writeU64Le, writeU128Le, encodeAccessList, encodeByteVec, encodeBincodeString, encodeOptionFixed32, encodeOptionByteVec, encodeOptionString, encodeTransactionPayload, encodeTransaction, encodeSignature, encodeSignedTransaction, signableTransactionHash, transactionIdFromSignedTransactionHex, } from './bincode.js';
 export type { TransactionInput, TransactionPayloadInput } from './bincode.js';
 export { buildTransferTransaction, buildContractCallTransaction, buildDeployWithPurposeTransaction, fetchNextNonce, senderHexFromSecretKey, signTransactionInput, signTransactionInputWithSigner, } from './transactionBuilder.js';
 export type { BuildTransferInput, BuildContractCallInput, BuildDeployWithPurposeInput, Ed25519SecretKey32 } from './transactionBuilder.js';

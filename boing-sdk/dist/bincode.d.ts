@@ -81,4 +81,12 @@ export declare function encodeSignedTransaction(tx: TransactionInput, signature6
  * preimage = nonce_le || sender(32) || bincode(payload) || bincode(access_list)
  */
 export declare function signableTransactionHash(tx: TransactionInput): Uint8Array;
+/**
+ * Derives the mempool / receipt **`tx_id`** (32-byte BLAKE3) from **`0x` + bincode(`SignedTransaction`)** hex
+ * returned by Boing Express after `boing_signTransaction`. Matches **`Transaction::id()`** / **`boing_getTransactionReceipt`** param
+ * per [RPC-API-SPEC.md](https://github.com/Boing-Network/boing.network/blob/main/docs/RPC-API-SPEC.md) (signable body excludes the trailing serde `Signature` block).
+ *
+ * @throws if hex is invalid or the trailing signature length field is not 64
+ */
+export declare function transactionIdFromSignedTransactionHex(signedTxHex: string): string;
 //# sourceMappingURL=bincode.d.ts.map

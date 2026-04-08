@@ -5,6 +5,7 @@
  */
 
 import { blake3 } from '@noble/hashes/blake3';
+import { bytesToHex, ensureHex, hexToBytes } from './hex.js';
 
 /** Payload variants — discriminant u32 LE must match Rust enum declaration order. */
 export const PayloadVariant = {
@@ -205,4 +206,28 @@ export function signableTransactionHash(tx: TransactionInput): Uint8Array {
     encodeAccessList(tx.accessList.read, tx.accessList.write),
   );
   return blake3(preimage);
+}
+
+const SIGNED_TX_SIGNATURE_TRAIL_BYTES = 8 + 64;
+
+/**
+ * Derives the mempool / receipt **`tx_id`** (32-byte BLAKE3) from **`0x` + bincode(`SignedTransaction`)** hex
+ * returned by Boing Express after `boing_signTransaction`. Matches **`Transaction::id()`** / **`boing_getTransactionReceipt`** param
+ * per [RPC-API-SPEC.md](https://github.com/Boing-Network/boing.network/blob/main/docs/RPC-API-SPEC.md) (signable body excludes the trailing serde `Signature` block).
+ *
+ * @throws if hex is invalid or the trailing signature length field is not 64
+ */
+export function transactionIdFromSignedTransactionHex(signedTxHex: string): string {
+  const bytes = hexToBytes(ensureHex(signedTxHex));
+  if (bytes.length < SIGNED_TX_SIGNATURE_TRAIL_BYTES + 1) {
+    throw new Error('Signed transaction bytes too short to derive tx_id');
+  }
+  const sigLenOffset = bytes.length - SIGNED_TX_SIGNATURE_TRAIL_BYTES;
+  const dv = new DataView(bytes.buffer, bytes.byteOffset + sigLenOffset, 8);
+  const sigLen = dv.getBigUint64(0, true);
+  if (sigLen !== 64n) {
+    throw new Error(`Unexpected serde signature length field: ${sigLen} (expected 64)`);
+  }
+  const txBody = bytes.subarray(0, sigLenOffset);
+  return bytesToHex(blake3(txBody));
 }
