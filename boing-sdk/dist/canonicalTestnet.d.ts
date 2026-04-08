@@ -8,7 +8,7 @@
  */
 /**
  * Canonical **v1** native constant-product pool `AccountId` on public Boing testnet (**6913**).
- * Deploy: CREATE2 + `NATIVE_CP_POOL_CREATE2_SALT_V1`, purpose `dapp` ([OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](https://github.com/Boing-Network/boing.network/blob/main/docs/OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md) § Published).
+ * Rotations: [OPS-FRESH-TESTNET-BOOTSTRAP.md](../../docs/OPS-FRESH-TESTNET-BOOTSTRAP.md).
  */
 export declare const CANONICAL_BOING_TESTNET_NATIVE_CP_POOL_HEX: string;
 //# sourceMappingURL=canonicalTestnet.d.ts.map

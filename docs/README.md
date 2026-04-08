@@ -26,6 +26,7 @@ Start with [BOING-NETWORK-ESSENTIALS.md](BOING-NETWORK-ESSENTIALS.md) for the si
 | [PUBLIC-RPC-NODE-UPGRADE-CHECKLIST.md](PUBLIC-RPC-NODE-UPGRADE-CHECKLIST.md) | Before/after steps when upgrading the node behind public JSON-RPC |
 | [NEXT-STEPS-FUTURE-WORK.md](NEXT-STEPS-FUTURE-WORK.md) | Consolidated backlog: infra / CI map, where to file enhancements & optimizations, indexer scale, native AMM follow-ups, ops-dependent items, optional small PR slices |
 | [TESTNET.md](TESTNET.md) | Join testnet (bootnodes, faucet, single vs multi-node); **§9** ship new **`boing-node`** zips (release tags, D1, `networks.js`); **Testnet Portal** (registration, dashboards, community quests); **Incentivized testnet** (readiness, promotion, mainnet migration, Reddit draft in Appendix A) |
+| [TESTNET-NODE-RELEASE-CHECKLIST.md](TESTNET-NODE-RELEASE-CHECKLIST.md) | Ordered steps: Git tag → CI zips → SHA256 pins → D1 + VibeMiner migrations → deploy (pairs with **§9** in [TESTNET.md](TESTNET.md)) |
 | [INFRASTRUCTURE-SETUP.md](INFRASTRUCTURE-SETUP.md) | Bootnodes, Cloudflare tunnel, **HTTP 405** (tunnel vs Pages-only DNS), VibeMiner tunnel alignment |
 | [VIBEMINER-INTEGRATION.md](VIBEMINER-INTEGRATION.md) | One-click node/validator via VibeMiner; **`GET /api/networks`** **`meta`** for desktop sync; **§6** maintainer checklist; appendix: listing form values |
 
@@ -55,6 +56,8 @@ Start with [BOING-NETWORK-ESSENTIALS.md](BOING-NETWORK-ESSENTIALS.md) for the si
 | [NATIVE-LP-SHARE-TOKEN.md](NATIVE-LP-SHARE-TOKEN.md) | Optional **LP share** fungible (`mint` / `transfer` / `set_minter_once`) |
 | [NATIVE-AMM-E2E-SMOKE.md](NATIVE-AMM-E2E-SMOKE.md) | Manual Boing Express + dApp smoke (swap / liquidity) |
 | [OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md) | Published **canonical testnet** native CP pool id (**OPS-1**) |
+| [OPS-FRESH-TESTNET-BOOTSTRAP.md](OPS-FRESH-TESTNET-BOOTSTRAP.md) | **New operator key** + CREATE2 manifest + `sync-canonical-testnet-manifest` when the old signing seed is lost or the chain is reset |
+| [OPS-CANONICAL-TESTNET-NATIVE-DEX-AUX.md](OPS-CANONICAL-TESTNET-NATIVE-DEX-AUX.md) | **Predicted CREATE2** addresses for factory / routers / LP vault / LP share (6913); `npm run audit-native-dex-testnet` |
 | [BOING-PATTERN-AMM-LIQUIDITY.md](BOING-PATTERN-AMM-LIQUIDITY.md) | Constant-product AMM pattern (VM contracts, access lists, QA) |
 | [BOING-PATTERN-ORACLE-PRICE-FEEDS.md](BOING-PATTERN-ORACLE-PRICE-FEEDS.md) | Oracle / price feeds (app layer, TWAP, multisig) |
 | [BOING-PATTERN-UPGRADE-PROXY.md](BOING-PATTERN-UPGRADE-PROXY.md) | Upgradeable / hub-pointer patterns vs QA |

@@ -22,8 +22,9 @@ export type NativeDexIntegrationOverrides = {
     nativeDexFactoryAccountHex?: string;
 };
 /**
- * Merge RPC **`end_user`** canonical addresses, optional app overrides, and embedded **6913** pool fallback.
- * Order: overrides → node hints → testnet embedded pool (factory has no embedded default).
+ * Merge RPC **`end_user`** canonical addresses, optional app overrides, and embedded **6913** fallbacks
+ * (pool + predicted CREATE2 factory — see [`canonicalTestnetDex.ts`](./canonicalTestnetDex.ts)).
+ * Order: overrides → node hints → testnet embedded pool / factory.
  */
 export declare function mergeNativeDexIntegrationDefaults(info: NetworkInfo | null | undefined, overrides?: NativeDexIntegrationOverrides): NativeDexIntegrationDefaults;
 /** Fetch **`boing_getNetworkInfo`** and {@link mergeNativeDexIntegrationDefaults}. */

@@ -36,7 +36,7 @@ Consolidated matrix (website, boing.finance, tutorials, node flags): [TESTNET-RP
 | **`boing-node` (relaxed testnet)** | `BOING_RATE_PROFILE=dev` or `--dev-rate-limits` | [RUNBOOK.md](RUNBOOK.md) § Dev rate-limit profile |
 | **`boing-node` (public testnet RPC)** | **`BOING_CHAIN_ID=6913`**, **`BOING_CHAIN_NAME=Boing Testnet`** for **`boing_getNetworkInfo`** — [`tools/boing-node-public-testnet.env.example`](../tools/boing-node-public-testnet.env.example) | [RUNBOOK.md](RUNBOOK.md) §8.2, [PUBLIC-RPC-NODE-UPGRADE-CHECKLIST.md](PUBLIC-RPC-NODE-UPGRADE-CHECKLIST.md) |
 
-Canonical pool **`AccountId`** is **`0xffaa1290614441902ba813bf3bd8bf057624e0bd4f16160a9d32cd65d3f4d0c2`** ([RPC-API-SPEC.md](RPC-API-SPEC.md), [TESTNET.md](TESTNET.md) §5.3, [OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md) § Published). **OPS-1** doc/repo updates: done; confirm **boing.finance** env matches.
+Canonical pool **`AccountId`** is **`0xce4f819369630e89c4634112fdf01e1907f076bc30907f0402591abfca66518d`** ([RPC-API-SPEC.md](RPC-API-SPEC.md), [TESTNET.md](TESTNET.md) §5.3, [OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md) § Published). **OPS-1** doc/repo updates: done; confirm **boing.finance** env matches.
 
 ---
 

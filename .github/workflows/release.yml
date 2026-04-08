@@ -8,6 +8,11 @@ on:
       - 'v*'
       - 'testnet*'
 
+# Default GITHUB_TOKEN is read-only in some orgs; releases require contents: write
+# (otherwise softprops/action-gh-release gets HTTP 403 after successful builds).
+permissions:
+  contents: write
+
 env:
   CARGO_TERM_COLOR: always
 

@@ -39,7 +39,10 @@ pub const LP_BALANCE_STORAGE_XOR: [u8; 32] = *b"BOING_NATIVEAMM_LPRV1\x00\x00\x0
 
 /// CREATE2 salt (`create2_salt: Some(...)`) for a **canonical** native constant-product pool (v1).
 ///
-/// Pool `AccountId` = [`boing_primitives::create2_contract_address`] `(deployer, NATIVE_CP_POOL_CREATE2_SALT_V1, constant_product_pool_bytecode())`.
+/// **Predicted** pool `AccountId` for a fresh deploy is
+/// [`boing_primitives::create2_contract_address`] `(deployer, NATIVE_CP_POOL_CREATE2_SALT_V1, constant_product_pool_bytecode())`
+/// — but if bytecode has changed since an operator-published pool was frozen, that prediction will **not** match the
+/// published id until ops rotates the constant (see `verify_canonical_cp_pool_create2_drift` example).
 /// Label is UTF-8 left-padded with zeros (same style as log topic strings).
 pub const NATIVE_CP_POOL_CREATE2_SALT_V1: [u8; 32] =
     *b"BOING_NATIVECP_C2V1\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";

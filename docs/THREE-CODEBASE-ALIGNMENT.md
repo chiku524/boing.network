@@ -70,7 +70,7 @@ For wallet connection and dApp integration (e.g. portal sign-in, chain switching
 | Item | Value |
 |------|--------|
 | **Chain** | **6913** (testnet) |
-| **Canonical pool `AccountId`** | `0xffaa1290614441902ba813bf3bd8bf057624e0bd4f16160a9d32cd65d3f4d0c2` |
+| **Canonical pool `AccountId`** | `0xce4f819369630e89c4634112fdf01e1907f076bc30907f0402591abfca66518d` |
 
 - **Docs:** [RPC-API-SPEC.md](RPC-API-SPEC.md) § Native constant-product AMM, [TESTNET.md](TESTNET.md) §5.3.
 - **boing.finance:** `boingCanonicalTestnetPool.js` / `contracts.js` (6913) / env — must match; redeploy after changes.

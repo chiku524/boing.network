@@ -3,6 +3,11 @@
   "private": true,
   "description": "Root placeholder for CI; real apps are in website/ and desktop-hub/.",
   "scripts": {
+    "audit-native-dex-testnet": "node scripts/audit-native-dex-testnet.mjs",
+    "verify-cp-pool-create2-drift": "cargo run -p boing-execution --example verify_canonical_cp_pool_create2_drift --",
+    "generate-testnet-operator-key": "npm run generate-operator-key --prefix boing-sdk",
+    "print-native-create2-manifest": "cargo run -p boing-execution --example print_native_create2_manifest --",
+    "sync-canonical-testnet-manifest": "node scripts/sync-canonical-testnet-from-manifest.mjs",
     "boing:smoke": "node scripts/boing-smoke.mjs",
     "check-canonical-pool": "node scripts/check-canonical-native-amm-pool.mjs",
     "check-observer-readiness": "node scripts/check-observer-readiness.mjs",

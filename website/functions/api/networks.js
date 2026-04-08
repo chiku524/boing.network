@@ -38,16 +38,16 @@ function isAllowedDownloadUrl(urlString) {
 const CANONICAL_GH_REPO = 'Boing-Network/boing.network';
 
 /** Pinned testnet tag for official zips (keep in sync with VibeMiner `BOING_TESTNET_DEFAULT_DOWNLOAD_TAG`). */
-const BOING_TESTNET_DOWNLOAD_TAG = 'testnet-v0.1.7';
+const BOING_TESTNET_DOWNLOAD_TAG = 'testnet-v0.1.8';
 
-/** SHA-256 of each official zip for `BOING_TESTNET_DOWNLOAD_TAG`. */
+/** SHA-256 of each official zip for `BOING_TESTNET_DOWNLOAD_TAG` (refresh via `network-listings-release-sql.mjs`). */
 const BOING_ZIP_SHA = {
-  windows: '9dd69565e8d4225fb9bb229e11d6acbbaeab1d4a395d9efeb2346fc6c1144111',
-  linux: 'd7f394301f17dcef5c59e08d8fda2a269b5880e8af0601ade96a4c905b47d2db',
-  macos: '3fd1fa44fe22c7c4b399426afebeea74df999107772dffb1a4a62ba810d4f378',
+  windows: '2cea7a6f093990c02bf405a20caf3b68bb59b434b69421449ab6bb4fec96a16a',
+  linux: '70355e6e6c6c9f33804957df1c215a531bec0c329fe5c1fc48f3d23350bd296c',
+  macos: '435216299129a6bcc04d4775cf7956315246c4860bf2fd8a769df93bea7e7bbc',
 };
 
-const STALE_TESTNET_TAG_RE = /\/download\/(testnet-v0\.1\.(?:0|1|2|3|4|5|6))\//;
+const STALE_TESTNET_TAG_RE = /\/download\/(testnet-v0\.1\.(?:0|1|2|3|4|5|6|7))\//;
 
 function githubBlobMain(docPath) {
   return `https://github.com/${CANONICAL_GH_REPO}/blob/main/${docPath}`;
@@ -87,7 +87,8 @@ function maybeUpgradeStaleOfficialBoingZipUrl(url) {
   let sha256 = BOING_ZIP_SHA.windows;
   if (next.includes('release-linux-x86_64')) sha256 = BOING_ZIP_SHA.linux;
   else if (next.includes('release-macos-aarch64')) sha256 = BOING_ZIP_SHA.macos;
-  return { url: next, sha256 };
+  const pinned = typeof sha256 === 'string' && /^[0-9a-f]{64}$/i.test(sha256) ? sha256 : '';
+  return { url: next, sha256: pinned };
 }
 
 /** Default bootnodes (keep in sync with website/src/config/testnet.ts fallbacks). */
@@ -163,7 +164,8 @@ function mergeListing(base, row) {
   const upgraded = maybeUpgradeStaleOfficialBoingZipUrl(url);
   if (upgraded) {
     url = upgraded.url;
-    sha = upgraded.sha256;
+    if (upgraded.sha256) sha = upgraded.sha256;
+    else sha = '';
   } else {
     url = canonicalizeOfficialBoingGithubUrl(url);
   }

@@ -1,3 +1,7 @@
+# Large bytecode dumps for tutorial deploy scripts (regenerate: cargo run -p boing-execution --example dump_native_amm_pool / dump_native_dex_factory)
+examples/native-boing-tutorial/pool-lines.hex
+examples/native-boing-tutorial/dex-factory.hex
+
 # Dependencies
 node_modules/
 

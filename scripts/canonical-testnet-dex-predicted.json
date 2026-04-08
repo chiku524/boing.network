@@ -1,0 +1,12 @@
+{
+  "_comment": "Regenerate: cargo run -p boing-execution --example print_native_create2_manifest -- <DEPLOYER_HEX>",
+  "deployer": "0xc063512f42868f1278c59a1f61ec0944785c304dbc48dec7e4c41f70f666733f",
+  "native_cp_pool_v1": "0xce4f819369630e89c4634112fdf01e1907f076bc30907f0402591abfca66518d",
+  "native_dex_factory": "0x12dff97625620a1f10c05cd66cd72878288e8fea70d4150e9815bd38983b2890",
+  "native_dex_ledger_router_v1": "0x371b4cd7e3b88e06e6b89bdc86214918a7e7ec73b62deb7f9975e4166736d54d",
+  "native_dex_ledger_router_v2": "0x60a232b91d6f86a61d037ea6ea0fb769897f983c8e0d399e3df5189d00868992",
+  "native_dex_ledger_router_v3": "0xfb552619b27dacacba52b62d97cd171eabe4a74dac262ecb0e8735284d7555ba",
+  "native_dex_multihop_swap_router": "0x43a6410510e7d742db8366347a343af6f7d2d1aec39b8281677d5643a7fc110b",
+  "native_amm_lp_vault": "0x2b195b93a57b632ca3c1cf58cb7578542a6d58998116cddb8a6a50f1bd652f48",
+  "native_lp_share_token": "0x0618b4a6a30bc31822a0cdcf253ed2bcf642a6cecf26346ba655b63fccbde03c"
+}

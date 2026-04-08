@@ -122,12 +122,12 @@ Boing exposes a small JSON list for node runners (used alongside `@vibeminer/sha
 
 ```bash
 cd website
-node scripts/network-listings-release-sql.mjs testnet-v0.1.7
+node scripts/network-listings-release-sql.mjs testnet-v0.1.8
 # Optional: apply (use CLOUDFLARE_API_TOKEN if OAuth fails on D1 import)
-node scripts/network-listings-release-sql.mjs testnet-v0.1.7 --apply
+node scripts/network-listings-release-sql.mjs testnet-v0.1.8 --apply
 ```
 
-Canonical hand-maintained SQL: [website/migrations/insert-boing-devnet-listing.sql](../website/migrations/insert-boing-devnet-listing.sql). Latest tag refresh example: [website/migrations/2026-04-03-network-listings-boing-testnet-v0-1-7.sql](../website/migrations/2026-04-03-network-listings-boing-testnet-v0-1-7.sql).
+Canonical hand-maintained SQL: [website/migrations/insert-boing-devnet-listing.sql](../website/migrations/insert-boing-devnet-listing.sql). Latest tag refresh example: [website/migrations/2026-04-08-network-listings-boing-testnet-v0-1-8.sql](../website/migrations/2026-04-08-network-listings-boing-testnet-v0-1-8.sql).
 
 ---
 
@@ -161,7 +161,7 @@ No separate miner binary; no custom daemon protocol—just the node binary and J
 |------|----------------|
 | **VibeMiner** | Starts **`boing-node`** with P2P + **`--faucet-enable`** + JSON-RPC (default **8545**). It does **not** have a “deploy pool” button. Pool creation is a normal **contract deploy** + **`boing_submitTransaction`** flow. |
 | **Operators / devs** | Use **Boing Express** + **boing-sdk** (or tutorial scripts) against **`http://127.0.0.1:8545`** on the same machine as the VibeMiner node, or against **public** testnet RPC. Follow [NATIVE-AMM-CALLDATA.md](NATIVE-AMM-CALLDATA.md) (CREATE2 salt + bytecode) and **`boing_qaCheck`** before submit. |
-| **Publishing the canonical pool id** | **Current testnet:** **`0xffaa1290614441902ba813bf3bd8bf057624e0bd4f16160a9d32cd65d3f4d0c2`** — [RPC-API-SPEC.md](RPC-API-SPEC.md), [TESTNET.md](TESTNET.md) §5.3, **boing.finance** / **`boing-sdk`** mirror. VibeMiner does **not** store the pool id. **Future** rotations: [OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md) ([TESTNET-RPC-INFRA.md](TESTNET-RPC-INFRA.md) §2–3). |
+| **Publishing the canonical pool id** | **Current testnet:** **`0xce4f819369630e89c4634112fdf01e1907f076bc30907f0402591abfca66518d`** — [RPC-API-SPEC.md](RPC-API-SPEC.md), [TESTNET.md](TESTNET.md) §5.3, **boing.finance** / **`boing-sdk`** mirror. VibeMiner does **not** store the pool id. **Future** rotations: [OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md) ([TESTNET-RPC-INFRA.md](TESTNET-RPC-INFRA.md) §2–3). |
 | **Binary version** | VibeMiner only runs whatever is in the downloaded zip. If **`boing_submitTransaction`** / native AMM execution fails on an old build, **tag a new `boing-node` release** and complete **§6** so desktops pull the new zips (same as for new JSON-RPC methods). |
 
 ---
@@ -203,8 +203,8 @@ Use these values to list **Boing Network** in the VibeMiner request listing form
 
 | Field | Value |
 |-------|--------|
-| **Node download URL (HTTPS)** | https://github.com/chiku524/boing.network/releases (or direct asset URL when you publish a release, e.g. `https://github.com/chiku524/boing.network/releases/download/v0.1.0/boing-node-...`) |
-| **Command template** | `boing-node --p2p-listen /ip4/0.0.0.0/tcp/4001 --bootnodes /ip4/73.84.106.121/tcp/4001 --validator --rpc-port 8545 --data-dir {dataDir}` (zip builds use the executable name from the release, e.g. `boing-node-windows-x86_64.exe`; see D1 **`node_command_template`**) |
+| **Node download URL (HTTPS)** | `https://github.com/Boing-Network/boing.network/releases/download/testnet-v0.1.8/release-windows-x86_64.zip` (Linux/macOS: `release-linux-x86_64.zip` / `release-macos-aarch64.zip`; see [TESTNET-NODE-RELEASE-CHECKLIST.md](TESTNET-NODE-RELEASE-CHECKLIST.md)) |
+| **Command template** | `boing-node-windows-x86_64.exe --data-dir {dataDir} --p2p-listen /ip4/0.0.0.0/tcp/4001 --bootnodes /ip4/73.84.106.121/tcp/4001,/ip4/73.84.106.121/tcp/4001 --rpc-port 8545 --faucet-enable` (add `--validator` for validator preset; Linux/macOS use `boing-node-linux-x86_64` / `boing-node-macos-aarch64`) |
 | **Disk (GB)** | 10 |
 | **RAM (MB)** | 2048 |
 | **Binary SHA256 (optional)** | *(Leave blank or fill per release for integrity)* |

@@ -6,8 +6,10 @@ description = "VM and parallel transaction execution for Boing blockchain"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
+hex = "0.4"
 num-bigint = "0.4"
 proptest = "1"
+serde_json = "1"
 boing-primitives = { path = "../boing-primitives" }
 boing-state = { path = "../boing-state" }
 ed25519-dalek = "2"
@@ -52,6 +54,18 @@ path = "examples/dump_native_lp_share_token.rs"
 [[example]]
 name = "dump_reference_token_artifacts"
 path = "examples/dump_reference_token_artifacts.rs"
+
+[[example]]
+name = "print_canonical_testnet_dex_create2_addresses"
+path = "examples/print_canonical_testnet_dex_create2_addresses.rs"
+
+[[example]]
+name = "verify_canonical_cp_pool_create2_drift"
+path = "examples/verify_canonical_cp_pool_create2_drift.rs"
+
+[[example]]
+name = "print_native_create2_manifest"
+path = "examples/print_native_create2_manifest.rs"
 
 [dependencies]
 boing-primitives = { path = "../boing-primitives" }

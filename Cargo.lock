@@ -645,10 +645,12 @@ dependencies = [
  "boing-telemetry",
  "criterion",
  "ed25519-dalek",
+ "hex",
  "num-bigint",
  "proptest",
  "rand 0.8.5",
  "rayon",
+ "serde_json",
  "thiserror 1.0.69",
  "tracing",
 ]

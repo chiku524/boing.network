@@ -181,11 +181,13 @@ export BOING_RPC_URL=https://testnet-rpc.boing.network
 export BOING_SECRET_HEX=0x   # your seed — local only
 export BOING_NATIVE_AMM_VARIANT=v1
 export BOING_NATIVE_AMM_BYTECODE_FILE=../../pool-lines.hex
-export BOING_EXPECT_SENDER_HEX=0xc063512f42868f1278c59a1f61ec0944785c304dbc48dec7e4c41f70f666733f
+export BOING_EXPECT_SENDER_HEX=0x0xc063512f42868f1278c59a1f61ec0944785c304dbc48dec7e4c41f70f666733f
 npm run deploy-native-amm-pool
 ```
 
 After a successful submit, seed liquidity with **`npm run native-amm-submit-contract-call`** (**`BOING_NATIVE_AMM_ACTION=add`**) or Boing Express + [NATIVE-AMM-E2E-SMOKE.md](../../docs/NATIVE-AMM-E2E-SMOKE.md). Full operator path: [DEVNET-OPERATOR-NATIVE-AMM.md](../../docs/DEVNET-OPERATOR-NATIVE-AMM.md).
+
+**Published vs predicted pool id:** The operator-published canonical testnet pool (**`0xffaa…`**) may differ from **`predictedPoolHex`** when this repo’s pool bytecode has changed since that freeze — use the script’s prediction for new deploys, and **`npm run verify-cp-pool-create2-drift`** (repo root) to compare.
 
 **Troubleshooting:** **`SyntaxError: does not provide an export named 'NATIVE_CP_POOL_CREATE2_SALT_V2'`** — rebuild **`boing-sdk`** (`cd ../../boing-sdk && npm run build`). Run from repo root: `cd examples/native-boing-tutorial` (paths like `./pool.hex` assume that cwd). If you see **`BoingRpcError` / HTTP 530** (often with **`error code: 1033`** in the message), the **public testnet RPC URL is not reaching a live node** (Cloudflare tunnel / origin). Use a local node (`BOING_RPC_URL=http://127.0.0.1:8545`) or retry when the public endpoint is healthy — see [RUNBOOK.md](../../docs/RUNBOOK.md) § 8.3. On Windows, **`UV_HANDLE_CLOSING`** after **`preflight-rpc`** was a **Node/libuv** exit race; **`observer-chain-tip-poll`** defers **`process.exit`** to avoid it — update this repo and retry.
 

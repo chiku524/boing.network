@@ -5,6 +5,7 @@
  * See [BOING-DAPP-INTEGRATION.md](../../docs/BOING-DAPP-INTEGRATION.md) § **Seamless native DEX defaults**.
  */
 import { CANONICAL_BOING_TESTNET_NATIVE_CP_POOL_HEX } from './canonicalTestnet.js';
+import { CANONICAL_BOING_TESTNET_NATIVE_DEX_FACTORY_HEX } from './canonicalTestnetDex.js';
 import { isBoingTestnetChainId } from './chainIds.js';
 import { validateHex32 } from './hex.js';
 import { getLogsChunked } from './indexerBatch.js';
@@ -24,8 +25,9 @@ function parseOptionalHex32(v) {
     }
 }
 /**
- * Merge RPC **`end_user`** canonical addresses, optional app overrides, and embedded **6913** pool fallback.
- * Order: overrides → node hints → testnet embedded pool (factory has no embedded default).
+ * Merge RPC **`end_user`** canonical addresses, optional app overrides, and embedded **6913** fallbacks
+ * (pool + predicted CREATE2 factory — see [`canonicalTestnetDex.ts`](./canonicalTestnetDex.ts)).
+ * Order: overrides → node hints → testnet embedded pool / factory.
  */
 export function mergeNativeDexIntegrationDefaults(info, overrides) {
     const chainId = info?.chain_id ?? null;
@@ -70,6 +72,10 @@ export function mergeNativeDexIntegrationDefaults(info, overrides) {
         if (rpcFac) {
             nativeDexFactoryAccountHex = rpcFac;
             factorySource = 'rpc_end_user';
+        }
+        else if (chainId != null && isBoingTestnetChainId(chainId)) {
+            nativeDexFactoryAccountHex = CANONICAL_BOING_TESTNET_NATIVE_DEX_FACTORY_HEX;
+            factorySource = 'sdk_testnet_embedded';
         }
     }
     let endUserExplorerUrl = null;

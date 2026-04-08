@@ -37,4 +37,4 @@ export const isTestnetLive =
  * and `boing-sdk` **`CANONICAL_BOING_TESTNET_NATIVE_CP_POOL_HEX`**. **boing.finance** (separate app) should use the same hex in its env / `contracts.js` — not generated from this file.
  */
 export const CANONICAL_NATIVE_CP_POOL_ACCOUNT_ID_HEX =
-  '0xffaa1290614441902ba813bf3bd8bf057624e0bd4f16160a9d32cd65d3f4d0c2' as const;
+  '0xce4f819369630e89c4634112fdf01e1907f076bc30907f0402591abfca66518d' as const as const;

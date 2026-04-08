@@ -11,8 +11,8 @@ import { validateHex32 } from './hex.js';
 
 /**
  * Canonical **v1** native constant-product pool `AccountId` on public Boing testnet (**6913**).
- * Deploy: CREATE2 + `NATIVE_CP_POOL_CREATE2_SALT_V1`, purpose `dapp` ([OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](https://github.com/Boing-Network/boing.network/blob/main/docs/OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md) § Published).
+ * Rotations: [OPS-FRESH-TESTNET-BOOTSTRAP.md](../../docs/OPS-FRESH-TESTNET-BOOTSTRAP.md).
  */
 export const CANONICAL_BOING_TESTNET_NATIVE_CP_POOL_HEX = validateHex32(
-  '0xffaa1290614441902ba813bf3bd8bf057624e0bd4f16160a9d32cd65d3f4d0c2',
+  '0xce4f819369630e89c4634112fdf01e1907f076bc30907f0402591abfca66518d',
 );

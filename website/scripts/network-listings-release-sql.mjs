@@ -3,8 +3,8 @@
  * Fetch release zips from GitHub, print SHA-256 and SQL to refresh network_listings for a tag.
  *
  * Usage (from website/):
- *   node scripts/network-listings-release-sql.mjs testnet-v0.1.3
- *   node scripts/network-listings-release-sql.mjs testnet-v0.1.3 --apply
+ *   node scripts/network-listings-release-sql.mjs testnet-v0.1.8
+ *   node scripts/network-listings-release-sql.mjs testnet-v0.1.8 --apply
  *
  * --apply writes a temp .sql file and runs wrangler d1 execute --remote --file.
  * Prefer **CLOUDFLARE_API_TOKEN** (Dashboard → API Tokens, include D1 edit) if `wrangler login`
@@ -123,7 +123,7 @@ async function main() {
         console.error(`  • Workflow has not finished uploading assets yet.`);
         console.error(`  • Asset names differ (expected: ${ROWS.map((r) => r.zip).join(', ')}).`);
         console.error('');
-        console.error(`Working example: testnet-v0.1.3 — see GitHub → Releases.`);
+        console.error(`Working example: testnet-v0.1.8 — see GitHub → Releases.`);
       }
       return 1;
     }

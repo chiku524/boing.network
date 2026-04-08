@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CANONICAL_BOING_TESTNET_NATIVE_CP_POOL_HEX } from '../src/canonicalTestnet.js';
+import { CANONICAL_BOING_TESTNET_NATIVE_DEX_FACTORY_HEX } from '../src/canonicalTestnetDex.js';
 import {
   fetchNativeDexIntegrationDefaults,
   mergeNativeDexIntegrationDefaults,
@@ -62,7 +63,8 @@ describe('dexIntegration', () => {
     );
     expect(d.nativeCpPoolAccountHex).toBe(CANONICAL_BOING_TESTNET_NATIVE_CP_POOL_HEX);
     expect(d.poolSource).toBe('sdk_testnet_embedded');
-    expect(d.nativeDexFactoryAccountHex).toBeNull();
+    expect(d.nativeDexFactoryAccountHex).toBe(CANONICAL_BOING_TESTNET_NATIVE_DEX_FACTORY_HEX);
+    expect(d.factorySource).toBe('sdk_testnet_embedded');
     expect(d.endUserExplorerUrl).toBeNull();
   });
 

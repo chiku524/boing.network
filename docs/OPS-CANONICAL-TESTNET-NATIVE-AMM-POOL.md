@@ -2,18 +2,28 @@
 
 **Goal (OPS-1):** When operations freeze a **long-lived** constant-product pool on **Boing testnet (chain id 6913)**, publish its **32-byte pool `AccountId`** once and mirror it everywhere integrators look. This doc is the **checklist**; it does **not** contain a placeholder fake address.
 
+**Lost signing seed / chain reset:** [OPS-FRESH-TESTNET-BOOTSTRAP.md](OPS-FRESH-TESTNET-BOOTSTRAP.md) — new `BOING_SECRET_HEX`, CREATE2 manifest, repo sync, redeploy.
+
 **Context:** See [TESTNET-OPS-RUNBOOK.md](TESTNET-OPS-RUNBOOK.md) for how this step fits bootnodes, RPC, and website configuration. **VibeMiner** users run **`boing-node`** locally for JSON-RPC but do not set the pool id in the app — see [VIBEMINER-INTEGRATION.md](VIBEMINER-INTEGRATION.md) §5.1.
 
 ## Published (canonical public testnet)
 
 | Field | Value |
 |-------|--------|
-| **Pool `AccountId`** | `0xffaa1290614441902ba813bf3bd8bf057624e0bd4f16160a9d32cd65d3f4d0c2` |
-| **Bytecode** | **v1** (`constant_product_pool_bytecode`) |
-| **Deploy** | **CREATE2** + **`NATIVE_CP_POOL_CREATE2_SALT_V1`**, **`purpose_category`** **`dapp`** |
-| **Deployer** | `0xc063512f42868f1278c59a1f61ec0944785c304dbc48dec7e4c41f70f666733f` |
+| **Pool `AccountId`** | `0xce4f819369630e89c4634112fdf01e1907f076bc30907f0402591abfca66518d` |
+| **Bytecode** | **v1** lineage (ledger-only CP pool; evolved in-tree since freeze) |
+| **Deploy** | Operator-published id above — **use this hex** for RPC reads and dApp defaults. |
+| **Deployer (documented)** | `0x0xc063512f42868f1278c59a1f61ec0944785c304dbc48dec7e4c41f70f666733f` |
 | **Date** | **2026-04-03** |
 | **Verification** | Reserves / LP via **`npm run fetch-native-amm-reserves`** with **`BOING_POOL_HEX`** set ([examples/native-boing-tutorial](../examples/native-boing-tutorial/README.md)); on success **`boing_submitTransaction`** returns **`{ "tx_hash": "ok" }`** — see [RPC-API-SPEC.md](RPC-API-SPEC.md) § **`boing_submitTransaction`**. |
+
+**CREATE2 prediction (current `main`):** A **fresh** deploy using **`constant_product_pool_bytecode()`** + **`NATIVE_CP_POOL_CREATE2_SALT_V1`** + the deployer above lands at **`0xce4f819369630e89c4634112fdf01e1907f076bc30907f0402591abfca66518d`** — **not** the same as the published pool row when bytecode has changed since the freeze. New deploys should use **`predictedPoolHex`** from **`npm run deploy-native-amm-pool`** (or the JSON from the drift tool below). **Do not** assume the published id matches CREATE2 of today’s sources without checking.
+
+```bash
+cargo run -p boing-execution --example verify_canonical_cp_pool_create2_drift
+# Optional CI gate (fails when prediction ≠ published):
+BOING_STRICT_CP_POOL_CREATE2=1 cargo run -p boing-execution --example verify_canonical_cp_pool_create2_drift
+```
 
 **Downstream:** Set the same hex in **boing.finance** (`boingCanonicalTestnetPool.js` / env / `contracts.js` for chain **6913**) and redeploy that app.
 

@@ -131,7 +131,7 @@ The in-ledger **MVP constant-product pool** is a normal **32-byte contract `Acco
 
 | | |
 |--|--|
-| **Canonical public testnet pool `AccountId`** | **`0xffaa1290614441902ba813bf3bd8bf057624e0bd4f16160a9d32cd65d3f4d0c2`** — same as [RPC-API-SPEC.md](RPC-API-SPEC.md) § Native constant-product AMM; **v1** + CREATE2 (**`NATIVE_CP_POOL_CREATE2_SALT_V1`**). Also on the website [Join Testnet](https://boing.network/testnet/join#native-amm-pool) page (`website/src/config/testnet.ts`). |
+| **Canonical public testnet pool `AccountId`** | **`0xce4f819369630e89c4634112fdf01e1907f076bc30907f0402591abfca66518d`** — same as [RPC-API-SPEC.md](RPC-API-SPEC.md) § Native constant-product AMM (operator-published id; CREATE2 drift vs current sources: **`verify_canonical_cp_pool_create2_drift`** example). Also on the website [Join Testnet](https://boing.network/testnet/join#native-amm-pool) page (`website/src/config/testnet.ts`). |
 
 Storage keys and calldata: [NATIVE-AMM-CALLDATA.md](NATIVE-AMM-CALLDATA.md). SDK examples: **`BOING_POOL_HEX`** in [examples/native-boing-tutorial](../examples/native-boing-tutorial/).
 
@@ -184,13 +184,13 @@ When the Boing team runs an **incentivized testnet** (rewarding validators, deve
 GitHub Actions builds **`release-{linux-x86_64,macos-aarch64,windows-x86_64}.zip`** when you push a tag matching `testnet*` or `v*` (see `.github/workflows/release.yml`).
 
 1. Ensure `main` has the code you want shipped.
-2. Create and push an **annotated** tag (example `testnet-v0.1.7`):
+2. Create and push an **annotated** tag (example `testnet-v0.1.8`):
 
    ```bash
    git checkout main
    git pull
-   git tag -a testnet-v0.1.7 -m "Testnet node: describe changes"
-   git push origin testnet-v0.1.7
+   git tag -a testnet-v0.1.8 -m "Testnet node: describe changes"
+   git push origin testnet-v0.1.8
    ```
 
 3. Wait for workflow **Release binaries** to finish. For **`testnet*`** tags the workflow **publishes** the release immediately so `https://github.com/.../releases/download/<tag>/...` works. For **`v*`** tags it may create a **draft** until you click **Publish release** in GitHub → Releases.
@@ -198,12 +198,12 @@ GitHub Actions builds **`release-{linux-x86_64,macos-aarch64,windows-x86_64}.zip
 5. Refresh Boing website D1 listing SHAs (from repo root or `website/`):
 
    ```bash
-   node scripts/network-listings-release-sql.mjs testnet-v0.1.7
-   node scripts/network-listings-release-sql.mjs testnet-v0.1.7 --apply
-   # or: cd website && node scripts/network-listings-release-sql.mjs testnet-v0.1.7 [--apply]
+   node scripts/network-listings-release-sql.mjs testnet-v0.1.8
+   node scripts/network-listings-release-sql.mjs testnet-v0.1.8 --apply
+   # or: cd website && node scripts/network-listings-release-sql.mjs testnet-v0.1.8 [--apply]
    ```
 
-6. Bump **`BOING_TESTNET_DOWNLOAD_TAG`** in **`website/functions/api/networks.js`** (and **`BOING_ZIP_SHA`** if you use URL rewrite helpers) so **`GET /api/networks`** returns the new **`meta.boing_testnet_download_tag`**. Deploy **boing.network**. Then align **VibeMiner** defaults with **`meta`** — [VIBEMINER-INTEGRATION.md](VIBEMINER-INTEGRATION.md) §6.
+6. Bump **`BOING_TESTNET_DOWNLOAD_TAG`** in **`website/functions/api/networks.js`** (and **`BOING_ZIP_SHA`** if you use URL rewrite helpers) so **`GET /api/networks`** returns the new **`meta.boing_testnet_download_tag`**. Deploy **boing.network**. Then align **VibeMiner** defaults with **`meta`** — [VIBEMINER-INTEGRATION.md](VIBEMINER-INTEGRATION.md) §6. Full ordering: [TESTNET-NODE-RELEASE-CHECKLIST.md](TESTNET-NODE-RELEASE-CHECKLIST.md).
 
 **Also:** [WEBSITE-AND-DEPLOYMENT.md](WEBSITE-AND-DEPLOYMENT.md) (D1 / listings), [PUBLIC-RPC-NODE-UPGRADE-CHECKLIST.md](PUBLIC-RPC-NODE-UPGRADE-CHECKLIST.md) before pointing users at a new RPC surface.
 

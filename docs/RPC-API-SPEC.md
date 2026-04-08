@@ -373,7 +373,7 @@ Single-call snapshot for dApps: chain metadata (from env when configured), tip s
     "chain_display_name": "Boing Testnet",
     "explorer_url": null,
     "faucet_url": null,
-    "canonical_native_cp_pool": "0xffaa1290614441902ba813bf3bd8bf057624e0bd4f16160a9d32cd65d3f4d0c2",
+    "canonical_native_cp_pool": "0xce4f819369630e89c4634112fdf01e1907f076bc30907f0402591abfca66518d",
     "canonical_native_dex_factory": null
   },
   "rpc": {
@@ -594,7 +594,7 @@ Wallets and dApps still **configure** the pool **`AccountId`** in their own env 
 
 | | |
 |--|--|
-| **Canonical public testnet pool `AccountId`** | **`0xffaa1290614441902ba813bf3bd8bf057624e0bd4f16160a9d32cd65d3f4d0c2`** — **v1** bytecode, **CREATE2** + **`NATIVE_CP_POOL_CREATE2_SALT_V1`**, **`purpose_category` `dapp`**. Deployer **`0xc063512f42868f1278c59a1f61ec0944785c304dbc48dec7e4c41f70f666733f`**. Published **2026-04-03** ([OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md) § Published). |
+| **Canonical public testnet pool `AccountId`** | **`0xce4f819369630e89c4634112fdf01e1907f076bc30907f0402591abfca66518d`** — operator-published **2026-04-03** ([OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md) § Published). Documented deployer **`0x0xc063512f42868f1278c59a1f61ec0944785c304dbc48dec7e4c41f70f666733f`**. **CREATE2 note:** current-tree **`constant_product_pool_bytecode()`** + **`NATIVE_CP_POOL_CREATE2_SALT_V1`** predicts **`0xce4f819369630e89c4634112fdf01e1907f076bc30907f0402591abfca66518d`** (drift vs published until ops rotates or bytecode matches the frozen deployment) — run **`cargo run -p boing-execution --example verify_canonical_cp_pool_create2_drift`**. |
 | **boing.finance (separate repo)** | **Source constant:** `frontend/src/config/boingCanonicalTestnetPool.js` → **`CANONICAL_BOING_TESTNET_NATIVE_CP_POOL_HEX`**. **Cloudflare Pages / CI build:** **`REACT_APP_BOING_NATIVE_AMM_POOL`** (same 64-hex `AccountId`). Also wire **`nativeConstantProductPool`** (or equivalent in `contracts.js`) for chain **6913**. Redeploy the app after any change to this hex. Optional: depend on npm **`boing-sdk`** and import **`CANONICAL_BOING_TESTNET_NATIVE_CP_POOL_HEX`** (mirror of this table — see row below) plus shared RPC helpers / `explainBoingRpcError`. |
 | **boing-sdk** | **`CANONICAL_BOING_TESTNET_NATIVE_CP_POOL_HEX`** — exported from [`boing-sdk/src/canonicalTestnet.ts`](../boing-sdk/src/canonicalTestnet.ts); convenience for tutorials and TS apps. **Authoritative** values remain **this spec** and [TESTNET.md](TESTNET.md) §5.3. |
 
