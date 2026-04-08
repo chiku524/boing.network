@@ -387,6 +387,7 @@ export {
 export type { BuildTransferInput, BuildContractCallInput, BuildDeployWithPurposeInput, Ed25519SecretKey32 } from './transactionBuilder.js';
 export {
   predictCreate2ContractAddress,
+  predictNonceDerivedContractAddress,
   predictNativeCpPoolCreate2Address,
   predictNativeCpPoolV2Create2Address,
   predictNativeCpPoolV3Create2Address,

@@ -20,6 +20,10 @@
  *   BOING_DEX_POOL_HEX               — native CP pool account id
  *   BOING_DEX_TOKEN_A_HEX            — 32-byte token id (reference token or placeholder)
  *   BOING_DEX_TOKEN_B_HEX            — 32-byte token id
+ *
+ * Commit wait (`register_pair` runs after factory deploy submit; simulation needs the factory on-chain):
+ *   BOING_DEX_REGISTER_POLL_MS       — default 750 — sleep between retries when sim says Account not found
+ *   BOING_DEX_REGISTER_WAIT_MS       — default 180000 — max time to wait for factory to be executable
  */
 import {
   BoingRpcError,
@@ -27,15 +31,50 @@ import {
   createClient,
   encodeNativeDexRegisterPairCalldata,
   explainBoingRpcError,
+  fetchNextNonce,
   hexToBytes,
   NATIVE_DEX_FACTORY_CREATE2_SALT_V1,
   predictNativeDexFactoryCreate2Address,
+  predictNonceDerivedContractAddress,
   senderHexFromSecretKey,
   submitContractCallWithSimulationRetry,
   submitDeployWithPurposeFlow,
   validateHex32,
 } from 'boing-sdk';
 import { readFileSync } from 'node:fs';
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * `boing_simulateTransaction` uses committed state. Right after `submitTransaction` for the factory
+ * deploy, the directory contract often does not exist yet → VM "Account not found". Poll until sim succeeds.
+ */
+async function submitRegisterPairWhenFactoryReady(opts) {
+  const pollMs = Math.max(50, Number(process.env.BOING_DEX_REGISTER_POLL_MS ?? 750));
+  const maxWaitMs = Math.max(pollMs, Number(process.env.BOING_DEX_REGISTER_WAIT_MS ?? 180_000));
+  const deadline = Date.now() + maxWaitMs;
+  /** @type {unknown} */
+  let lastErr;
+  let attempt = 0;
+  while (Date.now() < deadline) {
+    attempt += 1;
+    try {
+      const regOut = await submitContractCallWithSimulationRetry({
+        ...opts,
+        maxSimulationRetries: Number(process.env.BOING_DEX_REGISTER_SIM_RETRIES ?? 8),
+      });
+      return { ...regOut, registerPollAttempts: attempt };
+    } catch (e) {
+      lastErr = e;
+      const msg = explainBoingRpcError(e);
+      if (!/account not found/i.test(msg)) throw e;
+      await sleep(pollMs);
+    }
+  }
+  throw lastErr;
+}
 
 const rpc = process.env.BOING_RPC_URL ?? 'https://testnet-rpc.boing.network';
 const secretHex = process.env.BOING_SECRET_HEX;
@@ -93,7 +132,10 @@ async function main() {
   }
 
   const create2Salt = useCreate2 ? NATIVE_DEX_FACTORY_CREATE2_SALT_V1 : null;
-  const predictedFactory = useCreate2 ? predictNativeDexFactoryCreate2Address(senderHex, bytecode) : null;
+  const deployNonce = await fetchNextNonce(client, senderHex);
+  const predictedFactory = useCreate2
+    ? predictNativeDexFactoryCreate2Address(senderHex, bytecode)
+    : predictNonceDerivedContractAddress(senderHex, deployNonce);
 
   const out = await submitDeployWithPurposeFlow({
     client,
@@ -124,7 +166,7 @@ async function main() {
     const ff = validateHex32(factoryHex.startsWith('0x') ? factoryHex : `0x${factoryHex}`);
     const calldata = encodeNativeDexRegisterPairCalldata(fa, fb, fp);
     const al = buildNativeDexFactoryAccessList(senderHex, ff);
-    const regOut = await submitContractCallWithSimulationRetry({
+    const regOut = await submitRegisterPairWhenFactoryReady({
       client,
       secretKey32: secret,
       senderHex,
@@ -134,6 +176,9 @@ async function main() {
     });
     result.register_tx_hash = regOut.tx_hash;
     result.register_simulationAttempts = regOut.attempts;
+    if (regOut.registerPollAttempts > 1) {
+      result.register_pollAttempts = regOut.registerPollAttempts;
+    }
   } else if (regPool || regTa || regTb) {
     result.register_skipped =
       'Set all of BOING_DEX_FACTORY_HEX (or use CREATE2 prediction), BOING_DEX_POOL_HEX, BOING_DEX_TOKEN_A_HEX, BOING_DEX_TOKEN_B_HEX to register.';
@@ -143,7 +188,21 @@ async function main() {
 }
 
 main().catch((e) => {
-  console.error(explainBoingRpcError(e));
+  const msg = explainBoingRpcError(e);
+  console.error(msg);
+  if (/deployment address already has an account or code/i.test(msg)) {
+    console.error(
+      JSON.stringify(
+        {
+          ok: false,
+          error: 'CREATE2 factory address is already occupied.',
+          hint: 'Retry with BOING_USE_CREATE2=0 for a nonce-derived directory id, or call register_pair against the existing factory if you own it.',
+        },
+        null,
+        2
+      )
+    );
+  }
   if (e instanceof BoingRpcError && e.qaData?.rule_id === 'INVALID_OPCODE') {
     console.error(
       'Hint: upgrade the RPC node / testnet QA allowlist to match current boing-execution bytecode.'

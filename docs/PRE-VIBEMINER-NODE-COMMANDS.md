@@ -102,7 +102,7 @@ Overview: [scripts/README.md](../scripts/README.md). Full infra: [INFRASTRUCTURE
 
 From repo root, **`npm install` at the root is not required** for these wrappers. **`boing-sdk`** and **`examples/native-boing-tutorial`** each need **`npm install`** / **`npm ci`** (and **`boing-sdk`** **`npm run build`** where scripts import **`dist/`**) before running tutorial flows.
 
-**Tutorial parity:** every script name in **`examples/native-boing-tutorial/package.json`** is also defined at the **repository root** with the same name. Most delegate with **`npm run <script> --prefix examples/native-boing-tutorial`**. **`probe-rpc`** at the root is **`node boing-sdk/scripts/probe-rpc.mjs`** (the same file the tutorial **`probe-rpc`** runs). Examples: **`transfer`**, **`deploy-native-amm-pool`**, **`deploy-native-dex-directory`**, **`fetch-native-amm-reserves`**, **`native-amm-submit-contract-call`**, **`fetch-blocks-range`**, … — authoritative list: that package’s **`package.json`**. Per-script env tables: [examples/native-boing-tutorial/README.md](../examples/native-boing-tutorial/README.md).
+**Tutorial parity:** every script name in **`examples/native-boing-tutorial/package.json`** is also defined at the **repository root** with the same name. Most delegate with **`npm run <script> --prefix examples/native-boing-tutorial`**. **`probe-rpc`** at the root is **`node boing-sdk/scripts/probe-rpc.mjs`** (the same file the tutorial **`probe-rpc`** runs). Examples: **`transfer`**, **`dump-native-bytecodes`**, **`bootstrap-native-pool-and-dex`**, **`deploy-native-amm-pool`**, **`deploy-native-dex-directory`**, **`fetch-native-amm-reserves`**, **`native-amm-submit-contract-call`**, **`fetch-blocks-range`**, … — authoritative list: that package’s **`package.json`**. Per-script env tables: [examples/native-boing-tutorial/README.md](../examples/native-boing-tutorial/README.md).
 
 | Command | What it runs |
 |--------|----------------|
@@ -139,6 +139,8 @@ cd ../examples/native-boing-tutorial && npm install
 | `npm run transfer` | Needs **`BOING_SECRET_HEX`**, **`BOING_TO_HEX`** |
 | `npm run contract-call` | Reference token; needs **`BOING_CONTRACT_HEX`** |
 | `npm run deploy-minimal` | Minimal contract deploy; **`BOING_SECRET_HEX`** |
+| `npm run dump-native-bytecodes` | **`cargo`** dump → **`artifacts/pool-lines.hex`** + **`artifacts/native-dex-factory.hex`** (no keys; from tutorial cwd) |
+| `npm run bootstrap-native-pool-and-dex` | Pool deploy + directory deploy (+ optional **`BOING_BOOTSTRAP_REGISTER_PAIR=1`**); needs **`BOING_SECRET_HEX`**; on CREATE2 “address in use” retries with **`BOING_USE_CREATE2=0`** unless **`BOING_BOOTSTRAP_NO_AUTO_NONCE=1`** — tutorial README §7c1 |
 | `npm run deploy-native-amm-pool` | Pool deploy; bytecode file/hex + **`BOING_SECRET_HEX`** |
 | `npm run deploy-native-dex-directory` | Native **pair directory** deploy (+ optional second tx: **`register_pair`** when **`BOING_DEX_POOL_HEX`** + token ids set); [NATIVE-DEX-FACTORY.md](NATIVE-DEX-FACTORY.md) |
 | `npm run native-amm-print-contract-call-tx` | Print **`contract_call`** JSON (swap/add/remove); optional **`BOING_TOKEN_A_HEX`** / **`BOING_TOKEN_B_HEX`** |

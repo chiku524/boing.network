@@ -21,11 +21,13 @@ import {
   BoingRpcError,
   createClient,
   explainBoingRpcError,
+  fetchNextNonce,
   hexToBytes,
   NATIVE_CP_POOL_CREATE2_SALT_V1,
   NATIVE_CP_POOL_CREATE2_SALT_V2,
   predictNativeCpPoolCreate2Address,
   predictNativeCpPoolV2Create2Address,
+  predictNonceDerivedContractAddress,
   senderHexFromSecretKey,
   submitDeployWithPurposeFlow,
   validateHex32,
@@ -139,11 +141,12 @@ async function main() {
   }
 
   const create2Salt = useCreate2 ? (isV2 ? NATIVE_CP_POOL_CREATE2_SALT_V2 : NATIVE_CP_POOL_CREATE2_SALT_V1) : null;
+  const deployNonce = await fetchNextNonce(client, senderHex);
   const predictedPool = useCreate2
     ? isV2
       ? predictNativeCpPoolV2Create2Address(senderHex, bytecode)
       : predictNativeCpPoolCreate2Address(senderHex, bytecode)
-    : null;
+    : predictNonceDerivedContractAddress(senderHex, deployNonce);
 
   const out = await submitDeployWithPurposeFlow({
     client,
@@ -166,10 +169,9 @@ async function main() {
         predictedPoolHex: predictedPool,
         tx_hash: out.tx_hash,
         simulationAttempts: out.attempts,
-        note:
-          useCreate2 && predictedPool
-            ? 'After inclusion, pool should be at predictedPoolHex; verify with boing_getContractStorage (reserve A key).'
-            : 'Nonce-derived: pool id is nonce_derived_contract_address(sender, deploy_nonce).',
+        note: useCreate2
+          ? 'After inclusion, pool should be at predictedPoolHex; verify with boing_getContractStorage (reserve A key).'
+          : 'Nonce-derived: predictedPoolHex = BLAKE3(sender || nonce_le) for the deploy tx nonce (see predictNonceDerivedContractAddress).',
       },
       null,
       2
@@ -178,7 +180,21 @@ async function main() {
 }
 
 main().catch((e) => {
-  console.error(explainBoingRpcError(e));
+  const msg = explainBoingRpcError(e);
+  console.error(msg);
+  if (/deployment address already has an account or code/i.test(msg)) {
+    console.error(
+      JSON.stringify(
+        {
+          ok: false,
+          error: 'CREATE2 target address is already occupied (common on public testnet).',
+          hint: 'Retry with BOING_USE_CREATE2=0 for a fresh nonce-derived pool id, or reuse the existing pool at predictedPoolHex if bytecode matches.',
+        },
+        null,
+        2
+      )
+    );
+  }
   if (
     e instanceof BoingRpcError &&
     e.qaData?.rule_id === 'INVALID_OPCODE' &&

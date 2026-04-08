@@ -41,6 +41,11 @@ export declare function nativeCpPoolCreate2SaltV4Hex(): string;
 /** `0x` + 64 hex for {@link NATIVE_CP_POOL_CREATE2_SALT_V5}. */
 export declare function nativeCpPoolCreate2SaltV5Hex(): string;
 /**
+ * Nonce-derived contract `AccountId`: `BLAKE3(sender_32 || deploy_tx_nonce_le_u64)`.
+ * Matches `boing_primitives::nonce_derived_contract_address` (deploy with `create2_salt: null`).
+ */
+export declare function predictNonceDerivedContractAddress(senderHex: string, deployTxNonce: bigint): string;
+/**
  * `BLAKE3(domain || deployer_32 || salt_32 || BLAKE3(bytecode))`.
  */
 export declare function predictCreate2ContractAddress(deployerHex: string, salt32: Uint8Array, bytecode: Uint8Array): string;

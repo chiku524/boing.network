@@ -28,9 +28,17 @@ import {
   nativeLpShareTokenCreate2SaltV1Hex,
   predictCreate2ContractAddress,
   predictNativeCpPoolCreate2Address,
+  predictNonceDerivedContractAddress,
 } from '../src/create2.js';
 
 describe('create2', () => {
+  it('predictNonceDerivedContractAddress matches boing-primitives example (golden vector)', () => {
+    const sender = '0x' + '01'.repeat(32);
+    expect(predictNonceDerivedContractAddress(sender, 0n)).toBe(
+      '0x6d2179dfe190fd0ea25ea5136e65f6b04ff64a51d6476a01cc0078a0edb79602'
+    );
+  });
+
   it('predictCreate2ContractAddress matches boing-primitives (golden vector)', () => {
     const deployer = '0x' + '01'.repeat(32);
     const salt = hexToBytes32('0x' + '02'.repeat(32));

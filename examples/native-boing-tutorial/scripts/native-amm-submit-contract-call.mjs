@@ -19,6 +19,7 @@ import {
   hexToBytes,
   senderHexFromSecretKey,
   submitContractCallWithSimulationRetry,
+  validateHex32,
 } from 'boing-sdk';
 
 function requireEnv(name) {
@@ -34,6 +35,36 @@ function optEnv(name) {
   const v = process.env[name];
   if (v == null || !String(v).trim()) return undefined;
   return String(v).trim();
+}
+
+/**
+ * @param {string} envName
+ * @param {string} label
+ */
+function requireAccountIdHex(envName, label) {
+  const raw = requireEnv(envName);
+  try {
+    return validateHex32(raw);
+  } catch (e) {
+    const msg = String(e?.message ?? e);
+    const inner = raw.replace(/^0x/i, '');
+    const odd = inner.length % 2 === 1;
+    console.error(
+      JSON.stringify(
+        {
+          ok: false,
+          error: `invalid_${envName}`,
+          message: msg,
+          hint: odd
+            ? `${label}: hex has an odd number of digits (common: truncated key, typo, or Unicode "…" instead of real hex). Use 0x + exactly 64 characters 0-9 a-f.`
+            : `${label}: must be 0x + exactly 64 hex characters (32 bytes).`,
+        },
+        null,
+        2
+      )
+    );
+    process.exit(1);
+  }
 }
 
 function parseBigintEnv(name, defaultValue) {
@@ -54,8 +85,8 @@ function parseBigintEnv(name, defaultValue) {
 }
 
 const rpc = process.env.BOING_RPC_URL ?? 'http://127.0.0.1:8545';
-const secretHex = requireEnv('BOING_SECRET_HEX');
-const pool = requireEnv('BOING_POOL_HEX');
+const secretHex = requireAccountIdHex('BOING_SECRET_HEX', 'BOING_SECRET_HEX (Ed25519 seed)');
+const pool = requireAccountIdHex('BOING_POOL_HEX', 'BOING_POOL_HEX');
 const action = (process.env.BOING_NATIVE_AMM_ACTION || 'swap').toLowerCase().replace(/-/g, '_');
 
 let calldataHex;

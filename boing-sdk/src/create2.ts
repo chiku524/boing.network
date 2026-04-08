@@ -3,7 +3,7 @@
  */
 
 import { blake3 } from '@noble/hashes/blake3';
-import { concatBytes } from './bincode.js';
+import { concatBytes, writeU64Le } from './bincode.js';
 import { bytesToHex, hexToBytes, validateHex32 } from './hex.js';
 
 /** Domain separator: `b"boing.create2.v1\\0"` in Rust. */
@@ -134,6 +134,19 @@ export function nativeCpPoolCreate2SaltV4Hex(): string {
 /** `0x` + 64 hex for {@link NATIVE_CP_POOL_CREATE2_SALT_V5}. */
 export function nativeCpPoolCreate2SaltV5Hex(): string {
   return validateHex32(bytesToHex(NATIVE_CP_POOL_CREATE2_SALT_V5));
+}
+
+/**
+ * Nonce-derived contract `AccountId`: `BLAKE3(sender_32 || deploy_tx_nonce_le_u64)`.
+ * Matches `boing_primitives::nonce_derived_contract_address` (deploy with `create2_salt: null`).
+ */
+export function predictNonceDerivedContractAddress(senderHex: string, deployTxNonce: bigint): string {
+  const sender = hexToBytes(validateHex32(senderHex));
+  if (deployTxNonce < 0n || deployTxNonce > 0xffff_ffff_ffff_ffffn) {
+    throw new Error('deployTxNonce must fit u64');
+  }
+  const preimage = concatBytes(sender, writeU64Le(deployTxNonce));
+  return validateHex32(bytesToHex(blake3(preimage)));
 }
 
 /**
