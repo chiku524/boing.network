@@ -51,6 +51,8 @@ When the factory is deployed at the predicted address, set on **RPC nodes** that
 
 **Operator deploy order (typical):** pool + directory → `npm run deploy-native-dex-aux-contracts` (routers) → optional `npm run deploy-native-dex-lp-aux-contracts` (LP vault + share token at predicted CREATE2 ids). After factory is live at the predicted id, restart or configure nodes with **`BOING_CANONICAL_NATIVE_DEX_FACTORY`** so `boing_getNetworkInfo` can surface **`canonical_native_dex_factory`** to wallets and indexers.
 
+When **`deploy-native-dex-lp-aux-contracts`** completes with **`"create2": true`** in the per-contract result JSON and no nonce fallback, **`predictedContractHex`** should match the **AMM LP vault** and **LP share token** rows in the table above (and **`boing-sdk`** canonical constants). Operators still must **`set_minter_once`** on the share token (vault as minter) and **`configure`** the vault to the live pool — see [NATIVE-LP-SHARE-TOKEN.md](NATIVE-LP-SHARE-TOKEN.md) and [NATIVE-AMM-LP-VAULT.md](NATIVE-AMM-LP-VAULT.md).
+
 Tutorial: [examples/native-boing-tutorial/README.md](../examples/native-boing-tutorial/README.md) §7c2c.
 
 ## Verification

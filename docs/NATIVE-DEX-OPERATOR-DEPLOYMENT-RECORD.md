@@ -54,12 +54,17 @@ Use **real** reference-token ids for production; synthetic `0xaa…` / `0xbb…`
 | `BOING_DEX_FACTORY_HEX` | Pair directory (merge override when RPC omits hint) |
 | `TOKEN_IN` / `TOKEN_OUT` | For `print-native-dex-routes` |
 | Node **`BOING_CANONICAL_NATIVE_DEX_FACTORY`** | Optional RPC advertisement — see [OPS-CANONICAL-TESTNET-NATIVE-DEX-AUX.md](OPS-CANONICAL-TESTNET-NATIVE-DEX-AUX.md) |
+| **`BOING_VAULT_HEX`** | AMM LP vault `AccountId` — canonical CREATE2 (6913): `0x2b195b93a57b632ca3c1cf58cb7578542a6d58998116cddb8a6a50f1bd652f48` when matching [predicted JSON](../scripts/canonical-testnet-dex-predicted.json) |
+| **`BOING_SHARE_HEX`** / CLI **`BOING_LP_SHARE_HEX`** | LP share token — canonical: `0x0618b4a6a30bc31822a0cdcf253ed2bcf642a6cecf26346ba655b63fccbde03c` (same source) |
+| **`REACT_APP_BOING_NATIVE_AMM_LP_VAULT`** / **`REACT_APP_BOING_NATIVE_AMM_LP_SHARE_TOKEN`** | Same **0x + 64 hex** as vault / share for [boing.finance](https://boing.finance) native VM panel ([tutorial README §7i2](../examples/native-boing-tutorial/README.md)) |
+| **`boing-sdk`** | `CANONICAL_BOING_TESTNET_NATIVE_AMM_LP_VAULT_HEX`, `CANONICAL_BOING_TESTNET_NATIVE_LP_SHARE_TOKEN_HEX` (`canonicalTestnetDex.ts`) |
 
 ## 4. Verify on RPC
 
 - Pool: `npm run fetch-native-amm-reserves` with `BOING_POOL_HEX`.
 - Factory: `boing_getLogs` / SDK helpers for `register_pair` `Log3` ([NATIVE-DEX-FACTORY.md](NATIVE-DEX-FACTORY.md)).
 - Audit: repo root `npm run audit-native-dex-testnet` ([OPS-CANONICAL-TESTNET-NATIVE-DEX-AUX.md](OPS-CANONICAL-TESTNET-NATIVE-DEX-AUX.md) § Verification).
+- **LP vault + share (after deploy):** there is no dedicated “code at address” RPC in the portable surface; treat **successful `deploy-native-dex-lp-aux-contracts`** JSON (**`predictedContractHex`**) plus **`canonical-testnet-dex-predicted.json`** as the source of truth. **Wire the product path:** (1) share token **`set_minter_once`** with minter = vault account, (2) vault **`configure(pool, share_token)`** — see [NATIVE-LP-SHARE-TOKEN.md](NATIVE-LP-SHARE-TOKEN.md) “End-to-end” and tutorial **`native-lp-share-submit-contract-call`** / **`native-amm-lp-vault-submit-contract-call`**.
 
 ## Appendix A — Example snapshot (public testnet, one operator)
 
@@ -75,10 +80,12 @@ Use **real** reference-token ids for production; synthetic `0xaa…` / `0xbb…`
 | Multihop / swap2 router (**CREATE2**, matches canonical) | `0x43a6410510e7d742db8366347a343af6f7d2d1aec39b8281677d5643a7fc110b` |
 | Ledger router v2 (**CREATE2**, matches canonical) | `0x60a232b91d6f86a61d037ea6ea0fb769897f983c8e0d399e3df5189d00868992` |
 | Ledger router v3 (**CREATE2**, matches canonical) | `0xfb552619b27dacacba52b62d97cd171eabe4a74dac262ecb0e8735284d7555ba` |
+| AMM LP vault (**CREATE2**, matches canonical) | `0x2b195b93a57b632ca3c1cf58cb7578542a6d58998116cddb8a6a50f1bd652f48` |
+| LP share token (**CREATE2**, matches canonical) | `0x0618b4a6a30bc31822a0cdcf253ed2bcf642a6cecf26346ba655b63fccbde03c` |
 
 **Canonical JSON differs for pool/factory** (those rows assume CREATE2 with no collision): pool `0xce4f8193…`, factory `0x12dff976…` in `canonical-testnet-dex-predicted.json`.
 
-**LP product path (optional):** deploy vault + share at predicted CREATE2 ids with `npm run deploy-native-dex-lp-aux-contracts` (from repo root or `examples/native-boing-tutorial`). Matches JSON keys **`native_amm_lp_vault`** (`0x2b195b93…`) and **`native_lp_share_token`** (`0x0618b4a6…`) when using the same deployer and bytecode as [`scripts/canonical-testnet-dex-predicted.json`](../scripts/canonical-testnet-dex-predicted.json).
+**LP contracts:** deployed with **`npm run deploy-native-dex-lp-aux-contracts`** using the same deployer and bytecode as the JSON; **`predictedContractHex`** in script output matches the vault / share rows above. **Not yet wired on-chain until** you run share **`set_minter_once`** (vault as minter) and vault **`configure(pool, share_token)`** with your **live** pool id ([NATIVE-AMM-LP-VAULT.md](NATIVE-AMM-LP-VAULT.md), [NATIVE-LP-SHARE-TOKEN.md](NATIVE-LP-SHARE-TOKEN.md)).
 
 **Demo `register_pair` token placeholders:** `0x` + 64× `aa` and 64× `bb` (not production assets).
 

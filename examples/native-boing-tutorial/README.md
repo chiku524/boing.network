@@ -277,6 +277,8 @@ npm run deploy-native-dex-lp-aux-contracts
 
 Skips: **`BOING_LP_AUX_SKIP_VAULT=1`**, **`BOING_LP_AUX_SKIP_SHARE=1`**. Nonce wait: **`BOING_LP_AUX_COMMIT_WAIT_MS`** or **`BOING_AUX_COMMIT_WAIT_MS`** (default **120000**). RPC errors use deferred **`process.exit`** (mitigates Windows **`UV_HANDLE_CLOSING`** after failed **`boing_getAccount`**), same as **`deploy-native-dex-aux-contracts`**.
 
+**After a successful CREATE2 LP deploy:** bytecode is at **`predictedContractHex`** (vault **`0x2b195b…`**, share **`0x0618b4…`** for canonical deployer + bytecode — see [`scripts/canonical-testnet-dex-predicted.json`](../../scripts/canonical-testnet-dex-predicted.json)). **Wire on-chain:** (1) **`npm run native-lp-share-submit-contract-call`** with **`BOING_LP_SHARE_ACTION=set_minter_once`** and **`BOING_MINTER_HEX=<vault account id>`**; (2) **`npm run native-amm-lp-vault-submit-contract-call`** with **`BOING_LP_VAULT_ACTION=configure`**, **`BOING_VAULT_HEX`**, **`BOING_POOL_HEX`**, **`BOING_SHARE_HEX`** (same as **`BOING_LP_SHARE_HEX`**). Then **`deposit_add`** / UI env (**`REACT_APP_BOING_NATIVE_AMM_LP_VAULT`**, **`REACT_APP_BOING_NATIVE_AMM_LP_SHARE_TOKEN`**) — §7f–§7i2.
+
 **Record addresses:** [NATIVE-DEX-OPERATOR-DEPLOYMENT-RECORD.md](../../docs/NATIVE-DEX-OPERATOR-DEPLOYMENT-RECORD.md) (template + env cheat sheet + example snapshot). Copy **`DEPLOYMENT-ADDRESSES.example.md`** → **`DEPLOYMENT-ADDRESSES.local.md`** (gitignored) for your own table.
 
 ### 7c3. Print native DEX routes (`npm run print-native-dex-routes`)

@@ -12,7 +12,7 @@ This document answers whether a **usable DEX-style product** can run **only** on
 | Two-hop swap in **one** tx | `native_dex_swap2_router_bytecode` ([NATIVE-DEX-SWAP2-ROUTER.md](./NATIVE-DEX-SWAP2-ROUTER.md)) |
 | Multihop swap (**2–4** pools) in **one** tx | `native_dex_multihop_swap_router_bytecode` ([NATIVE-DEX-MULTIHOP-SWAP-ROUTER.md](./NATIVE-DEX-MULTIHOP-SWAP-ROUTER.md)); SDK `nativeDexSwap2Router.ts` |
 | Fungible assets | [BOING-REFERENCE-TOKEN.md](./BOING-REFERENCE-TOKEN.md) templates + pool **`CALL`** |
-| Optional **vault + fungible LP share** (product path) | [NATIVE-AMM-LP-VAULT.md](./NATIVE-AMM-LP-VAULT.md), [NATIVE-LP-SHARE-TOKEN.md](./NATIVE-LP-SHARE-TOKEN.md) — not required for bare pool swaps |
+| Optional **vault + fungible LP share** (product path) | [NATIVE-AMM-LP-VAULT.md](./NATIVE-AMM-LP-VAULT.md), [NATIVE-LP-SHARE-TOKEN.md](./NATIVE-LP-SHARE-TOKEN.md); canonical CREATE2 batch: **`npm run deploy-native-dex-lp-aux-contracts`** ([tutorial README](../examples/native-boing-tutorial/README.md) §7c2c) — not required for bare pool swaps |
 | Deterministic deploy addresses | CREATE2 ([TECHNICAL-SPECIFICATION.md](./TECHNICAL-SPECIFICATION.md)), salts in `native_amm` / factory / routers |
 | Access lists + SDK | `boing-sdk` encoders, simulation merge, factory scan helpers, swap2 / multihop calldata builders |
 | Off-chain quotes + path search | `boing-sdk` **`nativeDexRouting.ts`**: CP quotes, **`rankDirectCpPools`**, multi-hop **`findBestCpRoutes`** (≤ configurable hops), even-split aggregation heuristic, **`hydrateCpPoolVenuesFromRpc`**, **`fetchCpRoutingFromDirectoryLogs`** (logs → venues → routes) — execution still via your txs / multihop router calldata |

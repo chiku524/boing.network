@@ -22,6 +22,18 @@ Salt: **`NATIVE_LP_SHARE_TOKEN_CREATE2_SALT_V1`** (`BOING_LP_SHARE_TOKEN_V1`, ze
 cargo run -p boing-execution --example dump_native_lp_share_token
 ```
 
+## Canonical public testnet (chain **6913**)
+
+For deployer **`0xc063512f42868f1278c59a1f61ec0944785c304dbc48dec7e4c41f70f666733f`** and current `boing-execution` bytecode, the predicted **`AccountId`** is:
+
+**`0x0618b4a6a30bc31822a0cdcf253ed2bcf642a6cecf26346ba655b63fccbde03c`**
+
+- JSON mirror: [`scripts/canonical-testnet-dex-predicted.json`](../scripts/canonical-testnet-dex-predicted.json) key **`native_lp_share_token`**
+- **boing-sdk:** **`CANONICAL_BOING_TESTNET_NATIVE_LP_SHARE_TOKEN_HEX`**
+- Batch deploy (CREATE2): **`npm run deploy-native-dex-lp-aux-contracts`** — see [examples/native-boing-tutorial README §7c2c](../examples/native-boing-tutorial/README.md)
+
+End-to-end order: deploy share + vault → **`set_minter_once`** (minter = vault) → vault **`configure`** → users **`deposit_add`** on the vault.
+
 ## Access list + Express tx (`boing-sdk`)
 
 Declare **signer** + **share token contract** on both **read** and **write**: `buildLpShareTokenAccessList`, `buildLpShareTokenContractCallTx`, `mergeLpShareTokenAccessListWithSimulation` (`nativeLpShareToken.ts`).

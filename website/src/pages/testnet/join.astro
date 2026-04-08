@@ -2,7 +2,14 @@
 import Layout from '../../layouts/Layout.astro';
 import Icon from '../../components/Icon.astro';
 import CopyButton from '../../components/CopyButton.astro';
-import { TESTNET_RPC_URL, BOOTNODES, isTestnetLive, CANONICAL_NATIVE_CP_POOL_ACCOUNT_ID_HEX } from '../../config/testnet';
+import {
+  TESTNET_RPC_URL,
+  BOOTNODES,
+  isTestnetLive,
+  CANONICAL_NATIVE_CP_POOL_ACCOUNT_ID_HEX,
+  CANONICAL_NATIVE_AMM_LP_VAULT_ACCOUNT_ID_HEX,
+  CANONICAL_NATIVE_LP_SHARE_TOKEN_ACCOUNT_ID_HEX,
+} from '../../config/testnet';
 ---
 
 <Layout
@@ -108,6 +115,27 @@ import { TESTNET_RPC_URL, BOOTNODES, isTestnetLive, CANONICAL_NATIVE_CP_POOL_ACC
       <p class="muted small-print">
         Ops smoke (optional): <code>npm run check-canonical-pool</code> from the <a href="https://github.com/Boing-Network/boing.network" target="_blank" rel="noopener noreferrer">boing.network</a> repo root — verifies <code>boing_getContractStorage</code> against this pool on <code>BOING_RPC_URL</code>.
       </p>
+    </section>
+
+    <section class="section" id="native-lp-vault-share">
+      <h2>Native LP vault &amp; share token (chain 6913)</h2>
+      <p>
+        Optional <strong>CREATE2</strong> contracts for the wrapped-LP path (vault + transferable share token). Same canonical deployer and bytecode as
+        <a href="https://github.com/Boing-Network/boing.network/blob/main/scripts/canonical-testnet-dex-predicted.json" target="_blank" rel="noopener noreferrer"><code>canonical-testnet-dex-predicted.json</code></a>.
+        Operators run <code>npm run deploy-native-dex-lp-aux-contracts</code> from the repo, then <strong>set_minter_once</strong> (vault → minter) and vault <strong>configure(pool, share)</strong> — see
+        <a href="https://github.com/Boing-Network/boing.network/blob/main/docs/NATIVE-AMM-LP-VAULT.md" target="_blank" rel="noopener noreferrer">NATIVE-AMM-LP-VAULT</a> /
+        <a href="https://github.com/Boing-Network/boing.network/blob/main/docs/NATIVE-LP-SHARE-TOKEN.md" target="_blank" rel="noopener noreferrer">NATIVE-LP-SHARE-TOKEN</a>.
+      </p>
+      <p><strong>LP vault <code>AccountId</code>:</strong></p>
+      <div class="copy-wrapper rpc-copy" data-copy-value={CANONICAL_NATIVE_AMM_LP_VAULT_ACCOUNT_ID_HEX}>
+        <code class="rpc-url-display pool-id-display">{CANONICAL_NATIVE_AMM_LP_VAULT_ACCOUNT_ID_HEX}</code>
+        <CopyButton label="Copy vault id" copiedLabel="Copied!" />
+      </div>
+      <p><strong>LP share token <code>AccountId</code>:</strong></p>
+      <div class="copy-wrapper rpc-copy" data-copy-value={CANONICAL_NATIVE_LP_SHARE_TOKEN_ACCOUNT_ID_HEX}>
+        <code class="rpc-url-display pool-id-display">{CANONICAL_NATIVE_LP_SHARE_TOKEN_ACCOUNT_ID_HEX}</code>
+        <CopyButton label="Copy share token id" copiedLabel="Copied!" />
+      </div>
     </section>
 
     <section class="section" id="bootnodes">

@@ -45,6 +45,18 @@ Dump bytecode:
 cargo run -p boing-execution --example dump_native_amm_lp_vault
 ```
 
+## Canonical public testnet (chain **6913**)
+
+For deployer **`0xc063512f42868f1278c59a1f61ec0944785c304dbc48dec7e4c41f70f666733f`** and current `boing-execution` bytecode, the predicted **`AccountId`** is:
+
+**`0x2b195b93a57b632ca3c1cf58cb7578542a6d58998116cddb8a6a50f1bd652f48`**
+
+- JSON mirror: [`scripts/canonical-testnet-dex-predicted.json`](../scripts/canonical-testnet-dex-predicted.json) key **`native_amm_lp_vault`**
+- **boing-sdk:** **`CANONICAL_BOING_TESTNET_NATIVE_AMM_LP_VAULT_HEX`**
+- Batch deploy (CREATE2): **`npm run deploy-native-dex-lp-aux-contracts`** from repo root or [examples/native-boing-tutorial](../examples/native-boing-tutorial/README.md) — see §7c2c
+
+After deploy, **`configure(pool, share_token)`** must still be submitted against **your** live native CP pool and the paired [LP share token](./NATIVE-LP-SHARE-TOKEN.md) account ( **`set_minter_once`** the vault first on the share contract).
+
 ## Storage keys (vault contract)
 
 - **`NATIVE_AMM_LP_VAULT_KEY_CONFIGURED`** — non-zero after successful configure.
