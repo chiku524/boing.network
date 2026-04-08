@@ -265,6 +265,8 @@ npm run deploy-native-dex-aux-contracts
 
 Skips: **`BOING_AUX_SKIP_SWAP2=1`**, **`BOING_AUX_SKIP_LEDGER_V2=1`**, **`BOING_AUX_SKIP_LEDGER_V3=1`**. To redeploy **ledger v1** on a fresh key: **`BOING_AUX_INCLUDE_LEDGER_V1=1`**. CREATE2 collision → auto nonce retry (same as bootstrap) unless **`BOING_BOOTSTRAP_NO_AUTO_NONCE=1`**.
 
+**Record addresses:** [NATIVE-DEX-OPERATOR-DEPLOYMENT-RECORD.md](../../docs/NATIVE-DEX-OPERATOR-DEPLOYMENT-RECORD.md) (template + env cheat sheet + example snapshot). Copy **`DEPLOYMENT-ADDRESSES.example.md`** → **`DEPLOYMENT-ADDRESSES.local.md`** (gitignored) for your own table.
+
 ### 7c3. Print native DEX routes (`npm run print-native-dex-routes`)
 
 Read-only: **`fetchCpRoutingFromDirectoryLogs`** — scans **`register_pair`** logs in a block range, hydrates pool reserves over JSON-RPC, prints ranked constant-product **routes** (single- and multi-hop). No keys. See **`boing-sdk`** `nativeDexRouting.ts` and [HANDOFF-DEPENDENT-PROJECTS.md](../../docs/HANDOFF-DEPENDENT-PROJECTS.md).

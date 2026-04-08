@@ -4,3 +4,4 @@ artifacts/
 .env
 .env.*
 *.local
+DEPLOYMENT-ADDRESSES.local.md

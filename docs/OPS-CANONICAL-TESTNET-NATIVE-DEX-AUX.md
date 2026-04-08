@@ -2,6 +2,8 @@
 
 **Goal:** Mirror the same **predictability story** as the canonical CP pool ([OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md)): fixed **deployer** + **CREATE2** + **frozen bytecode** ⇒ **known `AccountId`s** before anyone submits deploy txs. This doc lists those predictions and how to verify them on RPC.
 
+**Track what you actually deployed** (nonce vs CREATE2, your pool id, etc.): [NATIVE-DEX-OPERATOR-DEPLOYMENT-RECORD.md](NATIVE-DEX-OPERATOR-DEPLOYMENT-RECORD.md).
+
 **Lost the deployer seed or resetting testnet?** Use [OPS-FRESH-TESTNET-BOOTSTRAP.md](OPS-FRESH-TESTNET-BOOTSTRAP.md) (`generate-testnet-operator-key`, `print-native-create2-manifest`, `sync-canonical-testnet-manifest`).
 
 **Important:** Until ops includes matching **`ContractDeploy`** transactions on chain **6913**, these accounts are **empty** — the addresses are still correct as **targets**, not a guarantee of live code.
@@ -18,7 +20,7 @@
 
 | Field | Value |
 |-------|--------|
-| **Deployer `AccountId`** | `0x0xc063512f42868f1278c59a1f61ec0944785c304dbc48dec7e4c41f70f666733f` |
+| **Deployer `AccountId`** | `0xc063512f42868f1278c59a1f61ec0944785c304dbc48dec7e4c41f70f666733f` |
 
 **Predicted `AccountId`s** (from current `boing-execution` bytecode; JSON mirror: [`scripts/canonical-testnet-dex-predicted.json`](../scripts/canonical-testnet-dex-predicted.json)):
 
