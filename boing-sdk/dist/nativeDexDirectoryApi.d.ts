@@ -6,8 +6,11 @@ import type { NativeDexIndexerPoolRow } from './nativeDexIndexerStats.js';
 import type { NativeDexMaterializedPoolEvent } from './nativeDexPoolHistory.js';
 /** `api` field value on successful directory responses. */
 export declare const NATIVE_DEX_DIRECTORY_API_ID: "boing-native-dex-directory/v1";
+/** Bumped when D1 schema or meta semantics change in a breaking way for clients. */
+export declare const NATIVE_DEX_DIRECTORY_SCHEMA_VERSION: 2;
 export type NativeDexDirectoryMetaResponse = {
     api: string;
+    schemaVersion?: number;
     poolCount: number;
     /** Row count in `directory_pool_events` when the Worker migration is applied. */
     eventCount?: number;
@@ -16,6 +19,9 @@ export type NativeDexDirectoryMetaResponse = {
     indexedTipHeight?: number | null;
     /** Block hash at `indexedTipHeight` when the node returned it — for skew checks only; not a reorg rewind signal. */
     indexedTipBlockHash?: string | null;
+    /** `header.parent_hash` at the indexed tip block when available. */
+    indexedParentBlockHash?: string | null;
+    nftOwnerRowCount?: number;
 };
 export type NativeDexDirectoryPoolsPageResponse = {
     api: string;

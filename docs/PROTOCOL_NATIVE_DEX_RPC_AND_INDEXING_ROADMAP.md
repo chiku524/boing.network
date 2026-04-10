@@ -319,7 +319,11 @@ These typically **exceed** D1 directory capability and imply **§3.4** pipeline 
 | Worker **`GET /v1/history/pool/{pool_hex}/events`** | Cursor = D1 row **`id`** (`nextCursor`); `limit` default 50, max 200. |
 | Worker **`GET /v1/history/user/{caller_hex}/events`** | Same window as pool events; rows where native AMM **`Log2`** **`caller`** matches (bounded snapshot, not “all receipts for user”). |
 | Worker **`GET /v1/lp/vault/{vault_hex}/mapping`** | Live RPC: vault storage → **`poolHex` / `shareTokenHex`** (**model A** discovery). |
-| Worker **`GET /v1/lp/positions`** | **`501`** — aggregated positions need model-specific enumeration (documented JSON **`detail`**). |
+| Worker **`GET /v1/lp/positions?owner=`** | **Model A:** share positions for vaults in **`NATIVE_DEX_INDEXER_LP_VAULT_HEXES`** (or canonical testnet default). |
+| Worker **`GET /v1/lp/nft/positions?owner=&contract=`** | **Model B (bounded):** D1 rows from ERC-721 **`Transfer`** logs when **`NATIVE_DEX_INDEXER_LP_NFT_CONTRACT_HEX`** is set. |
+| **Pool events** | Each row includes **`blockHash`** (from **`boing_getBlockByHeight`** at ingest). |
+| **Shallow reorg** | Before refill, if stored tip **(height, hash)** no longer matches RPC at that height, **`directory_pool_events`** is wiped for a clean rescan of the sliding window. |
+| **R2** | Optional **`INDEXER_ARCHIVE_R2`** — small JSON manifest per sync (operator bucket). |
 | **`GET /v1/directory/meta`** | **`eventCount`**, optional **`indexedTipHeight`** / **`indexedTipBlockHash`** (compare to chain for skew; Worker does **not** rewind — **§3.5** full reorg handling still open). |
 | **SDK** | **`collectNativeDexPoolEventsForPools`**, pool/user event parsers + **`fetchNativeDexDirectoryPoolEventsPage`**, **`fetchNativeDexDirectoryUserEventsPage`**. |
 

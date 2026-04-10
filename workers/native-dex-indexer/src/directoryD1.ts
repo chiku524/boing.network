@@ -2,7 +2,12 @@
  * D1-backed pool directory: stable cursor pagination over last indexer sync.
  * `directory_pool_events` holds a **snapshot** of parsed pool Log2 rows for the last sync window.
  */
-import type { NativeDexIndexerStatsPayload, NativeDexMaterializedPoolEvent } from 'boing-sdk';
+import type {
+  BoingClient,
+  NativeDexIndexerStatsPayload,
+  NativeDexIndexedNftOwnerRow,
+  NativeDexMaterializedPoolEvent,
+} from 'boing-sdk';
 
 const MAX_PAGE = 100;
 const DEFAULT_PAGE = 20;
@@ -98,34 +103,99 @@ export async function syncDirectoryPoolEventsFromPayload(
   await db.prepare(`DELETE FROM directory_pool_events WHERE sync_batch_id != ?`).bind(batchId).run();
 }
 
-/** Chain tip at last successful event sync — for client skew checks; Worker does not rewind on reorg. */
+export type DirectoryIndexerTipRow = {
+  tip_height: number | null;
+  tip_block_hash: string | null;
+  parent_block_hash: string | null;
+};
+
+export async function readDirectoryIndexerTip(db: D1Database): Promise<DirectoryIndexerTipRow | null> {
+  try {
+    const tip = await db
+      .prepare(
+        `SELECT tip_height, tip_block_hash, parent_block_hash FROM directory_indexer_tip WHERE id = 1`,
+      )
+      .first<DirectoryIndexerTipRow>();
+    return tip ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Wipe pool event snapshot (used when canonical block hash at a stored height no longer matches). */
+export async function deleteAllDirectoryPoolEvents(db: D1Database): Promise<void> {
+  await db.prepare(`DELETE FROM directory_pool_events`).run();
+}
+
+/**
+ * If a row exists for height **H** with hash **H₀**, and **`getBlockByHeight(H)`** now returns **H₁ ≠ H₀**,
+ * delete all **`directory_pool_events`** rows (next sync will refill the window).
+ */
+export async function invalidateDirectoryPoolEventsIfTipReorged(db: D1Database, client: BoingClient): Promise<boolean> {
+  const tip = await readDirectoryIndexerTip(db);
+  if (tip?.tip_height == null || tip.tip_block_hash == null || !/^0x[0-9a-f]{64}$/i.test(tip.tip_block_hash)) {
+    return false;
+  }
+  try {
+    const blk = await client.getBlockByHeight(tip.tip_height, false);
+    const h = blk?.hash;
+    const nowHash = typeof h === 'string' && /^0x[0-9a-f]{64}$/i.test(h) ? h.toLowerCase() : null;
+    if (nowHash == null) return false;
+    if (nowHash === tip.tip_block_hash.toLowerCase()) return false;
+    await deleteAllDirectoryPoolEvents(db);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Chain tip at last successful event sync — for client skew checks; shallow reorg detection uses this row. */
 export async function syncDirectoryIndexerTip(
   db: D1Database,
   batchId: string,
   tipHeight: number | null,
   tipBlockHash: string | null,
+  parentBlockHash: string | null,
 ): Promise<void> {
   const now = new Date().toISOString();
-  await db
-    .prepare(
-      `INSERT INTO directory_indexer_tip (id, tip_height, tip_block_hash, sync_batch_id, updated_at)
-       VALUES (1, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
-         tip_height = excluded.tip_height,
-         tip_block_hash = excluded.tip_block_hash,
-         sync_batch_id = excluded.sync_batch_id,
-         updated_at = excluded.updated_at`,
-    )
-    .bind(tipHeight, tipBlockHash, batchId, now)
-    .run();
+  try {
+    await db
+      .prepare(
+        `INSERT INTO directory_indexer_tip (id, tip_height, tip_block_hash, parent_block_hash, sync_batch_id, updated_at)
+         VALUES (1, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           tip_height = excluded.tip_height,
+           tip_block_hash = excluded.tip_block_hash,
+           parent_block_hash = excluded.parent_block_hash,
+           sync_batch_id = excluded.sync_batch_id,
+           updated_at = excluded.updated_at`,
+      )
+      .bind(tipHeight, tipBlockHash, parentBlockHash, batchId, now)
+      .run();
+  } catch {
+    await db
+      .prepare(
+        `INSERT INTO directory_indexer_tip (id, tip_height, tip_block_hash, sync_batch_id, updated_at)
+         VALUES (1, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           tip_height = excluded.tip_height,
+           tip_block_hash = excluded.tip_block_hash,
+           sync_batch_id = excluded.sync_batch_id,
+           updated_at = excluded.updated_at`,
+      )
+      .bind(tipHeight, tipBlockHash, batchId, now)
+      .run();
+  }
 }
 
 export async function getDirectoryMeta(db: D1Database): Promise<{
   poolCount: number;
   eventCount: number;
+  nftOwnerRowCount: number;
   latestSyncBatch: string | null;
   indexedTipHeight: number | null;
   indexedTipBlockHash: string | null;
+  indexedParentBlockHash: string | null;
 }> {
   const row = await db
     .prepare(
@@ -138,27 +208,48 @@ export async function getDirectoryMeta(db: D1Database): Promise<{
 
   let indexedTipHeight: number | null = null;
   let indexedTipBlockHash: string | null = null;
+  let indexedParentBlockHash: string | null = null;
   try {
     const tip = await db
-      .prepare(`SELECT tip_height, tip_block_hash FROM directory_indexer_tip WHERE id = 1`)
-      .first<{ tip_height: number | null; tip_block_hash: string | null }>();
+      .prepare(
+        `SELECT tip_height, tip_block_hash, parent_block_hash FROM directory_indexer_tip WHERE id = 1`,
+      )
+      .first<{
+        tip_height: number | null;
+        tip_block_hash: string | null;
+        parent_block_hash: string | null;
+      }>();
     if (tip != null) {
       indexedTipHeight = typeof tip.tip_height === 'number' && Number.isFinite(tip.tip_height) ? tip.tip_height : null;
       indexedTipBlockHash =
         typeof tip.tip_block_hash === 'string' && /^0x[0-9a-f]{64}$/i.test(tip.tip_block_hash)
           ? tip.tip_block_hash.toLowerCase()
           : null;
+      indexedParentBlockHash =
+        typeof tip.parent_block_hash === 'string' && /^0x[0-9a-f]{64}$/i.test(tip.parent_block_hash)
+          ? tip.parent_block_hash.toLowerCase()
+          : null;
     }
   } catch {
     /* directory_indexer_tip missing before migration 0003 */
   }
 
+  let nftOwnerRowCount = 0;
+  try {
+    const n = await db.prepare(`SELECT COUNT(*) AS c FROM directory_nft_owner`).first<{ c: number }>();
+    nftOwnerRowCount = Number(n?.c ?? 0);
+  } catch {
+    nftOwnerRowCount = 0;
+  }
+
   return {
     poolCount: Number(row?.c ?? 0),
     eventCount: Number(row?.ec ?? 0),
+    nftOwnerRowCount: Number.isFinite(nftOwnerRowCount) ? nftOwnerRowCount : 0,
     latestSyncBatch: row?.batch ?? null,
     indexedTipHeight,
     indexedTipBlockHash,
+    indexedParentBlockHash,
   };
 }
 
@@ -346,5 +437,131 @@ export async function listDirectoryUserEventsPage(
     nextCursor,
     hasMore,
     events: page,
+  };
+}
+
+export async function syncDirectoryNftOwnersFromRows(
+  db: D1Database,
+  batchId: string,
+  rows: readonly NativeDexIndexedNftOwnerRow[],
+): Promise<void> {
+  const now = new Date().toISOString();
+  if (rows.length === 0) {
+    try {
+      await db.prepare(`DELETE FROM directory_nft_owner`).run();
+    } catch {
+      /* table missing before migration 0005 */
+    }
+    return;
+  }
+
+  const stmts: D1PreparedStatement[] = [];
+  for (const r of rows) {
+    const rowJson = JSON.stringify(r);
+    stmts.push(
+      db
+        .prepare(
+          `INSERT INTO directory_nft_owner (contract_hex, token_id_dec, owner_hex, last_block_height, tx_id, log_index, sync_batch_id, updated_at, row_json)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(contract_hex, token_id_dec) DO UPDATE SET
+             owner_hex = excluded.owner_hex,
+             last_block_height = excluded.last_block_height,
+             tx_id = excluded.tx_id,
+             log_index = excluded.log_index,
+             sync_batch_id = excluded.sync_batch_id,
+             updated_at = excluded.updated_at,
+             row_json = excluded.row_json`,
+        )
+        .bind(
+          r.contractHex,
+          r.tokenIdDec,
+          r.ownerHex,
+          r.lastBlockHeight,
+          r.txId,
+          r.logIndex,
+          batchId,
+          now,
+          rowJson,
+        ),
+    );
+  }
+
+  const CHUNK = 80;
+  for (let i = 0; i < stmts.length; i += CHUNK) {
+    await db.batch(stmts.slice(i, i + CHUNK));
+  }
+
+  try {
+    await db.prepare(`DELETE FROM directory_nft_owner WHERE sync_batch_id != ?`).bind(batchId).run();
+  } catch {
+    /* missing migration */
+  }
+}
+
+export async function listDirectoryNftPositionsPage(
+  db: D1Database,
+  contractHexLower: string,
+  ownerHexLower: string,
+  url: URL,
+): Promise<{
+  contractHex: string;
+  ownerHex: string;
+  limit: number;
+  cursor: string | null;
+  nextCursor: string | null;
+  hasMore: boolean;
+  positions: unknown[];
+}> {
+  let limit = parseInt(url.searchParams.get('limit') || String(DEFAULT_EVENTS_PAGE), 10);
+  if (!Number.isFinite(limit) || limit < 1) limit = DEFAULT_EVENTS_PAGE;
+  if (limit > MAX_EVENTS_PAGE) limit = MAX_EVENTS_PAGE;
+
+  const cursorRaw = (url.searchParams.get('cursor') || '').trim();
+  let cursorId: number | null = null;
+  if (cursorRaw !== '') {
+    const n = parseInt(cursorRaw, 10);
+    if (!Number.isFinite(n) || n < 1) {
+      throw new Error('cursor must be a positive integer row id');
+    }
+    cursorId = n;
+  }
+
+  const take = limit + 1;
+  const { results } = await db
+    .prepare(
+      `SELECT id, row_json FROM directory_nft_owner
+       WHERE contract_hex = ? AND owner_hex = ? AND (? IS NULL OR id < ?)
+       ORDER BY id DESC
+       LIMIT ?`,
+    )
+    .bind(contractHexLower, ownerHexLower, cursorId, cursorId, take)
+    .all<{ id: number; row_json: string }>();
+
+  const rows = results ?? [];
+  const withIds: { id: number; row: unknown }[] = [];
+  for (const r of rows) {
+    try {
+      withIds.push({ id: r.id, row: JSON.parse(r.row_json) });
+    } catch {
+      /* skip */
+    }
+  }
+
+  const hasMore = withIds.length > limit;
+  const slice = hasMore ? withIds.slice(0, limit) : withIds;
+  const page = slice.map((x) => x.row);
+  let nextCursor: string | null = null;
+  if (hasMore && slice.length > 0) {
+    nextCursor = String(slice[slice.length - 1]!.id);
+  }
+
+  return {
+    contractHex: contractHexLower,
+    ownerHex: ownerHexLower,
+    limit,
+    cursor: cursorRaw || null,
+    nextCursor,
+    hasMore,
+    positions: page,
   };
 }

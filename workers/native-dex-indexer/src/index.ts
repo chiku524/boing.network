@@ -4,6 +4,10 @@
  * - GET /v1/directory/meta — row counts + last sync batch id
  * - GET /v1/directory/pools?limit=&cursor= — cursor pagination (stable order by pool_hex)
  * - GET /v1/history/pool/{pool_hex}/events?limit=&cursor= — materialized Log2 snapshot (newest first)
+ * - GET /v1/history/user/{caller}/events — caller-filtered pool Log2 snapshot
+ * - GET /v1/lp/vault/{vault}/mapping — live vault → pool/share (model A)
+ * - GET /v1/lp/positions?owner= — model A share positions for configured vault list
+ * - GET /v1/lp/nft/positions?owner=&contract= — ERC-721 positions from D1 (when NFT contract configured)
  * - POST /v1/directory/sync — refresh KV + D1 (requires Authorization: Bearer DIRECTORY_SYNC_SECRET)
  * - Cron: refresh KV + D1
  */
@@ -11,16 +15,24 @@
 import {
   buildDexOverridesFromPlainEnv,
   buildNativeDexIndexerStatsForClient,
+  CANONICAL_BOING_TESTNET_NATIVE_AMM_LP_VAULT_HEX,
   collectNativeDexPoolEventsForPools,
+  collectNftOwnersFromErc721Transfers,
   createClient,
+  fetchNativeDexLpVaultSharePositionForOwner,
+  NATIVE_DEX_DIRECTORY_SCHEMA_VERSION,
   resolveNativeAmmVaultPoolMapping,
+  validateHex32,
 } from 'boing-sdk';
 import {
   getDirectoryMeta,
+  invalidateDirectoryPoolEventsIfTipReorged,
+  listDirectoryNftPositionsPage,
   listDirectoryPoolEventsPage,
   listDirectoryPoolsPage,
   listDirectoryUserEventsPage,
   syncDirectoryIndexerTip,
+  syncDirectoryNftOwnersFromRows,
   syncDirectoryPoolEventsFromPayload,
   syncDirectoryPoolsFromPayload,
 } from './directoryD1';
@@ -36,7 +48,15 @@ type Env = {
   NATIVE_DEX_INDEXER_TOKEN_USD_JSON?: string;
   NATIVE_DEX_INDEXER_TOKEN_DIRECTORY_JSON?: string;
   NATIVE_DEX_INDEXER_API_DISABLE?: string;
-  [key: string]: string | KVNamespace | D1Database | undefined;
+  /** Comma-separated 32-byte vault hex ids; falls back to canonical testnet vault when unset. */
+  NATIVE_DEX_INDEXER_LP_VAULT_HEXES?: string;
+  /** Single vault hex (optional alternative to NATIVE_DEX_INDEXER_LP_VAULT_HEXES). */
+  NATIVE_DEX_INDEXER_LP_VAULT_HEX?: string;
+  /** ERC-721 LP position NFT contract — enables Transfer indexing into D1. */
+  NATIVE_DEX_INDEXER_LP_NFT_CONTRACT_HEX?: string;
+  /** Optional R2 binding for tiny JSON sync manifests (operator creates bucket + binding). */
+  INDEXER_ARCHIVE_R2?: R2Bucket;
+  [key: string]: string | KVNamespace | D1Database | R2Bucket | undefined;
 };
 
 const corsJsonHeaders: Record<string, string> = {
@@ -112,6 +132,35 @@ function rpcBaseUrl(env: Env): string {
   ).replace(/\/$/, '');
 }
 
+function lpVaultHexesFromEnv(env: Env): string[] {
+  const raw = String(env.NATIVE_DEX_INDEXER_LP_VAULT_HEXES || env.NATIVE_DEX_INDEXER_LP_VAULT_HEX || '').trim();
+  const fromEnv = raw
+    ? raw
+        .split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter((h) => /^0x[0-9a-f]{64}$/.test(h))
+    : [];
+  if (fromEnv.length > 0) return fromEnv;
+  try {
+    return [String(CANONICAL_BOING_TESTNET_NATIVE_AMM_LP_VAULT_HEX).toLowerCase()];
+  } catch {
+    return [];
+  }
+}
+
+async function maybeWriteIndexerArchiveR2(env: Env, payload: Awaited<ReturnType<typeof buildPayload>>): Promise<void> {
+  const bucket = env.INDEXER_ARCHIVE_R2;
+  if (!bucket) return;
+  const key = `manifests/directory-${payload.updatedAt.replace(/[:.]/g, '-')}.json`;
+  const body = JSON.stringify({
+    schemaVersion: NATIVE_DEX_DIRECTORY_SCHEMA_VERSION,
+    updatedAt: payload.updatedAt,
+    headHeight: payload.headHeight,
+    poolCount: Array.isArray(payload.pools) ? payload.pools.length : 0,
+  });
+  await bucket.put(key, body, { httpMetadata: { contentType: 'application/json' } });
+}
+
 async function persistDirectoryIfBound(env: Env, payload: Awaited<ReturnType<typeof buildPayload>>): Promise<void> {
   const db = env.DIRECTORY_DB;
   if (!db) return;
@@ -126,6 +175,8 @@ async function persistDirectoryIfBound(env: Env, payload: Awaited<ReturnType<typ
 
   try {
     const client = createClient({ baseUrl: rpcBaseUrl(env) });
+    await invalidateDirectoryPoolEventsIfTipReorged(db, client);
+
     if (head == null || !Number.isFinite(head) || poolHexes.length === 0) {
       await syncDirectoryPoolEventsFromPayload(db, payload.updatedAt, []);
     } else {
@@ -134,24 +185,49 @@ async function persistDirectoryIfBound(env: Env, payload: Awaited<ReturnType<typ
       const events = await collectNativeDexPoolEventsForPools(client, poolHexes, { fromBlock: fromB, toBlock: toB });
       await syncDirectoryPoolEventsFromPayload(db, payload.updatedAt, events);
     }
+
+    const nftContract = String(env.NATIVE_DEX_INDEXER_LP_NFT_CONTRACT_HEX || '').trim().toLowerCase();
+    if (head != null && Number.isFinite(head) && /^0x[0-9a-f]{64}$/.test(nftContract)) {
+      try {
+        const toB = Math.floor(head);
+        const fromB = Math.max(0, toB - logScanBlocks + 1);
+        const nftRows = await collectNftOwnersFromErc721Transfers(client, nftContract, { fromBlock: fromB, toBlock: toB });
+        await syncDirectoryNftOwnersFromRows(db, payload.updatedAt, nftRows);
+      } catch {
+        /* NFT sync optional */
+      }
+    } else {
+      try {
+        await syncDirectoryNftOwnersFromRows(db, payload.updatedAt, []);
+      } catch {
+        /* table missing */
+      }
+    }
+
     try {
       if (head == null || !Number.isFinite(head) || poolHexes.length === 0) {
-        await syncDirectoryIndexerTip(db, payload.updatedAt, null, null);
+        await syncDirectoryIndexerTip(db, payload.updatedAt, null, null, null);
       } else {
         const toB = Math.floor(head);
         let tipHash: string | null = null;
+        let parentHash: string | null = null;
         try {
           const blk = await client.getBlockByHeight(toB, false);
           const h = blk?.hash;
           tipHash = typeof h === 'string' && /^0x[0-9a-f]{64}$/i.test(h) ? h.toLowerCase() : null;
+          const ph = blk?.header?.parent_hash;
+          parentHash =
+            typeof ph === 'string' && /^0x[0-9a-f]{64}$/i.test(ph) ? ph.toLowerCase() : null;
         } catch {
           /* optional */
         }
-        await syncDirectoryIndexerTip(db, payload.updatedAt, toB, tipHash);
+        await syncDirectoryIndexerTip(db, payload.updatedAt, toB, tipHash, parentHash);
       }
     } catch {
       /* directory_indexer_tip missing until migration 0003 */
     }
+
+    await maybeWriteIndexerArchiveR2(env, payload);
   } catch {
     /* keep previous directory_pool_events rows on RPC failure */
   }
@@ -188,6 +264,7 @@ export default {
         return json({
           api: 'boing-native-dex-directory/v1',
           resource: 'meta',
+          schemaVersion: NATIVE_DEX_DIRECTORY_SCHEMA_VERSION,
           ...meta,
         });
       }
@@ -248,16 +325,63 @@ export default {
       }
 
       if (path === '/v1/lp/positions' && request.method === 'GET') {
-        return json(
-          {
-            api: 'boing-native-dex-directory/v1',
-            resource: 'lp_positions',
-            error: 'not_implemented',
-            detail:
-              'Aggregated LP positions across pools need model-specific enumeration (NFT indexer, vault share reads, or share-token balance scans). Model A: use GET /v1/lp/vault/{vault}/mapping and boing-sdk fetchNativeDexLpVaultSharePositionForOwner. Model B (NFT): enumerate mints via a dedicated indexer — no chain-wide owner enumeration RPC in this Worker.',
-          },
-          501,
-        );
+        const ownerRaw = (url.searchParams.get('owner') || '').trim().toLowerCase();
+        if (!/^0x[0-9a-f]{64}$/.test(ownerRaw)) {
+          return json({ error: 'bad_request', detail: 'owner query param must be 0x + 64 hex' }, 400);
+        }
+        const client = createClient({ baseUrl: rpcBaseUrl(env) });
+        const vaults = lpVaultHexesFromEnv(env);
+        const positions: unknown[] = [];
+        for (const v of vaults) {
+          try {
+            validateHex32(v);
+            const row = await fetchNativeDexLpVaultSharePositionForOwner(client, {
+              vaultHex32: v,
+              ownerHex32: ownerRaw,
+            });
+            positions.push(row);
+          } catch {
+            /* skip vault */
+          }
+        }
+        return json({
+          api: 'boing-native-dex-directory/v1',
+          resource: 'lp_positions',
+          schemaVersion: NATIVE_DEX_DIRECTORY_SCHEMA_VERSION,
+          ownerHex: ownerRaw,
+          vaultsQueried: vaults,
+          positions,
+        });
+      }
+
+      if (path === '/v1/lp/nft/positions' && request.method === 'GET') {
+        const db = env.DIRECTORY_DB;
+        if (!db) {
+          return json({ error: 'D1 not configured (DIRECTORY_DB binding missing)' }, 503);
+        }
+        const ownerRaw = (url.searchParams.get('owner') || '').trim().toLowerCase();
+        const contractRaw = (url.searchParams.get('contract') || env.NATIVE_DEX_INDEXER_LP_NFT_CONTRACT_HEX || '')
+          .trim()
+          .toLowerCase();
+        if (!/^0x[0-9a-f]{64}$/.test(ownerRaw)) {
+          return json({ error: 'bad_request', detail: 'owner must be 0x + 64 hex' }, 400);
+        }
+        if (!/^0x[0-9a-f]{64}$/.test(contractRaw)) {
+          return json(
+            {
+              error: 'bad_request',
+              detail: 'contract query param or NATIVE_DEX_INDEXER_LP_NFT_CONTRACT_HEX must be set to a 32-byte hex id',
+            },
+            400,
+          );
+        }
+        const page = await listDirectoryNftPositionsPage(db, contractRaw, ownerRaw, url);
+        return json({
+          api: 'boing-native-dex-directory/v1',
+          resource: 'lp_nft_positions',
+          schemaVersion: NATIVE_DEX_DIRECTORY_SCHEMA_VERSION,
+          ...page,
+        });
       }
 
       if (path === '/v1/directory/sync' && request.method === 'POST') {
@@ -276,18 +400,23 @@ export default {
           : {
               poolCount: 0,
               eventCount: 0,
+              nftOwnerRowCount: 0,
               latestSyncBatch: null,
               indexedTipHeight: null,
               indexedTipBlockHash: null,
+              indexedParentBlockHash: null,
             };
         return json({
           ok: true,
+          schemaVersion: NATIVE_DEX_DIRECTORY_SCHEMA_VERSION,
           updatedAt: payload.updatedAt,
           poolCount: meta.poolCount,
           eventCount: meta.eventCount,
+          nftOwnerRowCount: meta.nftOwnerRowCount,
           latestSyncBatch: meta.latestSyncBatch,
           indexedTipHeight: meta.indexedTipHeight,
           indexedTipBlockHash: meta.indexedTipBlockHash,
+          indexedParentBlockHash: meta.indexedParentBlockHash,
         });
       }
 
@@ -307,7 +436,7 @@ export default {
         JSON.stringify({
           error: 'not_found',
           hint:
-            'GET /stats, GET /v1/directory/*, GET /v1/history/pool|user/{hex}/events, GET /v1/lp/vault/{vault}/mapping, POST /v1/directory/sync',
+            'GET /stats, GET /v1/directory/*, GET /v1/history/pool|user/{hex}/events, GET /v1/lp/vault/{vault}/mapping, GET /v1/lp/positions?owner=, GET /v1/lp/nft/positions?owner=&contract=, POST /v1/directory/sync',
         }),
         { status: 404, headers: { 'Content-Type': 'application/json', ...corsJsonHeaders } },
       );

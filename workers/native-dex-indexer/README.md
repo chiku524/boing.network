@@ -73,6 +73,9 @@ Cron (`*/15 * * * *`) refreshes KV **and** D1 when `DIRECTORY_DB` is bound.
 | `NATIVE_DEX_INDEXER_API_DISABLE` | `1` to stop cron + disable GET |
 
 | `DIRECTORY_SYNC_SECRET` | **Secret** (not in `wrangler.toml`) for `POST /v1/directory/sync` |
+| `NATIVE_DEX_INDEXER_LP_VAULT_HEXES` | Comma-separated vault **`AccountId`** hex list for **`GET /v1/lp/positions`** (defaults to canonical testnet vault from **`boing-sdk`**) |
+| `NATIVE_DEX_INDEXER_LP_NFT_CONTRACT_HEX` | ERC-721 contract for LP NFT **`Transfer`** indexing + **`GET /v1/lp/nft/positions`** default `contract` |
+| R2 `INDEXER_ARCHIVE_R2` | Optional binding in `wrangler.toml` — small JSON manifest per successful directory sync |
 
 ## Operator values to keep handy
 

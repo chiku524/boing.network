@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   NATIVE_DEX_DIRECTORY_API_ID,
+  NATIVE_DEX_DIRECTORY_SCHEMA_VERSION,
   parseNativeDexDirectoryMetaResponse,
   parseNativeDexDirectoryPoolsPageResponse,
   parseNativeDexDirectoryPoolEventsPageResponse,
@@ -47,17 +48,23 @@ describe('parseNativeDexDirectoryMetaResponse', () => {
     expect(p?.eventCount).toBe(42);
   });
 
-  it('accepts indexed tip fields', () => {
+  it('accepts schemaVersion and indexed tip fields', () => {
     const h = '0x' + 'ab'.repeat(32);
     const p = parseNativeDexDirectoryMetaResponse({
       api: NATIVE_DEX_DIRECTORY_API_ID,
+      schemaVersion: NATIVE_DEX_DIRECTORY_SCHEMA_VERSION,
       poolCount: 0,
       latestSyncBatch: null,
+      nftOwnerRowCount: 0,
       indexedTipHeight: 99,
       indexedTipBlockHash: h,
+      indexedParentBlockHash: h,
     });
+    expect(p?.schemaVersion).toBe(NATIVE_DEX_DIRECTORY_SCHEMA_VERSION);
     expect(p?.indexedTipHeight).toBe(99);
     expect(p?.indexedTipBlockHash?.toLowerCase()).toBe(h.toLowerCase());
+    expect(p?.indexedParentBlockHash?.toLowerCase()).toBe(h.toLowerCase());
+    expect(p?.nftOwnerRowCount).toBe(0);
   });
 
   it('rejects wrong api id', () => {

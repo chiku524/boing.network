@@ -19,6 +19,7 @@ describe('materializeNativeAmmPoolEvent', () => {
     const m = materializeNativeAmmPoolEvent(ev, '0x' + 'dd'.repeat(32));
     expect(m.kind).toBe('swap');
     expect(m.blockHeight).toBe(10);
+    expect(m.blockHash).toBeNull();
     expect(m.payload).toEqual({
       direction: '1',
       amountIn: '100',

@@ -344,7 +344,19 @@ export {
   type CollectNativeDexPoolEventsOptions,
   materializeNativeAmmPoolEvent,
   collectNativeDexPoolEventsForPools,
+  hydrateNativeDexPoolEventsWithBlockHashes,
 } from './nativeDexPoolHistory.js';
+export {
+  ERC721_TRANSFER_TOPIC0_HEX,
+  tryParseErc721TransferRpcLog,
+  filterMapErc721TransferRpcLogs,
+  type Erc721TransferParsed,
+} from './erc721Logs.js';
+export {
+  type NativeDexIndexedNftOwnerRow,
+  type CollectNftOwnersFromErc721TransfersOptions,
+  collectNftOwnersFromErc721Transfers,
+} from './nativeDexNftIndexer.js';
 export {
   SELECTOR_OWNER_OF,
   SELECTOR_TRANSFER_NFT,
@@ -630,6 +642,7 @@ export {
 } from './nativeDexIndexerStats.js';
 export {
   NATIVE_DEX_DIRECTORY_API_ID,
+  NATIVE_DEX_DIRECTORY_SCHEMA_VERSION,
   NativeDexDirectoryHttpError,
   normalizeNativeDexDirectoryWorkerBaseUrl,
   parseNativeDexDirectoryMetaResponse,

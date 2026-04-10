@@ -5,6 +5,8 @@
 import { validateHex32 } from './hex.js';
 /** `api` field value on successful directory responses. */
 export const NATIVE_DEX_DIRECTORY_API_ID = 'boing-native-dex-directory/v1';
+/** Bumped when D1 schema or meta semantics change in a breaking way for clients. */
+export const NATIVE_DEX_DIRECTORY_SCHEMA_VERSION = 2;
 export class NativeDexDirectoryHttpError extends Error {
     constructor(message, status, url, bodySnippet) {
         super(message);
@@ -45,6 +47,10 @@ export function parseNativeDexDirectoryMetaResponse(data) {
     const api = data.api;
     if (api !== NATIVE_DEX_DIRECTORY_API_ID)
         return null;
+    const schemaVersion = data.schemaVersion;
+    if (schemaVersion != null && (typeof schemaVersion !== 'number' || !Number.isFinite(schemaVersion) || schemaVersion < 1)) {
+        return null;
+    }
     const poolCount = data.poolCount;
     if (typeof poolCount !== 'number' || !Number.isFinite(poolCount) || poolCount < 0)
         return null;
@@ -85,6 +91,28 @@ export function parseNativeDexDirectoryMetaResponse(data) {
                 ? null
                 : indexedTipBlockHashRaw.toLowerCase();
     }
+    const indexedParentBlockHashRaw = data.indexedParentBlockHash;
+    if (indexedParentBlockHashRaw != null && typeof indexedParentBlockHashRaw !== 'string')
+        return null;
+    if (typeof indexedParentBlockHashRaw === 'string' &&
+        indexedParentBlockHashRaw !== '' &&
+        !/^0x[0-9a-f]{64}$/i.test(indexedParentBlockHashRaw)) {
+        return null;
+    }
+    if (indexedParentBlockHashRaw !== undefined) {
+        out.indexedParentBlockHash =
+            indexedParentBlockHashRaw == null || indexedParentBlockHashRaw === ''
+                ? null
+                : indexedParentBlockHashRaw.toLowerCase();
+    }
+    const nftOwnerRowCount = data.nftOwnerRowCount;
+    if (nftOwnerRowCount != null && (typeof nftOwnerRowCount !== 'number' || !Number.isFinite(nftOwnerRowCount) || nftOwnerRowCount < 0)) {
+        return null;
+    }
+    if (schemaVersion != null)
+        out.schemaVersion = schemaVersion;
+    if (nftOwnerRowCount != null)
+        out.nftOwnerRowCount = nftOwnerRowCount;
     return out;
 }
 /**
@@ -148,6 +176,14 @@ function tryParseMaterializedPoolEvent(o) {
     const callerHex = String(o.callerHex || '').trim().toLowerCase();
     if (!/^0x[0-9a-f]{64}$/.test(callerHex))
         return null;
+    const blockHashRaw = o.blockHash;
+    let blockHash = null;
+    if (blockHashRaw !== undefined && blockHashRaw !== null) {
+        if (typeof blockHashRaw !== 'string' || (blockHashRaw !== '' && !/^0x[0-9a-f]{64}$/i.test(blockHashRaw))) {
+            return null;
+        }
+        blockHash = blockHashRaw === '' ? null : blockHashRaw.toLowerCase();
+    }
     const payload = o.payload;
     if (!isPlainObject(payload))
         return null;
@@ -161,6 +197,7 @@ function tryParseMaterializedPoolEvent(o) {
         kind: kind,
         poolHex,
         blockHeight: Math.floor(blockHeight),
+        blockHash,
         txId: txId.trim(),
         logIndex: Math.floor(logIndex),
         callerHex,

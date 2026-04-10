@@ -20,6 +20,11 @@ database_name = "boing-native-dex-directory"
 database_id = "68eb37e6-f71c-47fa-9475-19d7a56b0db0"
 migrations_dir = "migrations"
 
+# Optional: `npx wrangler r2 bucket create boing-native-dex-indexer-archive` then deploy — tiny JSON manifests per sync.
+[[r2_buckets]]
+binding = "INDEXER_ARCHIVE_R2"
+bucket_name = "boing-native-dex-indexer-archive"
+
 [triggers]
 crons = ["*/15 * * * *"]
 

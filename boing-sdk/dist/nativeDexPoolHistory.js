@@ -35,11 +35,35 @@ export function materializeNativeAmmPoolEvent(ev, poolHexLower) {
         kind: ev.kind,
         poolHex: poolHexLower,
         blockHeight: ev.block_height,
+        blockHash: null,
         txId: ev.tx_id,
         logIndex: ev.log_index,
         callerHex: ev.callerHex,
         payload: payloadFromParsed(ev),
     };
+}
+/**
+ * Set **`blockHash`** on each event from **`boing_getBlockByHeight(blockHeight)`** (deduped per height).
+ */
+export async function hydrateNativeDexPoolEventsWithBlockHashes(client, events) {
+    if (events.length === 0)
+        return;
+    const heights = [...new Set(events.map((e) => e.blockHeight))].sort((a, b) => a - b);
+    const hashByHeight = new Map();
+    for (const h of heights) {
+        try {
+            const blk = await client.getBlockByHeight(h, false);
+            const raw = blk?.hash;
+            const norm = typeof raw === 'string' && /^0x[0-9a-f]{64}$/i.test(raw) ? raw.toLowerCase() : null;
+            hashByHeight.set(h, norm);
+        }
+        catch {
+            hashByHeight.set(h, null);
+        }
+    }
+    for (const ev of events) {
+        ev.blockHash = hashByHeight.get(ev.blockHeight) ?? null;
+    }
 }
 /**
  * For each pool, **`boing_getLogs`** over **`[fromBlock, toBlock]`** and return parsed native AMM **`Log2`** rows.
@@ -78,5 +102,9 @@ export async function collectNativeDexPoolEventsForPools(client, poolHexes, opts
             return c;
         return a.logIndex - b.logIndex;
     });
+    const attach = opts.attachBlockHashes !== false;
+    if (attach && out.length > 0) {
+        await hydrateNativeDexPoolEventsWithBlockHashes(client, out);
+    }
     return out;
 }

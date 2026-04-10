@@ -17,6 +17,8 @@ export type NativeDexMaterializedPoolEvent = {
   kind: NativeAmmLog2Kind;
   poolHex: string;
   blockHeight: number;
+  /** Block hash from **`boing_getBlockByHeight`** at ingest time (`null` if node omitted `hash`). */
+  blockHash: string | null;
   txId: string;
   logIndex: number;
   callerHex: string;
@@ -57,6 +59,7 @@ export function materializeNativeAmmPoolEvent(
     kind: ev.kind,
     poolHex: poolHexLower,
     blockHeight: ev.block_height,
+    blockHash: null,
     txId: ev.tx_id,
     logIndex: ev.log_index,
     callerHex: ev.callerHex,
@@ -70,7 +73,37 @@ export type CollectNativeDexPoolEventsOptions = {
   /** Inclusive. */
   toBlock: number;
   maxConcurrent?: number;
+  /**
+   * When **`true`** (default), batch **`boing_getBlockByHeight`** to fill **`blockHash`** on each event.
+   */
+  attachBlockHashes?: boolean;
 };
+
+/**
+ * Set **`blockHash`** on each event from **`boing_getBlockByHeight(blockHeight)`** (deduped per height).
+ */
+export async function hydrateNativeDexPoolEventsWithBlockHashes(
+  client: BoingClient,
+  events: NativeDexMaterializedPoolEvent[],
+): Promise<void> {
+  if (events.length === 0) return;
+  const heights = [...new Set(events.map((e) => e.blockHeight))].sort((a, b) => a - b);
+  const hashByHeight = new Map<number, string | null>();
+  for (const h of heights) {
+    try {
+      const blk = await client.getBlockByHeight(h, false);
+      const raw = blk?.hash;
+      const norm =
+        typeof raw === 'string' && /^0x[0-9a-f]{64}$/i.test(raw) ? raw.toLowerCase() : null;
+      hashByHeight.set(h, norm);
+    } catch {
+      hashByHeight.set(h, null);
+    }
+  }
+  for (const ev of events) {
+    ev.blockHash = hashByHeight.get(ev.blockHeight) ?? null;
+  }
+}
 
 /**
  * For each pool, **`boing_getLogs`** over **`[fromBlock, toBlock]`** and return parsed native AMM **`Log2`** rows.
@@ -114,5 +147,10 @@ export async function collectNativeDexPoolEventsForPools(
     if (c !== 0) return c;
     return a.logIndex - b.logIndex;
   });
+
+  const attach = opts.attachBlockHashes !== false;
+  if (attach && out.length > 0) {
+    await hydrateNativeDexPoolEventsWithBlockHashes(client, out);
+  }
   return out;
 }
