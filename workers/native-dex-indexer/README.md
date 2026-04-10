@@ -10,7 +10,7 @@ Serves JSON compatible with `REACT_APP_BOING_NATIVE_DEX_INDEXER_STATS_URL` on th
 
 
 
-1. From this directory: `npm install`
+1. From this directory: `npm install` — **`@noble/hashes`** / **`@noble/ed25519`** are listed here too so Wrangler can bundle **`boing-sdk`** in CI (the **`file:`** link does not hoist those deps into this package’s `node_modules` by itself).
 
 2. **KV:** `wrangler.toml` binds `NATIVE_DEX_INDEXER_KV` (production + `preview_id` for `wrangler dev`). For another Cloudflare account, create namespaces and paste `id` / `preview_id`.
 
