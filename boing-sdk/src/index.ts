@@ -88,7 +88,6 @@ export {
   accountIdToHex,
   hexToAccountId,
   validateHex32,
-  decodeBoingStorageWordAccountId,
   isBoingNativeAccountIdHex,
 } from './hex.js';
 export type {
@@ -273,8 +272,6 @@ export {
   SELECTOR_LP_SHARE_MINT,
   SELECTOR_LP_SHARE_SET_MINTER_ONCE,
   LP_SHARE_MINTER_KEY_U8,
-  LP_SHARE_MINTER_KEY_HEX,
-  fetchLpShareTokenMinterAccountHex,
   buildLpShareTokenAccessList,
   buildLpShareTokenContractCallTx,
   encodeLpShareTransferCalldata,
@@ -284,17 +281,12 @@ export {
   encodeLpShareSetMinterOnceCalldata,
   encodeLpShareSetMinterOnceCalldataHex,
   mergeLpShareTokenAccessListWithSimulation,
+  lpShareTokenBalanceStorageKeyHex,
+  fetchLpShareTokenBalanceRaw,
 } from './nativeLpShareToken.js';
 export {
   SELECTOR_NATIVE_AMM_LP_VAULT_CONFIGURE,
   SELECTOR_NATIVE_AMM_LP_VAULT_DEPOSIT_ADD,
-  NATIVE_AMM_LP_VAULT_KEY_CONFIGURED_HEX,
-  NATIVE_AMM_LP_VAULT_KEY_POOL_HEX,
-  NATIVE_AMM_LP_VAULT_KEY_SHARE_TOKEN_HEX,
-  fetchNativeAmmLpVaultStorageSnapshot,
-  fetchNativeAmmLpVaultProductReadiness,
-  type NativeAmmLpVaultStorageSnapshot,
-  type NativeAmmLpVaultProductReadiness,
   buildNativeAmmLpVaultConfigureAccessList,
   buildNativeAmmLpVaultConfigureContractCallTx,
   buildNativeAmmLpVaultDepositAddAccessList,
@@ -340,6 +332,19 @@ export {
   filterMapNativeAmmRpcLogs,
   collectNativeAmmLog2FromReceipt,
 } from './nativeAmmLogs.js';
+export {
+  type NativeAmmVaultPoolResolution,
+  type NativeDexLpVaultSharePositionForOwner,
+  resolveNativeAmmVaultPoolMapping,
+  resolveNativeAmmVaultPoolMappings,
+  fetchNativeDexLpVaultSharePositionForOwner,
+} from './nativeDexLpPositions.js';
+export {
+  type NativeDexMaterializedPoolEvent,
+  type CollectNativeDexPoolEventsOptions,
+  materializeNativeAmmPoolEvent,
+  collectNativeDexPoolEventsForPools,
+} from './nativeDexPoolHistory.js';
 export {
   SELECTOR_OWNER_OF,
   SELECTOR_TRANSFER_NFT,
@@ -610,6 +615,41 @@ export {
   type PoolTokenRow,
   type FetchCpRoutingFromDirectoryLogsOptions,
 } from './nativeDexRouting.js';
+export {
+  type NativeDexIndexerHistoryPoint,
+  type NativeDexIndexerPersistedDoc,
+  type NativeDexIndexerHistoryStore,
+  type NativeDexIndexerTokenMeta,
+  type NativeDexIndexerStatsOptions,
+  type NativeDexIndexerPoolRow,
+  type NativeDexIndexerStatsPayload,
+  parseNativeDexIndexerPersistedDoc,
+  appendVenuesToHistoryDoc,
+  buildDexOverridesFromPlainEnv,
+  buildNativeDexIndexerStatsForClient,
+} from './nativeDexIndexerStats.js';
+export {
+  NATIVE_DEX_DIRECTORY_API_ID,
+  NativeDexDirectoryHttpError,
+  normalizeNativeDexDirectoryWorkerBaseUrl,
+  parseNativeDexDirectoryMetaResponse,
+  parseNativeDexDirectoryPoolsPageResponse,
+  parseNativeDexDirectoryPoolEventsPageResponse,
+  parseNativeDexDirectoryUserEventsPageResponse,
+  fetchNativeDexDirectoryMeta,
+  fetchNativeDexDirectoryPoolsPage,
+  fetchNativeDexDirectoryPoolEventsPage,
+  fetchNativeDexDirectoryUserEventsPage,
+  collectAllNativeDexDirectoryPools,
+  type NativeDexDirectoryMetaResponse,
+  type NativeDexDirectoryPoolsPageResponse,
+  type NativeDexDirectoryPoolEventsPageResponse,
+  type NativeDexDirectoryUserEventsPageResponse,
+  type FetchNativeDexDirectoryPoolsPageQuery,
+  type FetchNativeDexDirectoryPoolEventsPageQuery,
+  type FetchNativeDexDirectoryUserEventsPageQuery,
+  type CollectNativeDexDirectoryPoolsOptions,
+} from './nativeDexDirectoryApi.js';
 export {
   getInjectedEip1193Provider,
   providerSupportsBoingNativeRpc,

@@ -132,7 +132,7 @@ export interface NetworkEndUserHints {
     canonical_native_cp_pool?: string | null;
     /** Set on the node via **`BOING_CANONICAL_NATIVE_DEX_FACTORY`** — pair-directory contract `AccountId`. */
     canonical_native_dex_factory?: string | null;
-    /** **`BOING_CANONICAL_NATIVE_DEX_MULTIHOP_SWAP_ROUTER`** — native multihop (2–4 pool) swap router. */
+    /** **`BOING_CANONICAL_NATIVE_DEX_MULTIHOP_SWAP_ROUTER`** — native multihop (2–6 pool) swap router. */
     canonical_native_dex_multihop_swap_router?: string | null;
     /** **`BOING_CANONICAL_NATIVE_DEX_LEDGER_ROUTER_V2`** — ledger forwarder for 160-byte inner calldata (e.g. v5 `swap_to`). */
     canonical_native_dex_ledger_router_v2?: string | null;

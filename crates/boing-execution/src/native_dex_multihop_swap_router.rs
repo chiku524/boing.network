@@ -1,6 +1,6 @@
-//! **Multihop swap router:** **2–4** sequential [`Opcode::Call`]s to native CP pools in **one** transaction.
+//! **Multihop swap router:** **2–6** sequential [`Opcode::Call`]s to native CP pools in **one** transaction.
 //!
-//! Selectors **`0xE5`–`0xEA`** cover **128**-byte inners (ledger **`swap`**) and **160**-byte inners (v5 **`swap_to`**).
+//! Selectors **`0xE5`–`0xEE`** cover **128**-byte inners (ledger **`swap`**) and **160**-byte inners (v5 **`swap_to`**).
 //! See `docs/NATIVE-DEX-MULTIHOP-SWAP-ROUTER.md`.
 
 use crate::bytecode::Opcode;
@@ -18,6 +18,14 @@ pub const SELECTOR_SWAP3_ROUTER_160: u8 = 0xE8;
 pub const SELECTOR_SWAP4_ROUTER_128: u8 = 0xE9;
 /// **4-hop**, **160-byte** inners — **800-byte** outer calldata.
 pub const SELECTOR_SWAP4_ROUTER_160: u8 = 0xEA;
+/// **5-hop**, **128-byte** inners — **832-byte** outer calldata.
+pub const SELECTOR_SWAP5_ROUTER_128: u8 = 0xEB;
+/// **5-hop**, **160-byte** inners — **992-byte** outer calldata.
+pub const SELECTOR_SWAP5_ROUTER_160: u8 = 0xEC;
+/// **6-hop**, **128-byte** inners — **992-byte** outer calldata.
+pub const SELECTOR_SWAP6_ROUTER_128: u8 = 0xED;
+/// **6-hop**, **160-byte** inners — **1184-byte** outer calldata.
+pub const SELECTOR_SWAP6_ROUTER_160: u8 = 0xEE;
 
 /// CREATE2 salt for [`native_dex_multihop_swap_router_bytecode`].
 pub const NATIVE_DEX_MULTIHOP_SWAP_ROUTER_CREATE2_SALT_V1: [u8; 32] =
@@ -174,6 +182,128 @@ pub fn encode_swap4_router_calldata_160(
     )
 }
 
+/// Encode **832** bytes: **`0xEB`** + five (**pool**, **128-byte** inner) pairs.
+#[must_use]
+pub fn encode_swap5_router_calldata_128(
+    pool1: &[u8; 32],
+    inner1: &[u8],
+    pool2: &[u8; 32],
+    inner2: &[u8],
+    pool3: &[u8; 32],
+    inner3: &[u8],
+    pool4: &[u8; 32],
+    inner4: &[u8],
+    pool5: &[u8; 32],
+    inner5: &[u8],
+) -> Vec<u8> {
+    for i in [inner1, inner2, inner3, inner4, inner5] {
+        assert_eq!(i.len(), 128);
+    }
+    encode_outer(
+        SELECTOR_SWAP5_ROUTER_128,
+        &[
+            (pool1, inner1),
+            (pool2, inner2),
+            (pool3, inner3),
+            (pool4, inner4),
+            (pool5, inner5),
+        ],
+    )
+}
+
+/// Encode **992** bytes: **`0xEC`** + five (**pool**, **160-byte** inner) pairs.
+#[must_use]
+pub fn encode_swap5_router_calldata_160(
+    pool1: &[u8; 32],
+    inner1: &[u8],
+    pool2: &[u8; 32],
+    inner2: &[u8],
+    pool3: &[u8; 32],
+    inner3: &[u8],
+    pool4: &[u8; 32],
+    inner4: &[u8],
+    pool5: &[u8; 32],
+    inner5: &[u8],
+) -> Vec<u8> {
+    for i in [inner1, inner2, inner3, inner4, inner5] {
+        assert_eq!(i.len(), 160);
+    }
+    encode_outer(
+        SELECTOR_SWAP5_ROUTER_160,
+        &[
+            (pool1, inner1),
+            (pool2, inner2),
+            (pool3, inner3),
+            (pool4, inner4),
+            (pool5, inner5),
+        ],
+    )
+}
+
+/// Encode **992** bytes: **`0xED`** + six (**pool**, **128-byte** inner) pairs.
+#[must_use]
+pub fn encode_swap6_router_calldata_128(
+    pool1: &[u8; 32],
+    inner1: &[u8],
+    pool2: &[u8; 32],
+    inner2: &[u8],
+    pool3: &[u8; 32],
+    inner3: &[u8],
+    pool4: &[u8; 32],
+    inner4: &[u8],
+    pool5: &[u8; 32],
+    inner5: &[u8],
+    pool6: &[u8; 32],
+    inner6: &[u8],
+) -> Vec<u8> {
+    for i in [inner1, inner2, inner3, inner4, inner5, inner6] {
+        assert_eq!(i.len(), 128);
+    }
+    encode_outer(
+        SELECTOR_SWAP6_ROUTER_128,
+        &[
+            (pool1, inner1),
+            (pool2, inner2),
+            (pool3, inner3),
+            (pool4, inner4),
+            (pool5, inner5),
+            (pool6, inner6),
+        ],
+    )
+}
+
+/// Encode **1184** bytes: **`0xEE`** + six (**pool**, **160-byte** inner) pairs.
+#[must_use]
+pub fn encode_swap6_router_calldata_160(
+    pool1: &[u8; 32],
+    inner1: &[u8],
+    pool2: &[u8; 32],
+    inner2: &[u8],
+    pool3: &[u8; 32],
+    inner3: &[u8],
+    pool4: &[u8; 32],
+    inner4: &[u8],
+    pool5: &[u8; 32],
+    inner5: &[u8],
+    pool6: &[u8; 32],
+    inner6: &[u8],
+) -> Vec<u8> {
+    for i in [inner1, inner2, inner3, inner4, inner5, inner6] {
+        assert_eq!(i.len(), 160);
+    }
+    encode_outer(
+        SELECTOR_SWAP6_ROUTER_160,
+        &[
+            (pool1, inner1),
+            (pool2, inner2),
+            (pool3, inner3),
+            (pool4, inner4),
+            (pool5, inner5),
+            (pool6, inner6),
+        ],
+    )
+}
+
 fn append_copy_inner_to_scratch(code: &mut Vec<u8>, inner_offset: u64, num_words: u64) {
     for i in 0u64..num_words {
         let src = inner_offset + i * 32;
@@ -216,7 +346,7 @@ fn append_multihop_body(code: &mut Vec<u8>, hops: u64, inner_words: u64, call_si
     code.push(Opcode::Stop as u8);
 }
 
-/// Multihop router (**2–4** pools). CREATE2: [`NATIVE_DEX_MULTIHOP_SWAP_ROUTER_CREATE2_SALT_V1`].
+/// Multihop router (**2–6** pools). CREATE2: [`NATIVE_DEX_MULTIHOP_SWAP_ROUTER_CREATE2_SALT_V1`].
 #[must_use]
 pub fn native_dex_multihop_swap_router_bytecode() -> Vec<u8> {
     let mut c: Vec<u8> = Vec::new();
@@ -228,6 +358,10 @@ pub fn native_dex_multihop_swap_router_bytecode() -> Vec<u8> {
         SELECTOR_SWAP3_ROUTER_160,
         SELECTOR_SWAP4_ROUTER_128,
         SELECTOR_SWAP4_ROUTER_160,
+        SELECTOR_SWAP5_ROUTER_128,
+        SELECTOR_SWAP5_ROUTER_160,
+        SELECTOR_SWAP6_ROUTER_128,
+        SELECTOR_SWAP6_ROUTER_160,
     ];
     let mut fix_jumps = Vec::new();
     for sel in selectors {
@@ -242,13 +376,17 @@ pub fn native_dex_multihop_swap_router_bytecode() -> Vec<u8> {
     }
     c.push(Opcode::Stop as u8);
 
-    let bodies: [(u64, u64, u64); 6] = [
+    let bodies: [(u64, u64, u64); 10] = [
         (2, 4, 128),
         (2, 5, 160),
         (3, 4, 128),
         (3, 5, 160),
         (4, 4, 128),
         (4, 5, 160),
+        (5, 4, 128),
+        (5, 5, 160),
+        (6, 4, 128),
+        (6, 5, 160),
     ];
     for (i, &(hops, words, size)) in bodies.iter().enumerate() {
         let off = c.len();
@@ -412,6 +550,85 @@ mod tests {
         assert_eq!(outer.len(), outer_len(4, 128));
 
         let mut it = Interpreter::new(native_dex_multihop_swap_router_bytecode(), 40_000_000);
+        it.run(sender, router, &outer, &mut state).unwrap();
+    }
+
+    #[test]
+    fn swap5_router_runs_five_v1_swaps() {
+        let pools = [
+            AccountId([0x51; 32]),
+            AccountId([0x52; 32]),
+            AccountId([0x53; 32]),
+            AccountId([0x54; 32]),
+            AccountId([0x55; 32]),
+        ];
+        let router = AccountId([0xde; 32]);
+        let sender = AccountId([0xab; 32]);
+        let pool_code = constant_product_pool_bytecode();
+        let router_code = native_dex_multihop_swap_router_bytecode();
+
+        let mut state = StateStore::new();
+        for id in pools.iter().chain([&router]) {
+            state.insert(Account {
+                id: *id,
+                state: Default::default(),
+            });
+        }
+        for p in pools {
+            state.set_contract_code(p, pool_code.clone());
+            state.merge_contract_storage(p, reserve_a_key(), amount_word(800));
+            state.merge_contract_storage(p, reserve_b_key(), amount_word(800));
+        }
+        state.set_contract_code(router, router_code);
+
+        let inner = encode_swap_calldata(0, 4u128, 1u128);
+        let outer = encode_swap5_router_calldata_128(
+            &pools[0].0, &inner, &pools[1].0, &inner, &pools[2].0, &inner, &pools[3].0, &inner,
+            &pools[4].0, &inner,
+        );
+        assert_eq!(outer.len(), outer_len(5, 128));
+
+        let mut it = Interpreter::new(native_dex_multihop_swap_router_bytecode(), 55_000_000);
+        it.run(sender, router, &outer, &mut state).unwrap();
+    }
+
+    #[test]
+    fn swap6_router_runs_six_v1_swaps() {
+        let pools = [
+            AccountId([0x61; 32]),
+            AccountId([0x62; 32]),
+            AccountId([0x63; 32]),
+            AccountId([0x64; 32]),
+            AccountId([0x65; 32]),
+            AccountId([0x66; 32]),
+        ];
+        let router = AccountId([0xde; 32]);
+        let sender = AccountId([0xab; 32]);
+        let pool_code = constant_product_pool_bytecode();
+        let router_code = native_dex_multihop_swap_router_bytecode();
+
+        let mut state = StateStore::new();
+        for id in pools.iter().chain([&router]) {
+            state.insert(Account {
+                id: *id,
+                state: Default::default(),
+            });
+        }
+        for p in pools {
+            state.set_contract_code(p, pool_code.clone());
+            state.merge_contract_storage(p, reserve_a_key(), amount_word(700));
+            state.merge_contract_storage(p, reserve_b_key(), amount_word(700));
+        }
+        state.set_contract_code(router, router_code);
+
+        let inner = encode_swap_calldata(0, 3u128, 1u128);
+        let outer = encode_swap6_router_calldata_128(
+            &pools[0].0, &inner, &pools[1].0, &inner, &pools[2].0, &inner, &pools[3].0, &inner,
+            &pools[4].0, &inner, &pools[5].0, &inner,
+        );
+        assert_eq!(outer.len(), outer_len(6, 128));
+
+        let mut it = Interpreter::new(native_dex_multihop_swap_router_bytecode(), 70_000_000);
         it.run(sender, router, &outer, &mut state).unwrap();
     }
 

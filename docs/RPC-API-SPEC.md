@@ -75,7 +75,7 @@ Wallets and observers that need a single number for “how deep is my tx” can 
 | **`BOING_FAUCET_URL`** | Optional faucet URL in **`end_user.faucet_url`**. |
 | **`BOING_CANONICAL_NATIVE_CP_POOL`** | Optional 32-byte **`AccountId`** hex (with or without **`0x`**) in **`end_user.canonical_native_cp_pool`** — public RPC operators publish the canonical native constant-product pool so dApps need not hardcode it ([OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md)). Invalid values are ignored with a warning in node logs. |
 | **`BOING_CANONICAL_NATIVE_DEX_FACTORY`** | Optional pair-directory contract **`AccountId`** in **`end_user.canonical_native_dex_factory`** for default **`boing_getContractStorage`** / **`boing_getLogs`** wiring. |
-| **`BOING_CANONICAL_NATIVE_DEX_MULTIHOP_SWAP_ROUTER`** | Optional multihop (2–4 pool) swap router **`AccountId`** in **`end_user.canonical_native_dex_multihop_swap_router`**. |
+| **`BOING_CANONICAL_NATIVE_DEX_MULTIHOP_SWAP_ROUTER`** | Optional multihop (2–6 pool) swap router **`AccountId`** in **`end_user.canonical_native_dex_multihop_swap_router`**. |
 | **`BOING_CANONICAL_NATIVE_DEX_LEDGER_ROUTER_V2`** | Optional ledger forwarder **`AccountId`** (**160**-byte inner calldata) in **`end_user.canonical_native_dex_ledger_router_v2`**. |
 | **`BOING_CANONICAL_NATIVE_DEX_LEDGER_ROUTER_V3`** | Optional ledger forwarder **`AccountId`** (**192**-byte inner calldata) in **`end_user.canonical_native_dex_ledger_router_v3`**. |
 | **`BOING_CANONICAL_NATIVE_AMM_LP_VAULT`** | Optional LP vault **`AccountId`** in **`end_user.canonical_native_amm_lp_vault`**. |
@@ -125,7 +125,7 @@ Wallets and observers that need a single number for “how deep is my tx” can 
 
 Current `boing-node` implements these JSON-RPC methods (same set returned by **`boing_rpcSupportedMethods`**, sorted alphabetically):
 
-`boing_chainHeight`, `boing_clientVersion`, `boing_faucetRequest`, `boing_getAccount`, `boing_getAccountProof`, `boing_getBalance`, `boing_getBlockByHash`, `boing_getBlockByHeight`, `boing_getContractStorage`, `boing_getLogs`, `boing_getNetworkInfo`, `boing_getQaRegistry`, `boing_getRpcMethodCatalog`, `boing_getRpcOpenApi`, `boing_getSyncState`, `boing_getTransactionReceipt`, `boing_health`, `boing_operatorApplyQaPolicy`, `boing_qaCheck`, `boing_qaPoolConfig`, `boing_qaPoolList`, `boing_qaPoolVote`, `boing_registerDappMetrics`, `boing_rpcSupportedMethods`, `boing_simulateTransaction`, `boing_submitIntent`, `boing_submitTransaction`, `boing_verifyAccountProof`.
+`boing_chainHeight`, `boing_clientVersion`, `boing_faucetRequest`, `boing_getAccount`, `boing_getAccountProof`, `boing_getBalance`, `boing_getBlockByHash`, `boing_getBlockByHeight`, `boing_getContractStorage`, `boing_getLogs`, `boing_getNetworkInfo`, `boing_getQaRegistry`, `boing_getRpcMethodCatalog`, `boing_getRpcOpenApi`, `boing_getSyncState`, `boing_getTransactionReceipt`, `boing_health`, `boing_operatorApplyQaPolicy`, `boing_qaCheck`, `boing_qaPoolConfig`, `boing_qaPoolList`, `boing_qaPoolVote`, `boing_registerDappMetrics`, `boing_rpcSupportedMethods`, `boing_simulateContractCall`, `boing_simulateTransaction`, `boing_submitIntent`, `boing_submitTransaction`, `boing_verifyAccountProof`.
 
 **Implementation:** `BOING_RPC_SUPPORTED_METHODS` in `crates/boing-node/src/rpc.rs` — keep this list, the router match arms, and this spec in sync when adding a method.
 
@@ -629,6 +629,25 @@ Multi-pair flows use **generic** JSON-RPC (`contract_call`, `getContractStorage`
 | **SDK** | `boing-sdk` | `nativeDexFactory*`, `nativeDexLedgerRouter`, `create2` prediction helpers |
 | **Regression** | `cargo test -p boing-node --test native_dex_factory_rpc_happy_path` | Deploy pool + directory → `register_pair` → `pairs_count` / `get_pair_at` receipts |
 
+**Materialized pool directory (HTTP, not JSON-RPC):** this monorepo ships a Cloudflare Worker ([`workers/native-dex-indexer/`](../workers/native-dex-indexer/)) that mirrors the indexer’s `pools[]` into **D1** and exposes **`GET /v1/directory/meta`** and cursor-paginated **`GET /v1/directory/pools`**. Use **`boing-sdk`** **`fetchNativeDexDirectoryMeta`**, **`fetchNativeDexDirectoryPoolsPage`**, **`collectAllNativeDexDirectoryPools`** (`nativeDexDirectoryApi.ts`). Ops, secrets, R2, and protocol follow-ups: [HANDOFF_NATIVE_DEX_DIRECTORY_R2_AND_CHAIN.md](HANDOFF_NATIVE_DEX_DIRECTORY_R2_AND_CHAIN.md). Local smoke: **`npm run verify-native-dex-directory-worker`** from the repo root.
+
+---
+
+### boing_simulateContractCall
+
+Dry-run a **`contract_call`** without building or signing a full **`SignedTransaction`**. Execution uses the same VM path as **`boing_simulateTransaction`** on a **state snapshot** (no commit to committed chain).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| Params | `[contract_hex, calldata_hex, sender_hex?, at_block?]` | **`contract_hex`**: 32-byte `AccountId` (`0x` + 64 hex). **`calldata_hex`**: VM calldata (hex). Max **256 KiB** decoded length. **`sender_hex`**: optional; JSON **`null`** or omit → synthetic **all-zero** `AccountId` (ephemeral account with nonce **0** inserted in the snapshot if missing). Otherwise **`sender` must exist** in committed state; **nonce** is taken from that account’s committed nonce. **`at_block`**: optional **`"latest"`**, **`null`**, or integer **equal to current committed tip height**; other heights return **`-32602`** (historical replay not implemented). |
+| **Result** | object | Same shape as **`boing_simulateTransaction`** **`result`**: **`gas_used`**, **`success`**, **`return_data`**, **`logs`**, **`error`** (when `success` is false), **`suggested_access_list`**, **`access_list_covers_suggestion`**. The synthetic tx uses **`access_list`** = heuristic suggestion for **`ContractCall`**, so **`access_list_covers_suggestion`** is **`true`**. |
+
+**Errors:** **`-32602`** for invalid params (malformed hex, calldata too long, unknown `at_block`, missing sender account when non-zero sender). VM execution failures return **`success: false`** in **`result`** (same as **`boing_simulateTransaction`**), not a JSON-RPC error.
+
+**Tests:** `cargo test -p boing-node --test simulate_contract_call_rpc`.
+
+Extended rationale and ecosystem rollout: [PROTOCOL_NATIVE_DEX_RPC_AND_INDEXING_ROADMAP.md](PROTOCOL_NATIVE_DEX_RPC_AND_INDEXING_ROADMAP.md) §1.
+
 ---
 
 ### boing_simulateTransaction
@@ -640,6 +659,8 @@ Simulate a transaction without applying it.
 | Params | `[hex_signed_tx]` | Hex-encoded SignedTransaction |
 
 **Result:** `{ gas_used: number, success: boolean, return_data: string, logs?: array, error?: string, suggested_access_list: { read: string[], write: string[] }, access_list_covers_suggestion: boolean }` — on success, `return_data` is hex (contract return buffer) and `logs` matches receipt log shape; on failure, `return_data` is `"0x"` and `logs` is `[]`. **`suggested_access_list`** is a **heuristic** minimum account set for parallel scheduling from the tx payload (see `TECHNICAL-SPECIFICATION.md` §4.2); **`access_list_covers_suggestion`** is `true` when the signed tx’s declared access list includes every account in that suggestion (read or write). Hints are included on both success and failure so clients can fix access lists before submit.
+
+For **unsigned** calldata-only simulation, use **`boing_simulateContractCall`** above.
 
 ---
 

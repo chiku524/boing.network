@@ -136,6 +136,16 @@ export declare class BoingClient {
     /** Simulate a transaction without applying it. Params: hex-encoded signed transaction. */
     simulateTransaction(hexSignedTx: string): Promise<SimulateResult>;
     /**
+     * Dry-run a `contract_call` without a signed transaction (`boing_simulateContractCall`).
+     * Params: `[contract_hex, calldata_hex, sender_hex?, at_block?]` — see `docs/RPC-API-SPEC.md`.
+     */
+    simulateContractCall(contractHex: string, calldataHex: string, options?: {
+        /** Omit for two-arg RPC; `null` or omit with `atBlock` → JSON `null` (zero sender). */
+        senderHex?: string | null;
+        /** `"latest"` or current tip height integer. */
+        atBlock?: number | 'latest';
+    }): Promise<SimulateResult>;
+    /**
      * Submit a signed transaction to the mempool.
      * The hex_signed_tx must be hex-encoded bincode-serialized SignedTransaction (from Rust/CLI or future signer).
      */

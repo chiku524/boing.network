@@ -1,6 +1,6 @@
 # Native DEX two-hop swap router (Boing VM)
 
-**Superseded by** [NATIVE-DEX-MULTIHOP-SWAP-ROUTER.md](./NATIVE-DEX-MULTIHOP-SWAP-ROUTER.md) (**2–4** hops, same bytecode entrypoint).
+**Superseded by** [NATIVE-DEX-MULTIHOP-SWAP-ROUTER.md](./NATIVE-DEX-MULTIHOP-SWAP-ROUTER.md) (**2–6** hops, same bytecode entrypoint).
 
 Bytecode: `native_dex_swap2_router_bytecode()` (**alias** of `native_dex_multihop_swap_router_bytecode()`) in `crates/boing-execution/src/native_dex_multihop_swap_router.rs`.
 

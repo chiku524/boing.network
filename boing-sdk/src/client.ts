@@ -39,6 +39,14 @@ const DEFAULT_RPC_ID = 1;
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_RETRY_BASE_MS = 250;
 
+/**
+ * Cloudflare Workers (and some other runtimes) throw "Illegal invocation" if the native `fetch`
+ * is stored and called as a plain function — it must be invoked as a bound call.
+ */
+function defaultFetchImpl(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  return globalThis.fetch(input, init);
+}
+
 function sleepMs(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -90,7 +98,7 @@ export class BoingClient {
   constructor(config: string | BoingClientConfig) {
     if (typeof config === 'string') {
       this.baseUrl = config.replace(/\/$/, '');
-      this.fetchImpl = globalThis.fetch;
+      this.fetchImpl = defaultFetchImpl;
       this.timeoutMs = DEFAULT_TIMEOUT_MS;
       this.extraHeaders = {};
       this.maxRetries = 0;
@@ -98,7 +106,7 @@ export class BoingClient {
       this.generateRequestId = false;
     } else {
       this.baseUrl = config.baseUrl.replace(/\/$/, '');
-      this.fetchImpl = config.fetch ?? globalThis.fetch;
+      this.fetchImpl = config.fetch ?? defaultFetchImpl;
       this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
       this.extraHeaders = { ...(config.extraHeaders ?? {}) };
       this.maxRetries = Math.max(0, config.maxRetries ?? 0);
@@ -684,6 +692,36 @@ export class BoingClient {
   async simulateTransaction(hexSignedTx: string): Promise<SimulateResult> {
     const hex = ensureHex(hexSignedTx);
     return this.request<SimulateResult>('boing_simulateTransaction', [hex]);
+  }
+
+  /**
+   * Dry-run a `contract_call` without a signed transaction (`boing_simulateContractCall`).
+   * Params: `[contract_hex, calldata_hex, sender_hex?, at_block?]` — see `docs/RPC-API-SPEC.md`.
+   */
+  async simulateContractCall(
+    contractHex: string,
+    calldataHex: string,
+    options?: {
+      /** Omit for two-arg RPC; `null` or omit with `atBlock` → JSON `null` (zero sender). */
+      senderHex?: string | null;
+      /** `"latest"` or current tip height integer. */
+      atBlock?: number | 'latest';
+    },
+  ): Promise<SimulateResult> {
+    const contract = validateHex32(contractHex);
+    const calldata = ensureHex(calldataHex);
+    const params: unknown[] = [contract, calldata];
+    if (options?.senderHex !== undefined || options?.atBlock !== undefined) {
+      const sender =
+        options.senderHex === undefined || options.senderHex === null
+          ? null
+          : validateHex32(options.senderHex);
+      params.push(sender);
+      if (options.atBlock !== undefined) {
+        params.push(options.atBlock === 'latest' ? 'latest' : options.atBlock);
+      }
+    }
+    return this.request<SimulateResult>('boing_simulateContractCall', params);
   }
 
   /**

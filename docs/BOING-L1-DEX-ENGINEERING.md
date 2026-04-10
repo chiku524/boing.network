@@ -46,7 +46,7 @@ The **canonical native CP pool** is one **specific** on-chain program with **kno
 
 **Ledger router (v1 / v2 / v3):** execution [`native_dex_ledger_router.rs`](../crates/boing-execution/src/native_dex_ledger_router.rs) + [NATIVE-DEX-LEDGER-ROUTER.md](./NATIVE-DEX-LEDGER-ROUTER.md) + SDK `nativeDexLedgerRouter.ts` — **v1** forwards **128** bytes; **v2** forwards **160** bytes (v5 **`swap_to`**); **v3** forwards **192** bytes (v5 **`remove_liquidity_to`**). **v1** is only safe with ledger-only pools; see doc.
 
-**Multihop swap router (2–4 hops):** execution [`native_dex_multihop_swap_router.rs`](../crates/boing-execution/src/native_dex_multihop_swap_router.rs) + [NATIVE-DEX-MULTIHOP-SWAP-ROUTER.md](./NATIVE-DEX-MULTIHOP-SWAP-ROUTER.md) + SDK `nativeDexSwap2Router.ts` — sequential pool **`Call`**s (**128**- or **160**-byte inners) in one transaction; [NATIVE-DEX-SWAP2-ROUTER.md](./NATIVE-DEX-SWAP2-ROUTER.md) remains a two-hop-oriented snapshot.
+**Multihop swap router (2–6 hops):** execution [`native_dex_multihop_swap_router.rs`](../crates/boing-execution/src/native_dex_multihop_swap_router.rs) + [NATIVE-DEX-MULTIHOP-SWAP-ROUTER.md](./NATIVE-DEX-MULTIHOP-SWAP-ROUTER.md) + SDK `nativeDexSwap2Router.ts` — sequential pool **`Call`**s (**128**- or **160**-byte inners) in one transaction; [NATIVE-DEX-SWAP2-ROUTER.md](./NATIVE-DEX-SWAP2-ROUTER.md) remains a two-hop-oriented snapshot.
 
 ## Checklist before boing.finance can “turn on” L1 DEX UI
 

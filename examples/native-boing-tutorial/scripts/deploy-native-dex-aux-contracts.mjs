@@ -32,6 +32,7 @@ import {
   getAccountScheduled,
   scheduleExit,
 } from './tutorial-deploy-scheduled-exit.mjs';
+import { parseScriptStdoutJson } from './tutorial-script-json.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const tutorialRoot = path.resolve(scriptDir, '..');
@@ -85,10 +86,7 @@ function isCreate2Collision(res) {
 }
 
 function parseDeployJson(stdout) {
-  const t = stdout.trim();
-  const lastBrace = t.lastIndexOf('{');
-  if (lastBrace < 0) throw new Error('No JSON object in script stdout');
-  return JSON.parse(t.slice(lastBrace));
+  return parseScriptStdoutJson(stdout);
 }
 
 async function waitNonceAfter(client, senderHex, nonceBefore, label) {

@@ -7,7 +7,9 @@ This document specifies the **pair directory** bytecode produced by `native_dex_
 
 ## Why this exists
 
-Boing VM contracts **cannot deploy child contracts** from bytecode (`ContractDeploy` is applied only from transactions; there is no `CREATE` opcode). A Uniswap-style **factory that deploys pairs in-contract** is therefore **not implementable** as pure VM bytecode without a protocol change.
+**This bytecode** is a **registry**, not a deployer: each pool is deployed with a **`ContractDeploy` / `ContractDeployWithPurpose` transaction** (optional CREATE2 salt), then optionally **`register_pair`**. That keeps new pool bytecode on the **signed deploy + QA** path operators already use.
+
+**VM nuance:** The interpreter **does** implement **`CREATE2` (`0xf5`)** for in-execution child deploys when storage supports it (`crates/boing-execution/src/interpreter.rs` → `apply_in_tx_create2`). There is **no EVM-style saltless `CREATE`** opcode. A *different* factory contract *could* deploy children via **`CREATE2`** if child init bytecode is allowed by QA — that would be **new audited bytecode and policy**, not a change to *this* pair-directory spec. The **shipping** directory stays register-only for predictable tooling and manifests.
 
 The supported pattern is:
 

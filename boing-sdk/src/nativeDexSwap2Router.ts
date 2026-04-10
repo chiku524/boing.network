@@ -1,5 +1,5 @@
 /**
- * Multihop swap router: **2–4** sequential pool `Call`s in one transaction.
+ * Multihop swap router: **2–6** sequential pool `Call`s in one transaction.
  * Matches `boing_execution::native_dex_multihop_swap_router`. See `docs/NATIVE-DEX-MULTIHOP-SWAP-ROUTER.md`.
  */
 
@@ -17,6 +17,14 @@ export const SELECTOR_NATIVE_DEX_SWAP3_ROUTER_160 = 0xe8;
 export const SELECTOR_NATIVE_DEX_SWAP4_ROUTER_128 = 0xe9;
 /** **800-byte** outer; **160-byte** inners. */
 export const SELECTOR_NATIVE_DEX_SWAP4_ROUTER_160 = 0xea;
+/** **832-byte** outer; **128-byte** inners. */
+export const SELECTOR_NATIVE_DEX_SWAP5_ROUTER_128 = 0xeb;
+/** **992-byte** outer; **160-byte** inners. */
+export const SELECTOR_NATIVE_DEX_SWAP5_ROUTER_160 = 0xec;
+/** **992-byte** outer; **128-byte** inners. */
+export const SELECTOR_NATIVE_DEX_SWAP6_ROUTER_128 = 0xed;
+/** **1184-byte** outer; **160-byte** inners. */
+export const SELECTOR_NATIVE_DEX_SWAP6_ROUTER_160 = 0xee;
 
 function selectorWord(selector: number): Uint8Array {
   const w = new Uint8Array(32);
@@ -270,6 +278,284 @@ export function encodeNativeDexSwap4RouterCalldata160Hex(
       inner3_160,
       pool4Hex32,
       inner4_160
+    )
+  );
+}
+
+export function encodeNativeDexSwap5RouterCalldata128(
+  pool1Hex32: string,
+  inner1_128: Uint8Array,
+  pool2Hex32: string,
+  inner2_128: Uint8Array,
+  pool3Hex32: string,
+  inner3_128: Uint8Array,
+  pool4Hex32: string,
+  inner4_128: Uint8Array,
+  pool5Hex32: string,
+  inner5_128: Uint8Array
+): Uint8Array {
+  for (const inner of [inner1_128, inner2_128, inner3_128, inner4_128, inner5_128]) {
+    if (inner.length !== 128) {
+      throw new Error('inner calldata must be 128 bytes per hop');
+    }
+  }
+  const p1 = hexToBytes(validateHex32(pool1Hex32));
+  const p2 = hexToBytes(validateHex32(pool2Hex32));
+  const p3 = hexToBytes(validateHex32(pool3Hex32));
+  const p4 = hexToBytes(validateHex32(pool4Hex32));
+  const p5 = hexToBytes(validateHex32(pool5Hex32));
+  const out = new Uint8Array(832);
+  out.set(selectorWord(SELECTOR_NATIVE_DEX_SWAP5_ROUTER_128));
+  out.set(p1, 32);
+  out.set(inner1_128, 64);
+  out.set(p2, 192);
+  out.set(inner2_128, 224);
+  out.set(p3, 352);
+  out.set(inner3_128, 384);
+  out.set(p4, 512);
+  out.set(inner4_128, 544);
+  out.set(p5, 672);
+  out.set(inner5_128, 704);
+  return out;
+}
+
+export function encodeNativeDexSwap5RouterCalldata128Hex(
+  pool1Hex32: string,
+  inner1_128: Uint8Array,
+  pool2Hex32: string,
+  inner2_128: Uint8Array,
+  pool3Hex32: string,
+  inner3_128: Uint8Array,
+  pool4Hex32: string,
+  inner4_128: Uint8Array,
+  pool5Hex32: string,
+  inner5_128: Uint8Array
+): string {
+  return bytesToHex(
+    encodeNativeDexSwap5RouterCalldata128(
+      pool1Hex32,
+      inner1_128,
+      pool2Hex32,
+      inner2_128,
+      pool3Hex32,
+      inner3_128,
+      pool4Hex32,
+      inner4_128,
+      pool5Hex32,
+      inner5_128
+    )
+  );
+}
+
+export function encodeNativeDexSwap5RouterCalldata160(
+  pool1Hex32: string,
+  inner1_160: Uint8Array,
+  pool2Hex32: string,
+  inner2_160: Uint8Array,
+  pool3Hex32: string,
+  inner3_160: Uint8Array,
+  pool4Hex32: string,
+  inner4_160: Uint8Array,
+  pool5Hex32: string,
+  inner5_160: Uint8Array
+): Uint8Array {
+  for (const inner of [inner1_160, inner2_160, inner3_160, inner4_160, inner5_160]) {
+    if (inner.length !== 160) {
+      throw new Error('inner calldata must be 160 bytes per hop');
+    }
+  }
+  const p1 = hexToBytes(validateHex32(pool1Hex32));
+  const p2 = hexToBytes(validateHex32(pool2Hex32));
+  const p3 = hexToBytes(validateHex32(pool3Hex32));
+  const p4 = hexToBytes(validateHex32(pool4Hex32));
+  const p5 = hexToBytes(validateHex32(pool5Hex32));
+  const out = new Uint8Array(992);
+  out.set(selectorWord(SELECTOR_NATIVE_DEX_SWAP5_ROUTER_160));
+  out.set(p1, 32);
+  out.set(inner1_160, 64);
+  out.set(p2, 224);
+  out.set(inner2_160, 256);
+  out.set(p3, 416);
+  out.set(inner3_160, 448);
+  out.set(p4, 608);
+  out.set(inner4_160, 640);
+  out.set(p5, 800);
+  out.set(inner5_160, 832);
+  return out;
+}
+
+export function encodeNativeDexSwap5RouterCalldata160Hex(
+  pool1Hex32: string,
+  inner1_160: Uint8Array,
+  pool2Hex32: string,
+  inner2_160: Uint8Array,
+  pool3Hex32: string,
+  inner3_160: Uint8Array,
+  pool4Hex32: string,
+  inner4_160: Uint8Array,
+  pool5Hex32: string,
+  inner5_160: Uint8Array
+): string {
+  return bytesToHex(
+    encodeNativeDexSwap5RouterCalldata160(
+      pool1Hex32,
+      inner1_160,
+      pool2Hex32,
+      inner2_160,
+      pool3Hex32,
+      inner3_160,
+      pool4Hex32,
+      inner4_160,
+      pool5Hex32,
+      inner5_160
+    )
+  );
+}
+
+export function encodeNativeDexSwap6RouterCalldata128(
+  pool1Hex32: string,
+  inner1_128: Uint8Array,
+  pool2Hex32: string,
+  inner2_128: Uint8Array,
+  pool3Hex32: string,
+  inner3_128: Uint8Array,
+  pool4Hex32: string,
+  inner4_128: Uint8Array,
+  pool5Hex32: string,
+  inner5_128: Uint8Array,
+  pool6Hex32: string,
+  inner6_128: Uint8Array
+): Uint8Array {
+  for (const inner of [inner1_128, inner2_128, inner3_128, inner4_128, inner5_128, inner6_128]) {
+    if (inner.length !== 128) {
+      throw new Error('inner calldata must be 128 bytes per hop');
+    }
+  }
+  const p1 = hexToBytes(validateHex32(pool1Hex32));
+  const p2 = hexToBytes(validateHex32(pool2Hex32));
+  const p3 = hexToBytes(validateHex32(pool3Hex32));
+  const p4 = hexToBytes(validateHex32(pool4Hex32));
+  const p5 = hexToBytes(validateHex32(pool5Hex32));
+  const p6 = hexToBytes(validateHex32(pool6Hex32));
+  const out = new Uint8Array(992);
+  out.set(selectorWord(SELECTOR_NATIVE_DEX_SWAP6_ROUTER_128));
+  out.set(p1, 32);
+  out.set(inner1_128, 64);
+  out.set(p2, 192);
+  out.set(inner2_128, 224);
+  out.set(p3, 352);
+  out.set(inner3_128, 384);
+  out.set(p4, 512);
+  out.set(inner4_128, 544);
+  out.set(p5, 672);
+  out.set(inner5_128, 704);
+  out.set(p6, 832);
+  out.set(inner6_128, 864);
+  return out;
+}
+
+export function encodeNativeDexSwap6RouterCalldata128Hex(
+  pool1Hex32: string,
+  inner1_128: Uint8Array,
+  pool2Hex32: string,
+  inner2_128: Uint8Array,
+  pool3Hex32: string,
+  inner3_128: Uint8Array,
+  pool4Hex32: string,
+  inner4_128: Uint8Array,
+  pool5Hex32: string,
+  inner5_128: Uint8Array,
+  pool6Hex32: string,
+  inner6_128: Uint8Array
+): string {
+  return bytesToHex(
+    encodeNativeDexSwap6RouterCalldata128(
+      pool1Hex32,
+      inner1_128,
+      pool2Hex32,
+      inner2_128,
+      pool3Hex32,
+      inner3_128,
+      pool4Hex32,
+      inner4_128,
+      pool5Hex32,
+      inner5_128,
+      pool6Hex32,
+      inner6_128
+    )
+  );
+}
+
+export function encodeNativeDexSwap6RouterCalldata160(
+  pool1Hex32: string,
+  inner1_160: Uint8Array,
+  pool2Hex32: string,
+  inner2_160: Uint8Array,
+  pool3Hex32: string,
+  inner3_160: Uint8Array,
+  pool4Hex32: string,
+  inner4_160: Uint8Array,
+  pool5Hex32: string,
+  inner5_160: Uint8Array,
+  pool6Hex32: string,
+  inner6_160: Uint8Array
+): Uint8Array {
+  for (const inner of [inner1_160, inner2_160, inner3_160, inner4_160, inner5_160, inner6_160]) {
+    if (inner.length !== 160) {
+      throw new Error('inner calldata must be 160 bytes per hop');
+    }
+  }
+  const p1 = hexToBytes(validateHex32(pool1Hex32));
+  const p2 = hexToBytes(validateHex32(pool2Hex32));
+  const p3 = hexToBytes(validateHex32(pool3Hex32));
+  const p4 = hexToBytes(validateHex32(pool4Hex32));
+  const p5 = hexToBytes(validateHex32(pool5Hex32));
+  const p6 = hexToBytes(validateHex32(pool6Hex32));
+  const out = new Uint8Array(1184);
+  out.set(selectorWord(SELECTOR_NATIVE_DEX_SWAP6_ROUTER_160));
+  out.set(p1, 32);
+  out.set(inner1_160, 64);
+  out.set(p2, 224);
+  out.set(inner2_160, 256);
+  out.set(p3, 416);
+  out.set(inner3_160, 448);
+  out.set(p4, 608);
+  out.set(inner4_160, 640);
+  out.set(p5, 800);
+  out.set(inner5_160, 832);
+  out.set(p6, 992);
+  out.set(inner6_160, 1024);
+  return out;
+}
+
+export function encodeNativeDexSwap6RouterCalldata160Hex(
+  pool1Hex32: string,
+  inner1_160: Uint8Array,
+  pool2Hex32: string,
+  inner2_160: Uint8Array,
+  pool3Hex32: string,
+  inner3_160: Uint8Array,
+  pool4Hex32: string,
+  inner4_160: Uint8Array,
+  pool5Hex32: string,
+  inner5_160: Uint8Array,
+  pool6Hex32: string,
+  inner6_160: Uint8Array
+): string {
+  return bytesToHex(
+    encodeNativeDexSwap6RouterCalldata160(
+      pool1Hex32,
+      inner1_160,
+      pool2Hex32,
+      inner2_160,
+      pool3Hex32,
+      inner3_160,
+      pool4Hex32,
+      inner4_160,
+      pool5Hex32,
+      inner5_160,
+      pool6Hex32,
+      inner6_160
     )
   );
 }

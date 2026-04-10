@@ -29,6 +29,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createClient, hexToBytes, senderHexFromSecretKey } from 'boing-sdk';
+import { parseScriptStdoutJson } from './tutorial-script-json.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const tutorialRoot = path.resolve(scriptDir, '..');
@@ -51,10 +52,7 @@ function sleep(ms) {
 }
 
 function parseDeployJson(stdout) {
-  const t = stdout.trim();
-  const lastBrace = t.lastIndexOf('{');
-  if (lastBrace < 0) throw new Error('No JSON object in script stdout');
-  return JSON.parse(t.slice(lastBrace));
+  return parseScriptStdoutJson(stdout);
 }
 
 function runNodeScript(relScript, extraEnv) {

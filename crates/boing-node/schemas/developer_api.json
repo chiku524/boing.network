@@ -154,6 +154,22 @@
         "result": { "type": "array" }
       },
       {
+        "name": "boing_simulateContractCall",
+        "summary": "Dry-run a contract call without a signed transaction (contract hex, calldata hex, optional sender hex, optional at_block).",
+        "params": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 4,
+          "prefixItems": [
+            { "type": "string", "description": "32-byte contract AccountId hex" },
+            { "type": "string", "description": "calldata hex" },
+            { "type": ["string", "null"], "description": "optional sender AccountId hex; omit or null for zero sender" },
+            { "description": "optional at_block: \"latest\", null, or current tip height (integer)" }
+          ]
+        },
+        "result": { "type": "object" }
+      },
+      {
         "name": "boing_simulateTransaction",
         "summary": "Dry-run execution; returns gas, logs, state diffs.",
         "params": {

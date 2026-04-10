@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { mergeNativeDexIntegrationDefaults } from '../src/dexIntegration.js';
 import {
+  applyNativeDexMultihopSimulationToContractCallTx,
   BOING_NATIVE_DEX_TOOLKIT_RPC_METHODS,
   buildNativeCpPoolSwapExpressTx,
+  buildNativeDexMultihopSwapExpressTxFromRoute128,
   describeNativeDexDefaultGaps,
   formatBoingNativeDexNotEvmDisclaimer,
   formatNativeDexToolkitPreflightForUi,
 } from '../src/nativeDexSeamless.js';
+import { findBestCpRoute, type CpPoolVenue } from '../src/nativeDexRouting.js';
 import { BoingRpcPreflightError } from '../src/preflightGate.js';
 import type { NetworkInfo } from '../src/types.js';
 
@@ -59,12 +62,13 @@ describe('nativeDexSeamless', () => {
     expect(s).toContain('• ');
   });
 
-  it('describeNativeDexDefaultGaps flags missing pool and factory', () => {
+  it('describeNativeDexDefaultGaps flags missing pool, factory, and multihop router', () => {
     const d = mergeNativeDexIntegrationDefaults(miniInfo());
     const g = describeNativeDexDefaultGaps(d);
-    expect(g.length).toBe(2);
+    expect(g.length).toBe(3);
     expect(g.some((x) => x.includes('pool'))).toBe(true);
     expect(g.some((x) => x.includes('factory'))).toBe(true);
+    expect(g.some((x) => x.includes('multihop'))).toBe(true);
   });
 
   it('BOING_NATIVE_DEX_TOOLKIT_RPC_METHODS lists expected methods', () => {
@@ -85,6 +89,111 @@ describe('nativeDexSeamless', () => {
     expect(u).toContain('alpha');
     expect(u).toContain('bravo');
     expect(u).toContain('protocol QA');
+  });
+
+  it('buildNativeDexMultihopSwapExpressTxFromRoute128 includeVenueTokenAccounts adds token ids', () => {
+    const TA = ('0x' + '11'.repeat(32)) as `0x${string}`;
+    const TB = ('0x' + '22'.repeat(32)) as `0x${string}`;
+    const TC = ('0x' + '33'.repeat(32)) as `0x${string}`;
+    const P1 = ('0x' + 'aa'.repeat(32)) as `0x${string}`;
+    const P2 = ('0x' + 'bb'.repeat(32)) as `0x${string}`;
+    const ROUTER = ('0x' + 'de'.repeat(32)) as `0x${string}`;
+    const SENDER = ('0x' + '01'.repeat(32)) as `0x${string}`;
+    function venue(
+      poolHex: `0x${string}`,
+      tokenAHex: `0x${string}`,
+      tokenBHex: `0x${string}`,
+      reserveA: bigint,
+      reserveB: bigint
+    ): CpPoolVenue {
+      return { poolHex, tokenAHex, tokenBHex, reserveA, reserveB, feeBps: 30n };
+    }
+    const v1 = venue(P1, TA, TB, 100_000n, 100_000n);
+    const v2 = venue(P2, TB, TC, 100_000n, 100_000n);
+    const route = findBestCpRoute([v1, v2], TA, TC, 1000n, { maxHops: 2 })!;
+    const tx = buildNativeDexMultihopSwapExpressTxFromRoute128({
+      senderHex32: SENDER,
+      routerHex32: ROUTER,
+      route,
+      slippageBps: 50n,
+      includeVenueTokenAccounts: true,
+    });
+    expect(tx.access_list.read).toContain(TA.toLowerCase());
+    expect(tx.access_list.read).toContain(TB.toLowerCase());
+    expect(tx.access_list.read).toContain(TC.toLowerCase());
+  });
+
+  it('applyNativeDexMultihopSimulationToContractCallTx widens access list', () => {
+    const TA = ('0x' + '11'.repeat(32)) as `0x${string}`;
+    const TB = ('0x' + '22'.repeat(32)) as `0x${string}`;
+    const TC = ('0x' + '33'.repeat(32)) as `0x${string}`;
+    const P1 = ('0x' + 'aa'.repeat(32)) as `0x${string}`;
+    const P2 = ('0x' + 'bb'.repeat(32)) as `0x${string}`;
+    const ROUTER = ('0x' + 'de'.repeat(32)) as `0x${string}`;
+    const SENDER = ('0x' + '01'.repeat(32)) as `0x${string}`;
+    const TOKEN = ('0x' + '99'.repeat(32)) as `0x${string}`;
+    function venue(
+      poolHex: `0x${string}`,
+      tokenAHex: `0x${string}`,
+      tokenBHex: `0x${string}`,
+      reserveA: bigint,
+      reserveB: bigint
+    ): CpPoolVenue {
+      return { poolHex, tokenAHex, tokenBHex, reserveA, reserveB, feeBps: 30n };
+    }
+    const v1 = venue(P1, TA, TB, 100_000n, 100_000n);
+    const v2 = venue(P2, TB, TC, 100_000n, 100_000n);
+    const route = findBestCpRoute([v1, v2], TA, TC, 1000n, { maxHops: 2 })!;
+    let tx = buildNativeDexMultihopSwapExpressTxFromRoute128({
+      senderHex32: SENDER,
+      routerHex32: ROUTER,
+      route,
+      slippageBps: 10n,
+    });
+    expect(tx.access_list.read).not.toContain(TOKEN.toLowerCase());
+    const sim = {
+      suggested_access_list: { read: [TOKEN], write: [] },
+    } as import('../src/types.js').SimulateResult;
+    tx = applyNativeDexMultihopSimulationToContractCallTx(tx, {
+      senderHex32: SENDER,
+      poolHex32List: [P1, P2],
+      sim,
+    });
+    expect(tx.access_list.read).toContain(TOKEN.toLowerCase());
+  });
+
+  it('buildNativeDexMultihopSwapExpressTxFromRoute128 targets router with slippage', () => {
+    const TA = ('0x' + '11'.repeat(32)) as `0x${string}`;
+    const TB = ('0x' + '22'.repeat(32)) as `0x${string}`;
+    const TC = ('0x' + '33'.repeat(32)) as `0x${string}`;
+    const P1 = ('0x' + 'aa'.repeat(32)) as `0x${string}`;
+    const P2 = ('0x' + 'bb'.repeat(32)) as `0x${string}`;
+    const ROUTER = ('0x' + 'de'.repeat(32)) as `0x${string}`;
+    const SENDER = ('0x' + '01'.repeat(32)) as `0x${string}`;
+    function venue(
+      poolHex: `0x${string}`,
+      tokenAHex: `0x${string}`,
+      tokenBHex: `0x${string}`,
+      reserveA: bigint,
+      reserveB: bigint
+    ): CpPoolVenue {
+      return { poolHex, tokenAHex, tokenBHex, reserveA, reserveB, feeBps: 30n };
+    }
+    const v1 = venue(P1, TA, TB, 100_000n, 100_000n);
+    const v2 = venue(P2, TB, TC, 100_000n, 100_000n);
+    const route = findBestCpRoute([v1, v2], TA, TC, 1000n, { maxHops: 2 })!;
+    const tx = buildNativeDexMultihopSwapExpressTxFromRoute128({
+      senderHex32: SENDER,
+      routerHex32: ROUTER,
+      route,
+      slippageBps: 100n,
+    });
+    expect(tx.type).toBe('contract_call');
+    expect(tx.contract).toBe(ROUTER.toLowerCase());
+    expect(tx.access_list.read).toContain(SENDER.toLowerCase());
+    expect(tx.access_list.read).toContain(ROUTER.toLowerCase());
+    expect(tx.access_list.read).toContain(P1.toLowerCase());
+    expect(tx.access_list.read).toContain(P2.toLowerCase());
   });
 
   it('buildNativeCpPoolSwapExpressTx builds contract_call with swap calldata', () => {

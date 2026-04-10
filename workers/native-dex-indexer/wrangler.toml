@@ -1,0 +1,32 @@
+# Standalone indexer: GET /stats JSON + cron refresh into KV (durable reserve history).
+# 1. Create KV: npx wrangler kv namespace create NATIVE_DEX_INDEXER_KV
+# 2. Paste id below (and preview_id for `wrangler dev`).
+name = "boing-native-dex-indexer"
+main = "src/index.ts"
+compatibility_date = "2026-03-06"
+compatibility_flags = ["nodejs_compat"]
+
+# Created via: wrangler kv namespace create "boing-native-dex-indexer-state"
+# Preview: wrangler kv namespace create "boing-native-dex-indexer-preview" --preview
+[[kv_namespaces]]
+binding = "NATIVE_DEX_INDEXER_KV"
+id = "28b6a1cbc43b4cceaaa69d7e305ad93c"
+preview_id = "f6c686292e544a868a3bbfa8c37cede6"
+
+# D1: cursor-paginated GET /v1/directory/pools (populated by cron + optional POST /v1/directory/sync).
+[[d1_databases]]
+binding = "DIRECTORY_DB"
+database_name = "boing-native-dex-directory"
+database_id = "68eb37e6-f71c-47fa-9475-19d7a56b0db0"
+migrations_dir = "migrations"
+
+[triggers]
+crons = ["*/15 * * * *"]
+
+[vars]
+BOING_TESTNET_RPC_URL = "https://testnet-rpc.boing.network"
+# NATIVE_DEX_INDEXER_REGISTER_FROM_BLOCK = "0"
+# NATIVE_DEX_INDEXER_LOG_SCAN_BLOCKS = "8000"
+# NATIVE_DEX_INDEXER_TOKEN_USD_JSON = "{\"default\":\"1\"}"
+# NATIVE_DEX_INDEXER_TOKEN_DIRECTORY_JSON = "[{\"id\":\"0x…\",\"symbol\":\"FOO\",\"name\":\"Foo Token\"}]"
+# REACT_APP_BOING_NATIVE_AMM_POOL = "0x…"

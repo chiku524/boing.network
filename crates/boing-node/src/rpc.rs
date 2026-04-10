@@ -43,9 +43,9 @@ use crate::mempool::MempoolError;
 use crate::node::{BoingNode, QaPoolVoteResult};
 use crate::security::RateLimitConfig;
 use boing_primitives::{
-    create2_contract_address, nonce_derived_contract_address, AccessList, AccountId, ExecutionLog,
-    ExecutionReceipt, Hash, SignedIntent, SignedTransaction, Transaction, TransactionPayload,
-    MAX_EXECUTION_LOG_TOPICS,
+    create2_contract_address, nonce_derived_contract_address, AccessList, Account, AccountId,
+    AccountState, ExecutionLog, ExecutionReceipt, Hash, SignedIntent, SignedTransaction, Transaction,
+    TransactionPayload, MAX_EXECUTION_LOG_TOPICS,
 };
 use boing_qa::pool::{PoolError, QaPoolVote};
 use boing_qa::{
@@ -337,6 +337,41 @@ fn parse_account_id_hex(s: &str) -> Result<AccountId, String> {
     Ok(AccountId(arr))
 }
 
+/// 32-byte zero `AccountId` used as default **`sender`** for `boing_simulateContractCall` when omitted.
+fn zero_simulate_sender() -> AccountId {
+    AccountId([0u8; 32])
+}
+
+/// Max calldata length for **`boing_simulateContractCall`** (DoS bound).
+const SIMULATE_CONTRACT_CALL_MAX_CALLDATA_LEN: usize = 256 * 1024;
+
+/// `at_block` only supports committed tip today: **`"latest"`**, **`null`**, or integer **== tip height**.
+fn parse_at_block_for_simulate_contract_call(
+    v: Option<&serde_json::Value>,
+    tip_height: u64,
+) -> Result<(), String> {
+    match v {
+        None => Ok(()),
+        Some(serde_json::Value::Null) => Ok(()),
+        Some(serde_json::Value::String(s)) if s.eq_ignore_ascii_case("latest") => Ok(()),
+        Some(serde_json::Value::Number(n)) => {
+            let h = n.as_u64().ok_or_else(|| {
+                "at_block: height must be a non-negative integer".to_string()
+            })?;
+            if h != tip_height {
+                return Err(format!(
+                    "at_block: only \"latest\", null, or current tip height {} is supported (got {})",
+                    tip_height, h
+                ));
+            }
+            Ok(())
+        }
+        Some(_) => Err(
+            "at_block: expected null, \"latest\", or current tip height (integer)".to_string(),
+        ),
+    }
+}
+
 /// Max inclusive block span for `boing_getLogs` (prevents unbounded scans).
 const GET_LOGS_MAX_BLOCK_RANGE: u64 = 128;
 /// Max log entries returned per `boing_getLogs` call.
@@ -369,6 +404,7 @@ const BOING_RPC_SUPPORTED_METHODS: &[&str] = &[
     "boing_qaPoolVote",
     "boing_registerDappMetrics",
     "boing_rpcSupportedMethods",
+    "boing_simulateContractCall",
     "boing_simulateTransaction",
     "boing_submitIntent",
     "boing_submitTransaction",
@@ -1668,6 +1704,187 @@ async fn dispatch_jsonrpc_request(
                     Err(e) => rpc_error(id, -32602, format!("Invalid transaction: {}", e)),
                 },
                 Err(e) => rpc_error(id, -32602, format!("Invalid hex: {}", e)),
+            }
+        }
+        "boing_simulateContractCall" => {
+            let params = req
+                .params
+                .and_then(|p| serde_json::from_value::<Vec<serde_json::Value>>(p).ok());
+            let arr = match params {
+                Some(ref v) if v.len() >= 2 => v,
+                _ => {
+                    return (
+                        StatusCode::OK,
+                        rpc_error(
+                            id,
+                            -32602,
+                            "Invalid params: expected [contract_hex, calldata_hex, sender_hex?, at_block?]"
+                                .into(),
+                        ),
+                    );
+                }
+            };
+            let contract_hex = match arr[0].as_str() {
+                Some(s) => s,
+                None => {
+                    return (
+                        StatusCode::OK,
+                        rpc_error(id, -32602, "contract must be a hex string (32-byte AccountId)".into()),
+                    );
+                }
+            };
+            let contract = match parse_account_id_hex(contract_hex) {
+                Ok(c) => c,
+                Err(e) => {
+                    return (
+                        StatusCode::OK,
+                        rpc_error(id, -32602, format!("Invalid contract: {}", e)),
+                    );
+                }
+            };
+            let calldata_hex = match arr[1].as_str() {
+                Some(s) => s,
+                None => {
+                    return (
+                        StatusCode::OK,
+                        rpc_error(id, -32602, "calldata must be a hex string".into()),
+                    );
+                }
+            };
+            let calldata = match hex::decode(calldata_hex.trim_start_matches("0x")) {
+                Ok(b) if b.len() <= SIMULATE_CONTRACT_CALL_MAX_CALLDATA_LEN => b,
+                Ok(_) => {
+                    return (
+                        StatusCode::OK,
+                        rpc_error(
+                            id,
+                            -32602,
+                            format!(
+                                "calldata exceeds max length {} bytes",
+                                SIMULATE_CONTRACT_CALL_MAX_CALLDATA_LEN
+                            ),
+                        ),
+                    );
+                }
+                Err(e) => {
+                    return (
+                        StatusCode::OK,
+                        rpc_error(id, -32602, format!("Invalid calldata hex: {}", e)),
+                    );
+                }
+            };
+            let sender = if arr.len() >= 3 && !arr[2].is_null() {
+                let sh = match arr[2].as_str() {
+                    Some(s) => s,
+                    None => {
+                        return (
+                            StatusCode::OK,
+                            rpc_error(
+                                id,
+                                -32602,
+                                "sender must be a hex string or JSON null".into(),
+                            ),
+                        );
+                    }
+                };
+                match parse_account_id_hex(sh) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        return (
+                            StatusCode::OK,
+                            rpc_error(id, -32602, format!("Invalid sender: {}", e)),
+                        );
+                    }
+                }
+            } else {
+                zero_simulate_sender()
+            };
+            let at_block_param = arr.get(3);
+
+            let n = node.read().await;
+            let tip_height = n.chain.height();
+            if let Err(msg) = parse_at_block_for_simulate_contract_call(at_block_param, tip_height) {
+                return (StatusCode::OK, rpc_error(id, -32602, msg));
+            }
+            let ts = n
+                .chain
+                .get_block_by_height(tip_height)
+                .map(|b| b.header.timestamp)
+                .unwrap_or(0);
+            let mut state_copy = n.state.snapshot();
+            let z = zero_simulate_sender();
+            if sender == z {
+                if state_copy.get(&z).is_none() {
+                    state_copy.insert(Account {
+                        id: z,
+                        state: AccountState {
+                            balance: 0,
+                            nonce: 0,
+                            stake: 0,
+                        },
+                    });
+                }
+            } else if state_copy.get(&sender).is_none() {
+                return (
+                    StatusCode::OK,
+                    rpc_error(
+                        id,
+                        -32602,
+                        "sender account not found in committed state (use 32-byte zero sender or omit sender for read-only simulation)"
+                            .into(),
+                    ),
+                );
+            }
+            let nonce = state_copy
+                .get(&sender)
+                .map(|a| a.nonce)
+                .unwrap_or(0);
+            let tx_base = Transaction {
+                nonce,
+                sender,
+                payload: TransactionPayload::ContractCall {
+                    contract,
+                    calldata,
+                },
+                access_list: AccessList::default(),
+            };
+            let access_list = tx_base.suggested_parallel_access_list();
+            let tx = Transaction {
+                access_list,
+                ..tx_base
+            };
+            let sug = tx.suggested_parallel_access_list();
+            let covers = tx.access_list_covers_parallel_suggestion();
+            let vm = boing_execution::Vm::with_qa_registry(n.mempool.qa_registry().clone());
+            let exec_ctx = boing_execution::VmExecutionContext {
+                block_height: tip_height,
+                block_timestamp: ts,
+            };
+            drop(n);
+            match vm.execute_with_context(&tx, &mut state_copy, exec_ctx) {
+                Ok(out) => rpc_ok(
+                    id,
+                    serde_json::json!({
+                        "gas_used": out.gas_used,
+                        "success": true,
+                        "return_data": format!("0x{}", hex::encode(&out.return_data)),
+                        "logs": execution_logs_to_json(&out.logs),
+                        "suggested_access_list": access_list_to_json(&sug),
+                        "access_list_covers_suggestion": covers,
+                    }),
+                ),
+                Err(e) => rpc_ok(
+                    id,
+                    serde_json::json!({
+                        "gas_used": 0,
+                        "success": false,
+                        "error": format!("{}", e),
+                        "return_data": "0x",
+                        "logs": serde_json::json!([]),
+                        "suggested_access_list": access_list_to_json(&sug),
+                        "access_list_covers_suggestion": covers,
+                    }),
+                ),
             }
         }
         "boing_getBlockByHeight" => {

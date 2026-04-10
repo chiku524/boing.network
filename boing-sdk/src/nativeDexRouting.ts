@@ -8,7 +8,24 @@ import type { NativeDexIntegrationOverrides } from './dexIntegration.js';
 import { fetchNativeDexDirectorySnapshot, type NativeDexDirectorySnapshot } from './nativeDexDirectory.js';
 import { validateHex32 } from './hex.js';
 import { mapWithConcurrencyLimit } from './indexerBatch.js';
-import { NATIVE_CP_SWAP_FEE_BPS, constantProductAmountOutWithFeeBps } from './nativeAmm.js';
+import {
+  NATIVE_CP_SWAP_FEE_BPS,
+  constantProductAmountOutWithFeeBps,
+  encodeNativeAmmSwapCalldata,
+  encodeNativeAmmSwapToCalldata,
+} from './nativeAmm.js';
+import {
+  encodeNativeDexSwap2RouterCalldata128,
+  encodeNativeDexSwap2RouterCalldata160,
+  encodeNativeDexSwap3RouterCalldata128,
+  encodeNativeDexSwap3RouterCalldata160,
+  encodeNativeDexSwap4RouterCalldata128,
+  encodeNativeDexSwap4RouterCalldata160,
+  encodeNativeDexSwap5RouterCalldata128,
+  encodeNativeDexSwap5RouterCalldata160,
+  encodeNativeDexSwap6RouterCalldata128,
+  encodeNativeDexSwap6RouterCalldata160,
+} from './nativeDexSwap2Router.js';
 import {
   fetchNativeConstantProductPoolSnapshot,
   fetchNativeConstantProductSwapFeeBps,
@@ -110,6 +127,53 @@ export type CpSwapRoute = {
   amountOut: bigint;
 };
 
+/** First route with **≥ 2** hops, or **`undefined`** (skips direct single-pool rows). */
+export function pickFirstMultihopCpRoute(routes: readonly CpSwapRoute[]): CpSwapRoute | undefined {
+  return routes.find((r) => r.hops.length >= 2);
+}
+
+/**
+ * Unique **`tokenA`** / **`tokenB`** ids across **`route.hops`** (**sorted** hex). Pass as **`additionalAccountsHex32`** when pools **`CALL`** reference-token contracts (v2+).
+ */
+export function uniqueSortedTokenHex32FromCpRoute(route: CpSwapRoute): string[] {
+  const seen = new Set<string>();
+  for (const h of route.hops) {
+    seen.add(normHex32(h.venue.tokenAHex));
+    seen.add(normHex32(h.venue.tokenBHex));
+  }
+  return [...seen].sort();
+}
+
+/** Maximum sequential pool **`Call`s** supported by canonical multihop router bytecode (selectors **`0xE5`–`0xEE`**). */
+export const NATIVE_DEX_MULTIHOP_ROUTER_MAX_POOLS = 6;
+
+/**
+ * Basis points denominator for {@link minOutFloorAfterSlippageBps} (**10000** = 100%).
+ * Example: **`50`** bps ⇒ allow **0.5%** worse execution vs the quoted amount.
+ */
+export const NATIVE_DEX_SLIPPAGE_BPS_SCALE = 10000n;
+
+/**
+ * Floor of **`amountOut * (SCALE - slippageBps) / SCALE`** — conservative per-hop **`minOut`** for multihop **`swap`** / **`swap_to`** inners.
+ */
+export function minOutFloorAfterSlippageBps(amountOut: bigint, slippageBps: bigint): bigint {
+  if (amountOut < 0n) throw new RangeError('amountOut must be non-negative');
+  if (slippageBps < 0n || slippageBps > NATIVE_DEX_SLIPPAGE_BPS_SCALE) {
+    throw new RangeError(
+      `slippageBps must satisfy 0 <= slippageBps <= ${NATIVE_DEX_SLIPPAGE_BPS_SCALE.toString()}`
+    );
+  }
+  return (amountOut * (NATIVE_DEX_SLIPPAGE_BPS_SCALE - slippageBps)) / NATIVE_DEX_SLIPPAGE_BPS_SCALE;
+}
+
+/** One slippage floor per {@link CpSwapRoute} hop, aligned with {@link RouteHop.amountOut} order. */
+export function minOutPerHopFromQuotedRouteSlippageBps(
+  route: CpSwapRoute,
+  slippageBps: bigint
+): bigint[] {
+  return route.hops.map((h) => minOutFloorAfterSlippageBps(h.amountOut, slippageBps));
+}
+
 function edgesFromToken(venues: readonly CpPoolVenue[], currentToken: string): CpPoolVenue[] {
   const t = normHex32(currentToken);
   const hit: CpPoolVenue[] = [];
@@ -123,7 +187,7 @@ function edgesFromToken(venues: readonly CpPoolVenue[], currentToken: string): C
 
 /**
  * Enumerate simple CP paths (**no** same-pool reuse) up to **`maxHops`** pools; returns routes sorted by **`amountOut`** (best first).
- * For production UIs, cap **`maxHops`** at **2–3** and keep **`venues`** small (indexed subgraph).
+ * Default **`maxHops`** matches on-chain multihop router capacity ({@link NATIVE_DEX_MULTIHOP_ROUTER_MAX_POOLS}); pass a lower value for large **`venues`** sets.
  */
 export function findBestCpRoutes(
   venues: readonly CpPoolVenue[],
@@ -132,9 +196,12 @@ export function findBestCpRoutes(
   amountIn: bigint,
   options?: { maxHops?: number; maxRoutes?: number }
 ): CpSwapRoute[] {
-  const maxHops = options?.maxHops ?? 3;
+  const maxHops = options?.maxHops ?? NATIVE_DEX_MULTIHOP_ROUTER_MAX_POOLS;
   const maxRoutes = options?.maxRoutes ?? 32;
   if (maxHops < 1) throw new RangeError('maxHops must be >= 1');
+  if (maxHops > NATIVE_DEX_MULTIHOP_ROUTER_MAX_POOLS) {
+    throw new RangeError(`maxHops cannot exceed ${NATIVE_DEX_MULTIHOP_ROUTER_MAX_POOLS} (multihop router cap)`);
+  }
   const tin = normHex32(tokenInHex);
   const tout = normHex32(tokenOutHex);
   if (tin === tout) {
@@ -195,6 +262,215 @@ export function findBestCpRoute(
   options?: { maxHops?: number; maxRoutes?: number }
 ): CpSwapRoute | undefined {
   return findBestCpRoutes(venues, tokenInHex, tokenOutHex, amountIn, options)[0];
+}
+
+export type EncodeNativeDexMultihopFromRouteOptions128 = {
+  /** One minimum output per hop; length must equal **`route.hops.length`**. */
+  minOutPerHop: readonly bigint[];
+};
+
+export type EncodeNativeDexMultihopFromRouteOptions160 = {
+  minOutPerHop: readonly bigint[];
+  /** Multihop router **`AccountId`**; intermediate **`swap_to`** deliveries use this address. */
+  routerAccountHex32: string;
+  /** Final hop **`swap_to`** recipient (typically the trader). */
+  finalRecipientHex32: string;
+};
+
+/**
+ * Build **128-byte** inner **`swap`** calldata for a quoted {@link CpSwapRoute} (**2–6** hops).
+ * Pair with **`contract_call`** targeting the multihop router account.
+ */
+export function encodeNativeDexMultihopRouterCalldata128FromRoute(
+  route: CpSwapRoute,
+  options: EncodeNativeDexMultihopFromRouteOptions128
+): Uint8Array {
+  const n = route.hops.length;
+  if (n < 2 || n > NATIVE_DEX_MULTIHOP_ROUTER_MAX_POOLS) {
+    throw new RangeError(
+      `multihop router expects 2..${NATIVE_DEX_MULTIHOP_ROUTER_MAX_POOLS} hops, got ${n}`
+    );
+  }
+  if (options.minOutPerHop.length !== n) {
+    throw new RangeError('minOutPerHop length must match route.hops.length');
+  }
+  const pools = route.hops.map((h) => validateHex32(h.venue.poolHex));
+  const inners = route.hops.map((hop, i) =>
+    encodeNativeAmmSwapCalldata(
+      hop.directionForSwapCalldata,
+      hop.amountIn,
+      options.minOutPerHop[i]!
+    )
+  );
+  switch (n) {
+    case 2:
+      return encodeNativeDexSwap2RouterCalldata128(pools[0]!, inners[0]!, pools[1]!, inners[1]!);
+    case 3:
+      return encodeNativeDexSwap3RouterCalldata128(
+        pools[0]!,
+        inners[0]!,
+        pools[1]!,
+        inners[1]!,
+        pools[2]!,
+        inners[2]!
+      );
+    case 4:
+      return encodeNativeDexSwap4RouterCalldata128(
+        pools[0]!,
+        inners[0]!,
+        pools[1]!,
+        inners[1]!,
+        pools[2]!,
+        inners[2]!,
+        pools[3]!,
+        inners[3]!
+      );
+    case 5:
+      return encodeNativeDexSwap5RouterCalldata128(
+        pools[0]!,
+        inners[0]!,
+        pools[1]!,
+        inners[1]!,
+        pools[2]!,
+        inners[2]!,
+        pools[3]!,
+        inners[3]!,
+        pools[4]!,
+        inners[4]!
+      );
+    case 6:
+      return encodeNativeDexSwap6RouterCalldata128(
+        pools[0]!,
+        inners[0]!,
+        pools[1]!,
+        inners[1]!,
+        pools[2]!,
+        inners[2]!,
+        pools[3]!,
+        inners[3]!,
+        pools[4]!,
+        inners[4]!,
+        pools[5]!,
+        inners[5]!
+      );
+    default:
+      throw new RangeError(`unsupported hop count ${n}`);
+  }
+}
+
+/**
+ * Build **160-byte** inner **`swap_to`** (v5 pool) calldata for a quoted {@link CpSwapRoute}.
+ * Intermediate hops send output to **`routerAccountHex32`**; the last hop sends to **`finalRecipientHex32`**.
+ */
+export function encodeNativeDexMultihopRouterCalldata160FromRoute(
+  route: CpSwapRoute,
+  options: EncodeNativeDexMultihopFromRouteOptions160
+): Uint8Array {
+  const n = route.hops.length;
+  if (n < 2 || n > NATIVE_DEX_MULTIHOP_ROUTER_MAX_POOLS) {
+    throw new RangeError(
+      `multihop router expects 2..${NATIVE_DEX_MULTIHOP_ROUTER_MAX_POOLS} hops, got ${n}`
+    );
+  }
+  if (options.minOutPerHop.length !== n) {
+    throw new RangeError('minOutPerHop length must match route.hops.length');
+  }
+  const router = validateHex32(options.routerAccountHex32);
+  const finalRecip = validateHex32(options.finalRecipientHex32);
+  const pools = route.hops.map((h) => validateHex32(h.venue.poolHex));
+  const inners = route.hops.map((hop, i) => {
+    const recip = i === n - 1 ? finalRecip : router;
+    return encodeNativeAmmSwapToCalldata(
+      hop.directionForSwapCalldata,
+      hop.amountIn,
+      options.minOutPerHop[i]!,
+      recip
+    );
+  });
+  switch (n) {
+    case 2:
+      return encodeNativeDexSwap2RouterCalldata160(pools[0]!, inners[0]!, pools[1]!, inners[1]!);
+    case 3:
+      return encodeNativeDexSwap3RouterCalldata160(
+        pools[0]!,
+        inners[0]!,
+        pools[1]!,
+        inners[1]!,
+        pools[2]!,
+        inners[2]!
+      );
+    case 4:
+      return encodeNativeDexSwap4RouterCalldata160(
+        pools[0]!,
+        inners[0]!,
+        pools[1]!,
+        inners[1]!,
+        pools[2]!,
+        inners[2]!,
+        pools[3]!,
+        inners[3]!
+      );
+    case 5:
+      return encodeNativeDexSwap5RouterCalldata160(
+        pools[0]!,
+        inners[0]!,
+        pools[1]!,
+        inners[1]!,
+        pools[2]!,
+        inners[2]!,
+        pools[3]!,
+        inners[3]!,
+        pools[4]!,
+        inners[4]!
+      );
+    case 6:
+      return encodeNativeDexSwap6RouterCalldata160(
+        pools[0]!,
+        inners[0]!,
+        pools[1]!,
+        inners[1]!,
+        pools[2]!,
+        inners[2]!,
+        pools[3]!,
+        inners[3]!,
+        pools[4]!,
+        inners[4]!,
+        pools[5]!,
+        inners[5]!
+      );
+    default:
+      throw new RangeError(`unsupported hop count ${n}`);
+  }
+}
+
+/**
+ * Same as {@link encodeNativeDexMultihopRouterCalldata128FromRoute} with **`minOutPerHop`** from
+ * {@link minOutPerHopFromQuotedRouteSlippageBps}.
+ */
+export function encodeNativeDexMultihopRouterCalldata128FromRouteWithSlippage(
+  route: CpSwapRoute,
+  slippageBps: bigint
+): Uint8Array {
+  return encodeNativeDexMultihopRouterCalldata128FromRoute(route, {
+    minOutPerHop: minOutPerHopFromQuotedRouteSlippageBps(route, slippageBps),
+  });
+}
+
+/**
+ * Same as {@link encodeNativeDexMultihopRouterCalldata160FromRoute} with **`minOutPerHop`** from
+ * {@link minOutPerHopFromQuotedRouteSlippageBps}.
+ */
+export function encodeNativeDexMultihopRouterCalldata160FromRouteWithSlippage(
+  route: CpSwapRoute,
+  routerAccountHex32: string,
+  finalRecipientHex32: string,
+  slippageBps: bigint
+): Uint8Array {
+  return encodeNativeDexMultihopRouterCalldata160FromRoute(route, {
+    minOutPerHop: minOutPerHopFromQuotedRouteSlippageBps(route, slippageBps),
+    routerAccountHex32,
+    finalRecipientHex32,
+  });
 }
 
 /**
@@ -303,7 +579,7 @@ export type FetchCpRoutingFromDirectoryLogsOptions = {
 
 /**
  * **Boing-only** pipeline: directory **`register_pair`** log range → hydrate venues → best CP route(s).
- * Pair with **`encodeNativeDexSwap3RouterCalldata128`** etc. when executing multihop on-chain.
+ * Pair with **`encodeNativeDexMultihopRouterCalldata128FromRoute`** / **`encodeNativeDexMultihopRouterCalldata160FromRoute`** or **`pickFirstMultihopCpRoute`** + **`buildNativeDexMultihopSwapExpressTxFromRoute128`** when executing multihop on-chain.
  */
 export async function fetchCpRoutingFromDirectoryLogs(
   client: BoingClient,

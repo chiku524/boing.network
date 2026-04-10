@@ -30,7 +30,7 @@
 | Ledger router v1 | `0x371b4cd7e3b88e06e6b89bdc86214918a7e7ec73b62deb7f9975e4166736d54d` |
 | Ledger router v2 | `0x60a232b91d6f86a61d037ea6ea0fb769897f983c8e0d399e3df5189d00868992` |
 | Ledger router v3 | `0xfb552619b27dacacba52b62d97cd171eabe4a74dac262ecb0e8735284d7555ba` |
-| Multihop swap router | `0x43a6410510e7d742db8366347a343af6f7d2d1aec39b8281677d5643a7fc110b` |
+| Multihop swap router | `0x8f8b2ecb6fd5dc7682e41ebe443d6116e0f4ae8247f67b4bfafec4dea2d861a3` |
 | AMM LP vault | `0x2b195b93a57b632ca3c1cf58cb7578542a6d58998116cddb8a6a50f1bd652f48` |
 | LP share token | `0x0618b4a6a30bc31822a0cdcf253ed2bcf642a6cecf26346ba655b63fccbde03c` |
 

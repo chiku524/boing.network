@@ -18,6 +18,8 @@
     "deploy-native-dex-directory": "node scripts/deploy-native-dex-directory.mjs",
     "dump-native-bytecodes": "node scripts/dump-native-bytecodes.mjs",
     "bootstrap-native-pool-and-dex": "node scripts/bootstrap-native-pool-and-dex.mjs",
+    "deploy-native-dex-full-stack": "node scripts/deploy-native-dex-full-stack.mjs",
+    "fund-deployer-from-env": "node scripts/fund-deployer-from-env.mjs",
     "deploy-native-purpose-contract": "node scripts/deploy-native-purpose-contract.mjs",
     "print-native-dex-deploy-salts": "node scripts/print-native-dex-deploy-salts.mjs",
     "deploy-native-dex-aux-contracts": "node scripts/deploy-native-dex-aux-contracts.mjs",

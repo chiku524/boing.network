@@ -16,6 +16,14 @@ export declare const LP_SHARE_MINTER_KEY_U8: Uint8Array;
 /** `boing_getContractStorage` key for LP share **minter** (`native_lp_share_token::LP_SHARE_MINTER_KEY`). */
 export declare const LP_SHARE_MINTER_KEY_HEX: `0x${string}`;
 /**
+ * `boing_getContractStorage` key for **`holder`**'s LP share balance (`account_id ^ LP_SHARE_BALANCE_XOR`).
+ */
+export declare function lpShareTokenBalanceStorageKeyHex(holderHex32: string): string;
+/**
+ * Read **holder**'s LP share balance (u128 in storage word) from the share token contract.
+ */
+export declare function fetchLpShareTokenBalanceRaw(client: BoingClient, shareTokenHex32: string, holderHex32: string): Promise<bigint>;
+/**
  * Read designated **minter** `AccountId` for the LP share token, or **`null`** if unset (all-zero word).
  */
 export declare function fetchLpShareTokenMinterAccountHex(client: BoingClient, shareHex32: string): Promise<`0x${string}` | null>;

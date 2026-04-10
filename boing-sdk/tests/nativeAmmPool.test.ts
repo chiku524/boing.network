@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   buildNativeConstantProductPoolAccessList,
   buildNativeConstantProductContractCallTx,
+  buildNativeDexMultihopRouterAccessList,
+  buildNativeDexMultihopRouterContractCallTx,
+  mergeNativeDexMultihopRouterAccessListWithSimulation,
   mergeNativePoolAccessListWithSimulation,
   decodeBoingStorageWordU128,
   decodeNativeAmmAddLiquidityReturnLpMinted,
@@ -22,6 +25,8 @@ import type { SimulateResult } from '../src/types.js';
 
 const SENDER = '0x' + 'ab'.repeat(32);
 const POOL = '0x' + 'cd'.repeat(32);
+const ROUTER = '0x' + 'de'.repeat(32);
+const POOL2 = '0x' + 'ef'.repeat(32);
 
 describe('nativeAmmPool', () => {
   it('buildNativeConstantProductPoolAccessList', () => {
@@ -51,6 +56,45 @@ describe('nativeAmmPool', () => {
     expect(tx.contract).toBe(POOL.toLowerCase());
     expect(tx.calldata).toBe('0x' + '10'.repeat(8));
     expect(tx.access_list.read.length).toBe(2);
+  });
+
+  it('buildNativeDexMultihopRouterAccessList orders signer, router, pools, sorted extras', () => {
+    const tB = '0x' + '11'.repeat(32);
+    const tA = '0x' + '22'.repeat(32);
+    const al = buildNativeDexMultihopRouterAccessList(SENDER, ROUTER, [POOL, POOL2, POOL], {
+      additionalAccountsHex32: [tB, tA],
+    });
+    expect(al.read).toEqual([
+      SENDER.toLowerCase(),
+      ROUTER.toLowerCase(),
+      POOL.toLowerCase(),
+      POOL2.toLowerCase(),
+      tB.toLowerCase(),
+      tA.toLowerCase(),
+    ]);
+    expect(al.write).toEqual(al.read);
+  });
+
+  it('buildNativeDexMultihopRouterContractCallTx targets router', () => {
+    const tx = buildNativeDexMultihopRouterContractCallTx(SENDER, ROUTER, '0x' + '20'.repeat(8), [POOL, POOL2]);
+    expect(tx.contract).toBe(ROUTER.toLowerCase());
+    expect(tx.access_list.read[0]).toBe(SENDER.toLowerCase());
+    expect(tx.access_list.read[1]).toBe(ROUTER.toLowerCase());
+  });
+
+  it('mergeNativeDexMultihopRouterAccessListWithSimulation unions suggested accounts', () => {
+    const extra = '0x' + '99'.repeat(32);
+    const sim = {
+      suggested_access_list: {
+        read: [extra],
+        write: [],
+      },
+    } as import('../src/types.js').SimulateResult;
+    const m = mergeNativeDexMultihopRouterAccessListWithSimulation(SENDER, ROUTER, [POOL], sim);
+    expect(m.read).toContain(extra.toLowerCase());
+    expect(m.read).toContain(SENDER.toLowerCase());
+    expect(m.read).toContain(ROUTER.toLowerCase());
+    expect(m.read).toContain(POOL.toLowerCase());
   });
 
   it('mergeNativePoolAccessListWithSimulation uses optional additional accounts as base', () => {

@@ -33,6 +33,7 @@ npm run preflight-rpc
 - Keep changes focused; match existing style in touched files.
 - For Rust: `cargo fmt` / `cargo clippy` as appropriate before pushing.
 - For `boing-sdk`: run `npm run build` and `npm test` after TypeScript changes.
+- Optional smoke against the deployed native DEX directory Worker (from repo root): `npm run verify-native-dex-directory-worker` — see [docs/HANDOFF_NATIVE_DEX_DIRECTORY_R2_AND_CHAIN.md](docs/HANDOFF_NATIVE_DEX_DIRECTORY_R2_AND_CHAIN.md).
 
 ## Website / Cloudflare
 

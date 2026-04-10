@@ -45,8 +45,7 @@ function mergeOptionalAccountHex(chainId, override, rpcField, embeddedWhenTestne
 function getProcessEnvRecord() {
     if (typeof globalThis === 'undefined')
         return undefined;
-    const proc = globalThis
-        .process;
+    const proc = globalThis.process;
     return proc?.env;
 }
 function readFirstProcessEnv(keys) {

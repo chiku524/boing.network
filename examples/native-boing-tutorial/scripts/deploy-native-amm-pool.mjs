@@ -182,6 +182,19 @@ async function main() {
 main().catch((e) => {
   const msg = explainBoingRpcError(e);
   console.error(msg);
+  if (/account not found/i.test(msg)) {
+    console.error(
+      JSON.stringify(
+        {
+          ok: false,
+          error: 'Deploy simulation needs your sender account in chain state (not just boing_getAccount defaults).',
+          hint: 'Run: npm run fund-deployer-from-env — or BOING_AUTO_FAUCET_REQUEST=1 with deploy-native-dex-full-stack. Or use https://boing.network/faucet for senderHex from your secret.',
+        },
+        null,
+        2
+      )
+    );
+  }
   if (/deployment address already has an account or code/i.test(msg)) {
     console.error(
       JSON.stringify(

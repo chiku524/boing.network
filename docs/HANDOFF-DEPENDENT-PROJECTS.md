@@ -53,12 +53,16 @@ Dependent apps should **pin or track** published `boing-sdk` versions (npm or `f
 
 ## 4. Partner dApps (e.g. boing.finance)
 
+**Consolidated handoff (directory API, env names, protocol dependencies):** [HANDOFF_BOING_FINANCE_NATIVE_DEX_AND_DIRECTORY.md](HANDOFF_BOING_FINANCE_NATIVE_DEX_AND_DIRECTORY.md).
+
 | Priority | Item | Notes |
 |----------|------|--------|
 | **P0** | **Canonical pool / factory** | Keep on-chain ids and env mirrors in sync with [OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md) and **`end_user`** hints when users use public RPC. |
 | **P1** | **Prefer SDK defaults** | **`fetchNativeDexIntegrationDefaults`** / **`mergeNativeDexIntegrationDefaults`** (pool, factory, multihop router, ledger v2/v3, LP vault, share) + optional **`buildNativeDexIntegrationOverridesFromProcessEnv`** when the node publishes **`end_user.canonical_native_*`**. |
 | **P1** | **Routing** | Use **`nativeDexRouting`** for quotes; build execution calldata with existing multihop / pool encoders in **`boing-sdk`**. |
+| **P1** | **D1 directory pagination** | Optional **`REACT_APP_BOING_NATIVE_DEX_DIRECTORY_BASE_URL`** (Worker origin) + **`boing-sdk`** **`fetchNativeDexDirectoryPoolsPage`** / **`collectAllNativeDexDirectoryPools`**; merge with full indexer stats by **`poolHex`** — [BOING-DAPP-INTEGRATION.md](BOING-DAPP-INTEGRATION.md), **`npm run verify-native-dex-directory-worker`** in **boing.network**. |
 | **P2** | **Wallet** | Detect **`providerSupportsBoingNativeRpc`**; guide users to Boing Express if `false`. |
+| **Protocol** | **Unsigned simulate, LP positions, history** | Not app-only — track **[PROTOCOL_NATIVE_DEX_RPC_AND_INDEXING_ROADMAP.md](PROTOCOL_NATIVE_DEX_RPC_AND_INDEXING_ROADMAP.md)**; **`REACT_APP_BOING_RPC_UNSIGNED_SIMULATE_METHOD`** when node ships. |
 
 ---
 

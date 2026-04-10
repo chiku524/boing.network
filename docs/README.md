@@ -49,7 +49,7 @@ Start with [BOING-NETWORK-ESSENTIALS.md](BOING-NETWORK-ESSENTIALS.md) for the si
 | [NATIVE-DEX-FACTORY.md](NATIVE-DEX-FACTORY.md) | **Pair directory** VM program: `register_pair` / `pairs_count` / `get_pair_at` + `Log3` (pools deployed separately; no in-VM `CREATE`) |
 | [NATIVE-DEX-LEDGER-ROUTER.md](NATIVE-DEX-LEDGER-ROUTER.md) | **Ledger router:** `Call` forwarder (**v1** 128-byte; **v2** 160-byte; **v3** 192-byte); **v1** ledger-only pools |
 | [NATIVE-DEX-SWAP2-ROUTER.md](NATIVE-DEX-SWAP2-ROUTER.md) | **Two-hop** swap router (one tx, two pools) |
-| [NATIVE-DEX-MULTIHOP-SWAP-ROUTER.md](NATIVE-DEX-MULTIHOP-SWAP-ROUTER.md) | **Multihop** swap router (**2–4** pools per tx) |
+| [NATIVE-DEX-MULTIHOP-SWAP-ROUTER.md](NATIVE-DEX-MULTIHOP-SWAP-ROUTER.md) | **Multihop** swap router (**2–6** pools per tx) |
 | [NATIVE-AMM-CALLDATA.md](NATIVE-AMM-CALLDATA.md) | Native **constant-product pool** selectors, storage keys, **`Log2`**, access lists, CREATE2 salts |
 | [NATIVE-AMM-INTEGRATION-CHECKLIST.md](NATIVE-AMM-INTEGRATION-CHECKLIST.md) | End-to-end checklist: VM → SDK → wallet → boing.finance (+ optional LP vault / share token) |
 | [NATIVE-AMM-LP-VAULT.md](NATIVE-AMM-LP-VAULT.md) | Optional **LP vault** (`configure` / `deposit_add`) |
@@ -59,6 +59,8 @@ Start with [BOING-NETWORK-ESSENTIALS.md](BOING-NETWORK-ESSENTIALS.md) for the si
 | [OPS-FRESH-TESTNET-BOOTSTRAP.md](OPS-FRESH-TESTNET-BOOTSTRAP.md) | **New operator key** + CREATE2 manifest + `sync-canonical-testnet-manifest` when the old signing seed is lost or the chain is reset |
 | [OPS-CANONICAL-TESTNET-NATIVE-DEX-AUX.md](OPS-CANONICAL-TESTNET-NATIVE-DEX-AUX.md) | **Predicted CREATE2** addresses for factory / routers / LP vault / LP share (6913); `npm run audit-native-dex-testnet` |
 | [NATIVE-DEX-OPERATOR-DEPLOYMENT-RECORD.md](NATIVE-DEX-OPERATOR-DEPLOYMENT-RECORD.md) | **Your** pool / factory / router ids: template + env cheat sheet + worked example vs canonical JSON |
+| [NATIVE-DEX-FULL-STACK-OUTPUT.md](NATIVE-DEX-FULL-STACK-OUTPUT.md) | **`deploy-native-dex-full-stack`** JSON reference + mixed canonical/nonce topology |
+| [NATIVE-DEX-LIMITS-RATIONALE.md](NATIVE-DEX-LIMITS-RATIONALE.md) | **Why** native DEX differs from EVM (deploy path, multihop cap, CL, oracles) + extension cost |
 | [BOING-PATTERN-AMM-LIQUIDITY.md](BOING-PATTERN-AMM-LIQUIDITY.md) | Constant-product AMM pattern (VM contracts, access lists, QA) |
 | [BOING-PATTERN-ORACLE-PRICE-FEEDS.md](BOING-PATTERN-ORACLE-PRICE-FEEDS.md) | Oracle / price feeds (app layer, TWAP, multisig) |
 | [BOING-PATTERN-UPGRADE-PROXY.md](BOING-PATTERN-UPGRADE-PROXY.md) | Upgradeable / hub-pointer patterns vs QA |
@@ -82,6 +84,9 @@ Start with [BOING-NETWORK-ESSENTIALS.md](BOING-NETWORK-ESSENTIALS.md) for the si
 | [BOING-OBSERVER-AND-EXPRESS.md](BOING-OBSERVER-AND-EXPRESS.md) | **Part 1:** what’s in repo vs what to build for boing.observer and boing.express; **Part 2:** full boing.observer explorer spec and one-shot prompt |
 | [THREE-CODEBASE-ALIGNMENT.md](THREE-CODEBASE-ALIGNMENT.md) | **Sync checklist** for boing.network, boing.express, boing.observer (URLs, RPC, chain IDs, cross-links) |
 | [HANDOFF-DEPENDENT-PROJECTS.md](HANDOFF-DEPENDENT-PROJECTS.md) | **Cross-repo handoff:** what ships in this monorepo vs recommended work for **boing.express**, **boing.observer**, partner dApps |
+| [HANDOFF_NATIVE_DEX_DIRECTORY_R2_AND_CHAIN.md](HANDOFF_NATIVE_DEX_DIRECTORY_R2_AND_CHAIN.md) | **Native DEX directory Worker** (D1 + KV), optional R2 from **boing.finance** CI, protocol RPC/indexer follow-ups; **`npm run verify-native-dex-directory-worker`** |
+| [HANDOFF_BOING_FINANCE_NATIVE_DEX_AND_DIRECTORY.md](HANDOFF_BOING_FINANCE_NATIVE_DEX_AND_DIRECTORY.md) | **boing.finance handoff:** directory API env, SDK pagination, merge with indexer stats, pointers to protocol roadmap |
+| [PROTOCOL_NATIVE_DEX_RPC_AND_INDEXING_ROADMAP.md](PROTOCOL_NATIVE_DEX_RPC_AND_INDEXING_ROADMAP.md) | **Protocol draft:** unsigned simulate RPC, LP position model + vault routing, subgraph-class indexer — rollout checklists |
 | [DECENTRALIZATION-AND-NETWORKING.md](DECENTRALIZATION-AND-NETWORKING.md) | P2P, discovery, WebRTC signaling |
 | [WEBSITE-AND-DEPLOYMENT.md](WEBSITE-AND-DEPLOYMENT.md) | Website and Cloudflare deployment |
 | [NOTION-INTEGRATION-SETUP.md](NOTION-INTEGRATION-SETUP.md) | Notion integration |

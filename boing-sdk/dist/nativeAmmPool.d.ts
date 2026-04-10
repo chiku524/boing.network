@@ -33,6 +33,30 @@ export declare function buildNativeConstantProductContractCallTx(senderHex32: st
     };
 };
 /**
+ * Access list for **`contract_call`** into the native **multihop router**: signer, router, each pool in path order (deduped), then sorted extras (e.g. reference tokens).
+ */
+export declare function buildNativeDexMultihopRouterAccessList(senderHex32: string, routerHex32: string, poolHex32List: readonly string[], options?: NativePoolAccessListOptions): {
+    read: string[];
+    write: string[];
+};
+/** Multihop router **`contract_call`** with {@link buildNativeDexMultihopRouterAccessList}. */
+export declare function buildNativeDexMultihopRouterContractCallTx(senderHex32: string, routerHex32: string, calldataHex: string, poolHex32List: readonly string[], options?: NativePoolAccessListOptions): {
+    type: 'contract_call';
+    contract: string;
+    calldata: string;
+    access_list: {
+        read: string[];
+        write: string[];
+    };
+};
+/**
+ * Widen multihop router access list with `sim.suggested_access_list` (e.g. after `boing_simulateTransaction`).
+ */
+export declare function mergeNativeDexMultihopRouterAccessListWithSimulation(senderHex32: string, routerHex32: string, poolHex32List: readonly string[], sim: SimulateResult, options?: NativePoolAccessListOptions): {
+    read: string[];
+    write: string[];
+};
+/**
  * Widen `read`/`write` with `sim.suggested_access_list` (e.g. after `boing_simulateTransaction`).
  */
 export declare function mergeNativePoolAccessListWithSimulation(senderHex32: string, poolHex32: string, sim: SimulateResult, options?: NativePoolAccessListOptions): {

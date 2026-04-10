@@ -4,7 +4,7 @@ Bytecode: `native_dex_multihop_swap_router_bytecode()` in `crates/boing-executio
 
 ## Purpose
 
-Execute **2–4** native constant-product **`swap`** / **`swap_to`** calls **in one transaction**. Each hop uses the same **`Call`** pattern as [NATIVE-DEX-LEDGER-ROUTER.md](./NATIVE-DEX-LEDGER-ROUTER.md); the pool sees **`Caller` = this router** for every hop.
+Execute **2–6** native constant-product **`swap`** / **`swap_to`** calls **in one transaction**. Each hop uses the same **`Call`** pattern as [NATIVE-DEX-LEDGER-ROUTER.md](./NATIVE-DEX-LEDGER-ROUTER.md); the pool sees **`Caller` = this router** for every hop.
 
 ## Calldata
 
@@ -16,10 +16,21 @@ Execute **2–4** native constant-product **`swap`** / **`swap_to`** calls **in 
 | **`0xE8`** | 3 | **608** bytes | **160** |
 | **`0xE9`** | 4 | **672** bytes | **128** |
 | **`0xEA`** | 4 | **800** bytes | **160** |
+| **`0xEB`** | 5 | **832** bytes | **128** |
+| **`0xEC`** | 5 | **992** bytes | **160** |
+| **`0xED`** | 6 | **992** bytes | **128** |
+| **`0xEE`** | 6 | **1184** bytes | **160** |
 
 Layout: word0 = selector; then for each hop, one **pool** word (32 bytes) and one **inner** calldata slice (**128** or **160** bytes).
 
-Rust: `encode_swap2_router_calldata_*`, `encode_swap3_router_calldata_*`, `encode_swap4_router_calldata_*`. TypeScript: `boing-sdk` `nativeDexSwap2Router.ts` (same module name; includes 3–4 hop encoders).
+Rust: `encode_swap2_router_calldata_*` … `encode_swap6_router_calldata_*`. TypeScript: `boing-sdk` `nativeDexSwap2Router.ts` (same module name; includes 3–6 hop encoders).
+
+## SDK (routing + Express tx)
+
+- **`nativeDexRouting.ts`:** **`findBestCpRoutes`** (default max hops = **6**), **`minOutFloorAfterSlippageBps`** / **`minOutPerHopFromQuotedRouteSlippageBps`**, **`encodeNativeDexMultihopRouterCalldata128FromRoute`**, **`encodeNativeDexMultihopRouterCalldata160FromRoute`**, and **`…WithSlippage`** shortcuts.
+- **`nativeAmmPool.ts`:** **`buildNativeDexMultihopRouterAccessList`**, **`buildNativeDexMultihopRouterContractCallTx`**, **`mergeNativeDexMultihopRouterAccessListWithSimulation`**.
+- **`nativeDexSeamless.ts`:** **`buildNativeDexMultihopSwapExpressTxFromRoute128`** / **`buildNativeDexMultihopSwapExpressTxFromRoute160`** — pass **`minOutPerHop`** or **`slippageBps`** (explicit **`minOutPerHop`** wins when set); optional **`includeVenueTokenAccounts`** for v2 token **`CALL`** access lists; **`applyNativeDexMultihopSimulationToContractCallTx`** after **`boing_simulateTransaction`**.
+- **`pickFirstMultihopCpRoute`**, **`uniqueSortedTokenHex32FromCpRoute`** (`nativeDexRouting.ts`).
 
 ## CREATE2
 

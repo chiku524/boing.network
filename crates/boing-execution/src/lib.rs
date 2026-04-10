@@ -82,10 +82,13 @@ pub use native_dex_ledger_router::{
 pub use native_dex_multihop_swap_router::{
     encode_swap2_router_calldata_128, encode_swap2_router_calldata_160, encode_swap3_router_calldata_128,
     encode_swap3_router_calldata_160, encode_swap4_router_calldata_128, encode_swap4_router_calldata_160,
-    native_dex_multihop_swap_router_bytecode, native_dex_swap2_router_bytecode,
+    encode_swap5_router_calldata_128, encode_swap5_router_calldata_160, encode_swap6_router_calldata_128,
+    encode_swap6_router_calldata_160, native_dex_multihop_swap_router_bytecode, native_dex_swap2_router_bytecode,
     NATIVE_DEX_MULTIHOP_SWAP_ROUTER_CREATE2_SALT_V1, NATIVE_DEX_SWAP2_ROUTER_CREATE2_SALT_V1,
     SELECTOR_SWAP2_ROUTER_128, SELECTOR_SWAP2_ROUTER_160, SELECTOR_SWAP3_ROUTER_128,
     SELECTOR_SWAP3_ROUTER_160, SELECTOR_SWAP4_ROUTER_128, SELECTOR_SWAP4_ROUTER_160,
+    SELECTOR_SWAP5_ROUTER_128, SELECTOR_SWAP5_ROUTER_160, SELECTOR_SWAP6_ROUTER_128,
+    SELECTOR_SWAP6_ROUTER_160,
 };
 pub use native_lp_share_token::{
     encode_lp_share_mint_calldata, encode_lp_share_set_minter_once_calldata,

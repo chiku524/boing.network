@@ -9,6 +9,8 @@ import { encodeNativeAmmAddLiquidityCalldata } from '../src/nativeAmm.js';
 import {
   encodeNativeDexSwap3RouterCalldata128,
   encodeNativeDexSwap4RouterCalldata160,
+  encodeNativeDexSwap5RouterCalldata128,
+  encodeNativeDexSwap6RouterCalldata160,
 } from '../src/nativeDexSwap2Router.js';
 import {
   buildLpShareTokenAccessList,
@@ -33,6 +35,33 @@ describe('native multihop / LP vault / share calldata', () => {
     const cd = encodeNativeDexSwap4RouterCalldata160(p, inner160, p, inner160, p, inner160, p, inner160);
     expect(cd.length).toBe(800);
     expect(cd[31]).toBe(0xea);
+  });
+
+  it('encodeNativeDexSwap5RouterCalldata128 length is 832', () => {
+    const cd = encodeNativeDexSwap5RouterCalldata128(p, inner, p, inner, p, inner, p, inner, p, inner);
+    expect(cd.length).toBe(832);
+    expect(cd[31]).toBe(0xeb);
+  });
+
+  it('encodeNativeDexSwap6RouterCalldata160 length is 1184', () => {
+    const inner160 = new Uint8Array(160);
+    inner160[31] = 0x16;
+    const cd = encodeNativeDexSwap6RouterCalldata160(
+      p,
+      inner160,
+      p,
+      inner160,
+      p,
+      inner160,
+      p,
+      inner160,
+      p,
+      inner160,
+      p,
+      inner160
+    );
+    expect(cd.length).toBe(1184);
+    expect(cd[31]).toBe(0xee);
   });
 
   it('LP vault configure / deposit_add lengths', () => {

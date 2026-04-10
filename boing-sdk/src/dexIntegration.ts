@@ -38,28 +38,6 @@ function parseOptionalHex32(v: string | null | undefined): `0x${string}` | null 
 
 export type NativeDexDefaultSource = 'rpc_end_user' | 'sdk_testnet_embedded' | 'override' | 'none';
 
-function mergeOptionalAccountHex(
-  chainId: number | null,
-  override: string | undefined,
-  rpcField: string | null | undefined,
-  embeddedWhenTestnet: `0x${string}` | null
-): { hex: `0x${string}` | null; source: NativeDexDefaultSource } {
-  const o = override;
-  if (o?.trim()) {
-    try {
-      return { hex: validateHex32(o) as `0x${string}`, source: 'override' };
-    } catch {
-      return { hex: null, source: 'none' };
-    }
-  }
-  const rpc = parseOptionalHex32(rpcField ?? null);
-  if (rpc) return { hex: rpc, source: 'rpc_end_user' };
-  if (chainId != null && isBoingTestnetChainId(chainId) && embeddedWhenTestnet != null) {
-    return { hex: embeddedWhenTestnet, source: 'sdk_testnet_embedded' };
-  }
-  return { hex: null, source: 'none' };
-}
-
 /** Resolved pool / factory / router / LP helper accounts for native DEX UIs and calldata builders. */
 export type NativeDexIntegrationDefaults = {
   nativeCpPoolAccountHex: `0x${string}` | null;
@@ -90,10 +68,31 @@ export type NativeDexIntegrationOverrides = {
   nativeLpShareTokenAccountHex?: string;
 };
 
+function mergeOptionalAccountHex(
+  chainId: number | null,
+  override: string | undefined,
+  rpcField: string | null | undefined,
+  embeddedWhenTestnet: `0x${string}` | null,
+): { hex: `0x${string}` | null; source: NativeDexDefaultSource } {
+  const o = override;
+  if (o?.trim()) {
+    try {
+      return { hex: validateHex32(o) as `0x${string}`, source: 'override' };
+    } catch {
+      return { hex: null, source: 'none' };
+    }
+  }
+  const rpc = parseOptionalHex32(rpcField ?? null);
+  if (rpc) return { hex: rpc, source: 'rpc_end_user' };
+  if (chainId != null && isBoingTestnetChainId(chainId) && embeddedWhenTestnet != null) {
+    return { hex: embeddedWhenTestnet, source: 'sdk_testnet_embedded' };
+  }
+  return { hex: null, source: 'none' };
+}
+
 function getProcessEnvRecord(): Record<string, string | undefined> | undefined {
   if (typeof globalThis === 'undefined') return undefined;
-  const proc = (globalThis as unknown as { process?: { env?: Record<string, string | undefined> } })
-    .process;
+  const proc = (globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process;
   return proc?.env;
 }
 
@@ -167,7 +166,7 @@ export function buildNativeDexIntegrationOverridesFromProcessEnv(): NativeDexInt
  */
 export function mergeNativeDexIntegrationDefaults(
   info: NetworkInfo | null | undefined,
-  overrides?: NativeDexIntegrationOverrides
+  overrides?: NativeDexIntegrationOverrides,
 ): NativeDexIntegrationDefaults {
   const chainId = info?.chain_id ?? null;
   const eu = info?.end_user;
@@ -180,47 +179,42 @@ export function mergeNativeDexIntegrationDefaults(
   const vaultEmb = CANONICAL_BOING_TESTNET_NATIVE_AMM_LP_VAULT_HEX as `0x${string}`;
   const shareEmb = CANONICAL_BOING_TESTNET_NATIVE_LP_SHARE_TOKEN_HEX as `0x${string}`;
 
-  const pool = mergeOptionalAccountHex(
-    chainId,
-    overrides?.nativeCpPoolAccountHex,
-    eu?.canonical_native_cp_pool ?? null,
-    poolEmb
-  );
+  const pool = mergeOptionalAccountHex(chainId, overrides?.nativeCpPoolAccountHex, eu?.canonical_native_cp_pool ?? null, poolEmb);
   const factory = mergeOptionalAccountHex(
     chainId,
     overrides?.nativeDexFactoryAccountHex,
     eu?.canonical_native_dex_factory ?? null,
-    facEmb
+    facEmb,
   );
   const multihop = mergeOptionalAccountHex(
     chainId,
     overrides?.nativeDexMultihopSwapRouterAccountHex,
     eu?.canonical_native_dex_multihop_swap_router ?? null,
-    hopEmb
+    hopEmb,
   );
   const ledgerV2 = mergeOptionalAccountHex(
     chainId,
     overrides?.nativeDexLedgerRouterV2AccountHex,
     eu?.canonical_native_dex_ledger_router_v2 ?? null,
-    l2Emb
+    l2Emb,
   );
   const ledgerV3 = mergeOptionalAccountHex(
     chainId,
     overrides?.nativeDexLedgerRouterV3AccountHex,
     eu?.canonical_native_dex_ledger_router_v3 ?? null,
-    l3Emb
+    l3Emb,
   );
   const vault = mergeOptionalAccountHex(
     chainId,
     overrides?.nativeAmmLpVaultAccountHex,
     eu?.canonical_native_amm_lp_vault ?? null,
-    vaultEmb
+    vaultEmb,
   );
   const share = mergeOptionalAccountHex(
     chainId,
     overrides?.nativeLpShareTokenAccountHex,
     eu?.canonical_native_lp_share_token ?? null,
-    shareEmb
+    shareEmb,
   );
 
   let endUserExplorerUrl: string | null = null;
@@ -254,7 +248,7 @@ export function mergeNativeDexIntegrationDefaults(
 /** Fetch **`boing_getNetworkInfo`** and {@link mergeNativeDexIntegrationDefaults}. */
 export async function fetchNativeDexIntegrationDefaults(
   client: BoingClient,
-  overrides?: NativeDexIntegrationOverrides
+  overrides?: NativeDexIntegrationOverrides,
 ): Promise<NativeDexIntegrationDefaults> {
   const info = await client.getNetworkInfo();
   return mergeNativeDexIntegrationDefaults(info, overrides);
@@ -270,7 +264,7 @@ export async function fetchNativeDexFactoryRegisterLogs(
     factoryAccountHex: string;
     fromBlock: number;
     toBlock: number;
-  }
+  },
 ): Promise<NativeDexFactoryRegisterRpcParsed[]> {
   const factoryAccountHex = validateHex32(opts.factoryAccountHex);
   const raw = await getLogsChunked(
@@ -281,7 +275,7 @@ export async function fetchNativeDexFactoryRegisterLogs(
       address: factoryAccountHex,
       topics: [NATIVE_DEX_FACTORY_TOPIC_REGISTER_HEX, null, null],
     },
-    {}
+    {},
   );
   const out: NativeDexFactoryRegisterRpcParsed[] = [];
   for (const row of raw) {

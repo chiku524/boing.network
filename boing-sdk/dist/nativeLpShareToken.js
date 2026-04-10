@@ -5,6 +5,7 @@
  */
 import { mergeAccessListWithSimulation } from './accessList.js';
 import { bytesToHex, decodeBoingStorageWordAccountId, ensureHex, hexToBytes, validateHex32 } from './hex.js';
+import { decodeBoingStorageWordU128 } from './nativeAmmPool.js';
 /** `transfer(to, amount)` — **96** bytes. */
 export const SELECTOR_LP_SHARE_TRANSFER = 0x01;
 /** `mint(to, amount)` — **96** bytes; only minter may call. */
@@ -19,6 +20,33 @@ export const LP_SHARE_MINTER_KEY_U8 = (() => {
 })();
 /** `boing_getContractStorage` key for LP share **minter** (`native_lp_share_token::LP_SHARE_MINTER_KEY`). */
 export const LP_SHARE_MINTER_KEY_HEX = validateHex32(bytesToHex(LP_SHARE_MINTER_KEY_U8));
+/** XOR mask for balance slots (`native_lp_share_token::LP_SHARE_BALANCE_XOR`): UTF-8 `BOING_LP_SHARE_BAL_V1` zero-padded to 32 bytes. */
+const LP_SHARE_BALANCE_XOR_U8 = (() => {
+    const u8 = new Uint8Array(32);
+    u8.set(new TextEncoder().encode('BOING_LP_SHARE_BAL_V1'));
+    return u8;
+})();
+/**
+ * `boing_getContractStorage` key for **`holder`**'s LP share balance (`account_id ^ LP_SHARE_BALANCE_XOR`).
+ */
+export function lpShareTokenBalanceStorageKeyHex(holderHex32) {
+    const raw = validateHex32(holderHex32).slice(2).toLowerCase();
+    let out = '';
+    for (let i = 0; i < 32; i++) {
+        const b = parseInt(raw.slice(i * 2, i * 2 + 2), 16) ^ LP_SHARE_BALANCE_XOR_U8[i];
+        out += b.toString(16).padStart(2, '0');
+    }
+    return `0x${out}`;
+}
+/**
+ * Read **holder**'s LP share balance (u128 in storage word) from the share token contract.
+ */
+export async function fetchLpShareTokenBalanceRaw(client, shareTokenHex32, holderHex32) {
+    const share = validateHex32(shareTokenHex32);
+    const key = lpShareTokenBalanceStorageKeyHex(holderHex32);
+    const w = await client.getContractStorage(share, key);
+    return decodeBoingStorageWordU128(w.value);
+}
 /**
  * Read designated **minter** `AccountId` for the LP share token, or **`null`** if unset (all-zero word).
  */

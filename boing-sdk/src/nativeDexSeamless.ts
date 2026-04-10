@@ -5,13 +5,23 @@
 
 import type { BoingClient } from './client.js';
 import type { NativeDexIntegrationDefaults } from './dexIntegration.js';
-import { bytesToHex } from './hex.js';
+import { bytesToHex, validateHex32 } from './hex.js';
 import { encodeNativeAmmSwapCalldata } from './nativeAmm.js';
 import {
   buildNativeConstantProductContractCallTx,
+  buildNativeDexMultihopRouterContractCallTx,
+  mergeNativeDexMultihopRouterAccessListWithSimulation,
   type NativePoolAccessListOptions,
 } from './nativeAmmPool.js';
+import type { CpSwapRoute } from './nativeDexRouting.js';
+import {
+  encodeNativeDexMultihopRouterCalldata128FromRoute,
+  encodeNativeDexMultihopRouterCalldata160FromRoute,
+  minOutPerHopFromQuotedRouteSlippageBps,
+  uniqueSortedTokenHex32FromCpRoute,
+} from './nativeDexRouting.js';
 import { assertBoingRpcEnvironment, type BoingRpcPreflightError } from './preflightGate.js';
+import type { SimulateResult } from './types.js';
 
 /** Short line for tooltips / footers. */
 export const BOING_NATIVE_DEX_NOT_EVM_TAGLINE =
@@ -42,6 +52,11 @@ export function describeNativeDexDefaultGaps(defaults: NativeDexIntegrationDefau
   if (defaults.nativeDexFactoryAccountHex == null) {
     out.push(
       'No native DEX factory id: set BOING_CANONICAL_NATIVE_DEX_FACTORY on the node or pass a factory override so directory scans and pair resolution can run.',
+    );
+  }
+  if (defaults.nativeDexMultihopSwapRouterAccountHex == null) {
+    out.push(
+      'No native multihop swap router id: set BOING_CANONICAL_NATIVE_DEX_MULTIHOP_SWAP_ROUTER, use chain 6913 embedded fallback, or pass a router override to submit bundled multi-pool swaps in one tx.',
     );
   }
   return out;
@@ -95,5 +110,156 @@ export function buildNativeCpPoolSwapExpressTx(input: {
     input.poolHex32,
     calldata,
     input.poolAccessListOptions,
+  );
+}
+
+/** Multihop router **`contract_call`** from a quoted {@link CpSwapRoute} (**128-byte** pool inners). Pass **`minOutPerHop`** or **`slippageBps`** (explicit **`minOutPerHop`** wins when set). */
+export type BuildNativeDexMultihopSwapExpressTxFromRoute128Input = {
+  senderHex32: string;
+  routerHex32: string;
+  route: CpSwapRoute;
+  minOutPerHop?: readonly bigint[];
+  slippageBps?: bigint;
+  /**
+   * When **`true`**, append {@link uniqueSortedTokenHex32FromCpRoute} to **`additionalAccountsHex32`**
+   * (reference-token pools that **`CALL`** token contracts during **`swap`**).
+   */
+  includeVenueTokenAccounts?: boolean;
+  poolAccessListOptions?: NativePoolAccessListOptions;
+};
+
+/** Multihop router **`contract_call`** with **160-byte** **`swap_to`** inners (v5 pools). */
+export type BuildNativeDexMultihopSwapExpressTxFromRoute160Input =
+  BuildNativeDexMultihopSwapExpressTxFromRoute128Input & {
+    finalRecipientHex32: string;
+  };
+
+function mergeMultihopPoolAccessListOptions(
+  route: CpSwapRoute,
+  base: NativePoolAccessListOptions | undefined,
+  includeVenueTokenAccounts: boolean | undefined
+): NativePoolAccessListOptions | undefined {
+  const fromRoute = includeVenueTokenAccounts ? uniqueSortedTokenHex32FromCpRoute(route) : [];
+  const fromBase = base?.additionalAccountsHex32 ?? [];
+  if (fromRoute.length === 0 && fromBase.length === 0 && !base) return undefined;
+  if (fromRoute.length === 0 && fromBase.length === 0) return base;
+  const set = new Set<string>();
+  for (const x of fromBase) set.add(validateHex32(x).toLowerCase());
+  for (const x of fromRoute) set.add(x);
+  return {
+    ...base,
+    additionalAccountsHex32: [...set].sort(),
+  };
+}
+
+/**
+ * Recompute **`access_list`** after **`boing_simulateTransaction`** using {@link mergeNativeDexMultihopRouterAccessListWithSimulation}.
+ * **`poolHex32List`** and **`poolAccessListOptions`** should match the pools / extras used to build **`tx`**.
+ */
+export function applyNativeDexMultihopSimulationToContractCallTx(
+  tx: {
+    type: 'contract_call';
+    contract: string;
+    calldata: string;
+    access_list: { read: string[]; write: string[] };
+  },
+  input: {
+    senderHex32: string;
+    poolHex32List: readonly string[];
+    sim: SimulateResult;
+    poolAccessListOptions?: NativePoolAccessListOptions;
+  }
+): {
+  type: 'contract_call';
+  contract: string;
+  calldata: string;
+  access_list: { read: string[]; write: string[] };
+} {
+  const access_list = mergeNativeDexMultihopRouterAccessListWithSimulation(
+    input.senderHex32,
+    tx.contract,
+    input.poolHex32List,
+    input.sim,
+    input.poolAccessListOptions
+  );
+  return { ...tx, access_list };
+}
+
+function resolveMultihopMinOutPerHop(
+  route: CpSwapRoute,
+  minOutPerHop: readonly bigint[] | undefined,
+  slippageBps: bigint | undefined
+): bigint[] {
+  if (minOutPerHop != null) {
+    if (minOutPerHop.length !== route.hops.length) {
+      throw new RangeError('minOutPerHop length must match route.hops.length');
+    }
+    return [...minOutPerHop];
+  }
+  if (slippageBps !== undefined) {
+    return minOutPerHopFromQuotedRouteSlippageBps(route, slippageBps);
+  }
+  throw new Error('Pass minOutPerHop or slippageBps');
+}
+
+export function buildNativeDexMultihopSwapExpressTxFromRoute128(
+  input: BuildNativeDexMultihopSwapExpressTxFromRoute128Input
+): ReturnType<typeof buildNativeDexMultihopRouterContractCallTx> {
+  if (input.route.hops.length < 2) {
+    throw new RangeError('multihop route must have at least 2 hops');
+  }
+  const minOutPerHop = resolveMultihopMinOutPerHop(
+    input.route,
+    input.minOutPerHop,
+    input.slippageBps
+  );
+  const calldata = bytesToHex(
+    encodeNativeDexMultihopRouterCalldata128FromRoute(input.route, { minOutPerHop }),
+  );
+  const pools = input.route.hops.map((h) => h.venue.poolHex);
+  const poolOpts = mergeMultihopPoolAccessListOptions(
+    input.route,
+    input.poolAccessListOptions,
+    input.includeVenueTokenAccounts
+  );
+  return buildNativeDexMultihopRouterContractCallTx(
+    input.senderHex32,
+    input.routerHex32,
+    calldata,
+    pools,
+    poolOpts,
+  );
+}
+
+export function buildNativeDexMultihopSwapExpressTxFromRoute160(
+  input: BuildNativeDexMultihopSwapExpressTxFromRoute160Input
+): ReturnType<typeof buildNativeDexMultihopRouterContractCallTx> {
+  if (input.route.hops.length < 2) {
+    throw new RangeError('multihop route must have at least 2 hops');
+  }
+  const minOutPerHop = resolveMultihopMinOutPerHop(
+    input.route,
+    input.minOutPerHop,
+    input.slippageBps
+  );
+  const calldata = bytesToHex(
+    encodeNativeDexMultihopRouterCalldata160FromRoute(input.route, {
+      minOutPerHop,
+      routerAccountHex32: input.routerHex32,
+      finalRecipientHex32: input.finalRecipientHex32,
+    }),
+  );
+  const pools = input.route.hops.map((h) => h.venue.poolHex);
+  const poolOpts = mergeMultihopPoolAccessListOptions(
+    input.route,
+    input.poolAccessListOptions,
+    input.includeVenueTokenAccounts
+  );
+  return buildNativeDexMultihopRouterContractCallTx(
+    input.senderHex32,
+    input.routerHex32,
+    calldata,
+    pools,
+    poolOpts,
   );
 }
