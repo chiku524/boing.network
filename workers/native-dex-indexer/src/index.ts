@@ -5,6 +5,7 @@
  * - GET /v1/directory/pools?limit=&cursor= — cursor pagination (stable order by pool_hex)
  * - GET /v1/history/pool/{pool_hex}/events?limit=&cursor= — materialized Log2 snapshot (newest first)
  * - GET /v1/history/user/{caller}/events — caller-filtered pool Log2 snapshot
+ * - GET /v1/history/receipts?limit=&cursor=&topic0= — optional bounded execution-log snapshot (D1 migration 0006 + `NATIVE_DEX_INDEXER_RECEIPT_ARCHIVE_BLOCKS` > 0)
  * - GET /v1/lp/vault/{vault}/mapping — live vault → pool/share (model A)
  * - GET /v1/lp/positions?owner= — model A share positions for configured vault list
  * - GET /v1/lp/nft/positions?owner=&contract= — ERC-721 positions from D1 (when NFT contract configured)
@@ -16,6 +17,7 @@ import {
   buildDexOverridesFromPlainEnv,
   buildNativeDexIndexerStatsForClient,
   CANONICAL_BOING_TESTNET_NATIVE_AMM_LP_VAULT_HEX,
+  collectArchivedReceiptLogRows,
   collectNativeDexPoolEventsForPools,
   collectNftOwnersFromErc721Transfers,
   createClient,
@@ -30,11 +32,13 @@ import {
   listDirectoryNftPositionsPage,
   listDirectoryPoolEventsPage,
   listDirectoryPoolsPage,
+  listDirectoryReceiptLogsPage,
   listDirectoryUserEventsPage,
   syncDirectoryIndexerTip,
   syncDirectoryNftOwnersFromRows,
   syncDirectoryPoolEventsFromPayload,
   syncDirectoryPoolsFromPayload,
+  syncDirectoryReceiptLogsFromRows,
 } from './directoryD1';
 
 type Env = {
@@ -54,6 +58,11 @@ type Env = {
   NATIVE_DEX_INDEXER_LP_VAULT_HEX?: string;
   /** ERC-721 LP position NFT contract — enables Transfer indexing into D1. */
   NATIVE_DEX_INDEXER_LP_NFT_CONTRACT_HEX?: string;
+  /**
+   * When > 0, each sync archives execution logs from **`getBlockByHeight(..., include_receipts: true)`**
+   * for the last N blocks (bounded; requires D1 migration **`0006_directory_receipt_log.sql`**).
+   */
+  NATIVE_DEX_INDEXER_RECEIPT_ARCHIVE_BLOCKS?: string;
   /** Optional R2 binding for tiny JSON sync manifests (operator creates bucket + binding). */
   INDEXER_ARCHIVE_R2?: R2Bucket;
   [key: string]: string | KVNamespace | D1Database | R2Bucket | undefined;
@@ -205,6 +214,23 @@ async function persistDirectoryIfBound(env: Env, payload: Awaited<ReturnType<typ
     }
 
     try {
+      const receiptArchiveBlocks = parseIntOpt(env.NATIVE_DEX_INDEXER_RECEIPT_ARCHIVE_BLOCKS, 0);
+      if (head != null && Number.isFinite(head) && receiptArchiveBlocks > 0) {
+        const toB = Math.floor(head);
+        const fromB = Math.max(0, toB - receiptArchiveBlocks + 1);
+        const receiptRows = await collectArchivedReceiptLogRows(client, fromB, toB, {
+          maxConcurrent: 1,
+          maxRows: 5000,
+        });
+        await syncDirectoryReceiptLogsFromRows(db, payload.updatedAt, receiptRows);
+      } else {
+        await syncDirectoryReceiptLogsFromRows(db, payload.updatedAt, []);
+      }
+    } catch {
+      /* optional receipt archive; do not fail pool/NFT sync */
+    }
+
+    try {
       if (head == null || !Number.isFinite(head) || poolHexes.length === 0) {
         await syncDirectoryIndexerTip(db, payload.updatedAt, null, null, null);
       } else {
@@ -312,6 +338,20 @@ export default {
         });
       }
 
+      if (path === '/v1/history/receipts' && request.method === 'GET') {
+        const db = env.DIRECTORY_DB;
+        if (!db) {
+          return json({ error: 'D1 not configured (DIRECTORY_DB binding missing)' }, 503);
+        }
+        const page = await listDirectoryReceiptLogsPage(db, url);
+        return json({
+          api: 'boing-native-dex-directory/v1',
+          resource: 'receipt_logs',
+          schemaVersion: NATIVE_DEX_DIRECTORY_SCHEMA_VERSION,
+          ...page,
+        });
+      }
+
       const vaultMapMatch = /^\/v1\/lp\/vault\/(0x[0-9a-f]{64})\/mapping$/i.exec(path);
       if (vaultMapMatch && request.method === 'GET') {
         const client = createClient({ baseUrl: rpcBaseUrl(env) });
@@ -389,8 +429,10 @@ export default {
         if (!secret) {
           return json({ error: 'DIRECTORY_SYNC_SECRET not set on worker' }, 503);
         }
-        const auth = request.headers.get('Authorization') || '';
-        if (auth !== `Bearer ${secret}`) {
+        const authHeader = (request.headers.get('Authorization') || '').trim();
+        const bearerMatch = /^Bearer\s+(\S.*)$/i.exec(authHeader);
+        const token = bearerMatch ? bearerMatch[1]!.trim() : '';
+        if (token !== secret) {
           return json({ error: 'unauthorized' }, 401);
         }
         const payload = await buildPayload(env);
@@ -401,6 +443,7 @@ export default {
               poolCount: 0,
               eventCount: 0,
               nftOwnerRowCount: 0,
+              receiptLogCount: 0,
               latestSyncBatch: null,
               indexedTipHeight: null,
               indexedTipBlockHash: null,
@@ -413,6 +456,7 @@ export default {
           poolCount: meta.poolCount,
           eventCount: meta.eventCount,
           nftOwnerRowCount: meta.nftOwnerRowCount,
+          receiptLogCount: meta.receiptLogCount,
           latestSyncBatch: meta.latestSyncBatch,
           indexedTipHeight: meta.indexedTipHeight,
           indexedTipBlockHash: meta.indexedTipBlockHash,
@@ -436,7 +480,7 @@ export default {
         JSON.stringify({
           error: 'not_found',
           hint:
-            'GET /stats, GET /v1/directory/*, GET /v1/history/pool|user/{hex}/events, GET /v1/lp/vault/{vault}/mapping, GET /v1/lp/positions?owner=, GET /v1/lp/nft/positions?owner=&contract=, POST /v1/directory/sync',
+            'GET /stats, GET /v1/directory/*, GET /v1/history/pool|user/{hex}/events, GET /v1/history/receipts, GET /v1/lp/vault/{vault}/mapping, GET /v1/lp/positions?owner=, GET /v1/lp/nft/positions?owner=&contract=, POST /v1/directory/sync',
         }),
         { status: 404, headers: { 'Content-Type': 'application/json', ...corsJsonHeaders } },
       );

@@ -113,6 +113,12 @@ export function parseNativeDexDirectoryMetaResponse(data) {
         out.schemaVersion = schemaVersion;
     if (nftOwnerRowCount != null)
         out.nftOwnerRowCount = nftOwnerRowCount;
+    const receiptLogCount = data.receiptLogCount;
+    if (receiptLogCount != null && (typeof receiptLogCount !== 'number' || !Number.isFinite(receiptLogCount) || receiptLogCount < 0)) {
+        return null;
+    }
+    if (receiptLogCount != null)
+        out.receiptLogCount = receiptLogCount;
     return out;
 }
 /**

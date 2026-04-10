@@ -14,13 +14,23 @@ Serves JSON compatible with `REACT_APP_BOING_NATIVE_DEX_INDEXER_STATS_URL` on th
 
 2. **KV:** `wrangler.toml` binds `NATIVE_DEX_INDEXER_KV` (production + `preview_id` for `wrangler dev`). For another Cloudflare account, create namespaces and paste `id` / `preview_id`.
 
-3. **D1:** `wrangler.toml` binds `DIRECTORY_DB` → `boing-native-dex-directory`. For a new account: `npx wrangler d1 create boing-native-dex-directory` then `npx wrangler d1 migrations apply boing-native-dex-directory --remote` (runs `0001` → `0002` → `0003` from `migrations/`) and update `database_id`.
+3. **D1:** `wrangler.toml` binds `DIRECTORY_DB` → `boing-native-dex-directory`. For a new account: `npx wrangler d1 create boing-native-dex-directory` then `npx wrangler d1 migrations apply boing-native-dex-directory --remote` (runs `0001` … `0006` from `migrations/`) and update `database_id`.
 
 4. **Manual sync secret (optional):** `npx wrangler secret put DIRECTORY_SYNC_SECRET` — enables `POST /v1/directory/sync` with `Authorization: Bearer …`.
 
 5. Set any `REACT_APP_BOING_NATIVE_AMM_POOL` / factory overrides as Worker vars (same names as the frontend build).
 
 6. Deploy: `npm run deploy`
+
+### Where to set variables and secrets
+
+| Kind | Where |
+|------|--------|
+| **Secrets** (for example `DIRECTORY_SYNC_SECRET`) | Dashboard **Secret** type, **or** `npx wrangler secret put DIRECTORY_SYNC_SECRET` from this directory. Never put secrets in `wrangler.toml` or git. |
+| **Plain text vars** | **`[vars]` in `wrangler.toml`** (applied on `wrangler deploy`), **or** dashboard **Variables**, **or** `npx wrangler vars put KEY --value "..."` (Wrangler 4+). Use one source of truth to avoid conflicting values. |
+| **Local `wrangler dev`** | Copy `.dev.vars.example` to **`.dev.vars`** in this folder (same `KEY=value` lines as production). Wrangler ignores `.dev.vars` in git by default — do not commit real secrets. |
+
+Bindings (**D1**, **KV**, **R2**) are configured in `wrangler.toml`, not as arbitrary env strings.
 
 
 
@@ -30,7 +40,7 @@ Serves JSON compatible with `REACT_APP_BOING_NATIVE_DEX_INDEXER_STATS_URL` on th
 
 - `GET /stats` or `GET /` — full indexer JSON (cron + on-demand refresh into KV). Optional `pools_page`, `pools_page_size` (1–500) slices `pools` and adds `poolsPageMeta`.
 
-- `GET /v1/directory/meta` — `{ poolCount, eventCount?, latestSyncBatch, indexedTipHeight?, indexedTipBlockHash? }` from D1 (tip fields after `0003_pool_events_caller_and_tip.sql`).
+- `GET /v1/directory/meta` — `{ poolCount, eventCount?, nftOwnerRowCount?, receiptLogCount?, latestSyncBatch, indexedTipHeight?, indexedTipBlockHash?, indexedParentBlockHash? }` from D1 (tip + parent hash after migration `0004`; NFT count after `0005`; receipt count after `0006` when archiving is enabled).
 
 - `GET /v1/directory/pools?limit=&cursor=` — cursor pagination (default `limit` 20, max 100). First page: omit `cursor`. Next page: `cursor=<last poolHex from previous response>`.
 
@@ -38,9 +48,13 @@ Serves JSON compatible with `REACT_APP_BOING_NATIVE_DEX_INDEXER_STATS_URL` on th
 
 - `GET /v1/history/user/{caller_hex}/events?limit=&cursor=` — same snapshot; filtered by event **`caller`** (native AMM log topic1).
 
+- `GET /v1/history/receipts?limit=&cursor=&topic0=` — optional **bounded** execution-log rows from the last `NATIVE_DEX_INDEXER_RECEIPT_ARCHIVE_BLOCKS` heights (requires D1 `0006` and that var **> 0**). `topic0` optional filter (`0x` + 64 hex). Same snapshot / reorg caveats as pool events.
+
 - `GET /v1/lp/vault/{vault_hex}/mapping` — RPC read of vault configure storage (**model A**).
 
-- `GET /v1/lp/positions` — **`501`**; aggregated LP positions are not implemented on this Worker.
+- `GET /v1/lp/positions?owner=` — live RPC share balances for each vault in `NATIVE_DEX_INDEXER_LP_VAULT_HEXES` (or canonical testnet vault when unset).
+
+- `GET /v1/lp/nft/positions?owner=&contract=` — D1 rows from ERC-721 **`Transfer`** indexing when `NATIVE_DEX_INDEXER_LP_NFT_CONTRACT_HEX` is set (or pass `contract` query param).
 
 - `POST /v1/directory/sync` — rebuild indexer + refresh D1 (pools, events, tip row); requires `DIRECTORY_SYNC_SECRET` and `Authorization: Bearer <secret>`.
 
@@ -75,6 +89,7 @@ Cron (`*/15 * * * *`) refreshes KV **and** D1 when `DIRECTORY_DB` is bound.
 | `DIRECTORY_SYNC_SECRET` | **Secret** (not in `wrangler.toml`) for `POST /v1/directory/sync` |
 | `NATIVE_DEX_INDEXER_LP_VAULT_HEXES` | Comma-separated vault **`AccountId`** hex list for **`GET /v1/lp/positions`** (defaults to canonical testnet vault from **`boing-sdk`**) |
 | `NATIVE_DEX_INDEXER_LP_NFT_CONTRACT_HEX` | ERC-721 contract for LP NFT **`Transfer`** indexing + **`GET /v1/lp/nft/positions`** default `contract` |
+| `NATIVE_DEX_INDEXER_RECEIPT_ARCHIVE_BLOCKS` | When **> 0**, sync fills **`directory_receipt_log`** from blocks with receipts (default **0** = off; needs D1 migration **`0006`**) |
 | R2 `INDEXER_ARCHIVE_R2` | Optional binding in `wrangler.toml` — small JSON manifest per successful directory sync |
 
 ## Operator values to keep handy

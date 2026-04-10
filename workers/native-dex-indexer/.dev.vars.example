@@ -1,0 +1,16 @@
+# Copy to `.dev.vars` in this directory for `wrangler dev` (Wrangler gitignores `.dev.vars`).
+# Do not commit `.dev.vars` — it often holds secrets and account-specific URLs.
+
+# --- Optional secret (same name as production) ---
+# DIRECTORY_SYNC_SECRET=your-long-random-string
+
+# --- Plain vars (override wrangler.toml [vars] when needed) ---
+# BOING_TESTNET_RPC_URL=https://testnet-rpc.boing.network
+# NATIVE_DEX_INDEXER_RPC_URL=
+# NATIVE_DEX_INDEXER_LOG_SCAN_BLOCKS=8000
+# NATIVE_DEX_INDEXER_REGISTER_FROM_BLOCK=0
+# NATIVE_DEX_INDEXER_LP_VAULT_HEXES=0x...
+# NATIVE_DEX_INDEXER_LP_NFT_CONTRACT_HEX=0x...
+# NATIVE_DEX_INDEXER_RECEIPT_ARCHIVE_BLOCKS=500
+# NATIVE_DEX_INDEXER_TOKEN_USD_JSON={"0x...":"1"}
+# NATIVE_DEX_INDEXER_TOKEN_DIRECTORY_JSON=[{"id":"0x...","symbol":"FOO"}]

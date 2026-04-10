@@ -358,6 +358,11 @@ export {
   collectNftOwnersFromErc721Transfers,
 } from './nativeDexNftIndexer.js';
 export {
+  type NativeDexArchivedReceiptLogRow,
+  type CollectArchivedReceiptLogRowsOptions,
+  collectArchivedReceiptLogRows,
+} from './nativeDexReceiptArchive.js';
+export {
   SELECTOR_OWNER_OF,
   SELECTOR_TRANSFER_NFT,
   SELECTOR_SET_METADATA_HASH,

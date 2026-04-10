@@ -4,6 +4,7 @@
  */
 import type {
   BoingClient,
+  NativeDexArchivedReceiptLogRow,
   NativeDexIndexerStatsPayload,
   NativeDexIndexedNftOwnerRow,
   NativeDexMaterializedPoolEvent,
@@ -127,6 +128,15 @@ export async function deleteAllDirectoryPoolEvents(db: D1Database): Promise<void
   await db.prepare(`DELETE FROM directory_pool_events`).run();
 }
 
+/** Wipe optional **`directory_receipt_log`** snapshot (same reorg path as pool events). */
+export async function deleteAllDirectoryReceiptLogs(db: D1Database): Promise<void> {
+  try {
+    await db.prepare(`DELETE FROM directory_receipt_log`).run();
+  } catch {
+    /* table missing before migration 0006 */
+  }
+}
+
 /**
  * If a row exists for height **H** with hash **H₀**, and **`getBlockByHeight(H)`** now returns **H₁ ≠ H₀**,
  * delete all **`directory_pool_events`** rows (next sync will refill the window).
@@ -143,6 +153,7 @@ export async function invalidateDirectoryPoolEventsIfTipReorged(db: D1Database, 
     if (nowHash == null) return false;
     if (nowHash === tip.tip_block_hash.toLowerCase()) return false;
     await deleteAllDirectoryPoolEvents(db);
+    await deleteAllDirectoryReceiptLogs(db);
     return true;
   } catch {
     return false;
@@ -192,6 +203,7 @@ export async function getDirectoryMeta(db: D1Database): Promise<{
   poolCount: number;
   eventCount: number;
   nftOwnerRowCount: number;
+  receiptLogCount: number;
   latestSyncBatch: string | null;
   indexedTipHeight: number | null;
   indexedTipBlockHash: string | null;
@@ -242,10 +254,19 @@ export async function getDirectoryMeta(db: D1Database): Promise<{
     nftOwnerRowCount = 0;
   }
 
+  let receiptLogCount = 0;
+  try {
+    const r = await db.prepare(`SELECT COUNT(*) AS c FROM directory_receipt_log`).first<{ c: number }>();
+    receiptLogCount = Number(r?.c ?? 0);
+  } catch {
+    receiptLogCount = 0;
+  }
+
   return {
     poolCount: Number(row?.c ?? 0),
     eventCount: Number(row?.ec ?? 0),
     nftOwnerRowCount: Number.isFinite(nftOwnerRowCount) ? nftOwnerRowCount : 0,
+    receiptLogCount: Number.isFinite(receiptLogCount) ? receiptLogCount : 0,
     latestSyncBatch: row?.batch ?? null,
     indexedTipHeight,
     indexedTipBlockHash,
@@ -563,5 +584,131 @@ export async function listDirectoryNftPositionsPage(
     nextCursor,
     hasMore,
     positions: page,
+  };
+}
+
+export async function syncDirectoryReceiptLogsFromRows(
+  db: D1Database,
+  batchId: string,
+  rows: readonly NativeDexArchivedReceiptLogRow[],
+): Promise<void> {
+  const now = new Date().toISOString();
+  if (rows.length === 0) {
+    try {
+      await db.prepare(`DELETE FROM directory_receipt_log`).run();
+    } catch {
+      /* table missing before migration 0006 */
+    }
+    return;
+  }
+
+  const stmts: D1PreparedStatement[] = [];
+  for (const r of rows) {
+    const rowJson = JSON.stringify(r);
+    stmts.push(
+      db
+        .prepare(
+          `INSERT INTO directory_receipt_log (block_height, block_hash, tx_id, log_index, topic0_hex, topics_json, data_hex, sync_batch_id, updated_at, row_json)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          r.blockHeight,
+          r.blockHash,
+          r.txId,
+          r.logIndex,
+          r.topic0Hex,
+          r.topicsJson,
+          r.dataHex,
+          batchId,
+          now,
+          rowJson,
+        ),
+    );
+  }
+
+  const CHUNK = 80;
+  for (let i = 0; i < stmts.length; i += CHUNK) {
+    await db.batch(stmts.slice(i, i + CHUNK));
+  }
+
+  try {
+    await db.prepare(`DELETE FROM directory_receipt_log WHERE sync_batch_id != ?`).bind(batchId).run();
+  } catch {
+    /* missing migration */
+  }
+}
+
+/**
+ * Paginated **`directory_receipt_log`** rows (newest **`id`** first).
+ * Optional **`topic0`** query: `0x` + 64 hex (log **`topic0`** filter).
+ */
+export async function listDirectoryReceiptLogsPage(
+  db: D1Database,
+  url: URL,
+): Promise<{
+  limit: number;
+  cursor: string | null;
+  nextCursor: string | null;
+  hasMore: boolean;
+  topic0: string | null;
+  logs: unknown[];
+}> {
+  let limit = parseInt(url.searchParams.get('limit') || String(DEFAULT_EVENTS_PAGE), 10);
+  if (!Number.isFinite(limit) || limit < 1) limit = DEFAULT_EVENTS_PAGE;
+  if (limit > MAX_EVENTS_PAGE) limit = MAX_EVENTS_PAGE;
+
+  const topic0Raw = (url.searchParams.get('topic0') || '').trim().toLowerCase();
+  const topic0Filter =
+    topic0Raw !== '' && /^0x[0-9a-f]{64}$/.test(topic0Raw) ? topic0Raw : null;
+  if (topic0Raw !== '' && topic0Filter == null) {
+    throw new Error('topic0 must be empty or 0x + 64 hex chars');
+  }
+
+  const cursorRaw = (url.searchParams.get('cursor') || '').trim();
+  let cursorId: number | null = null;
+  if (cursorRaw !== '') {
+    const n = parseInt(cursorRaw, 10);
+    if (!Number.isFinite(n) || n < 1) {
+      throw new Error('cursor must be a positive integer row id');
+    }
+    cursorId = n;
+  }
+
+  const take = limit + 1;
+  const { results } = await db
+    .prepare(
+      `SELECT id, row_json FROM directory_receipt_log
+       WHERE (? IS NULL OR topic0_hex = ?) AND (? IS NULL OR id < ?)
+       ORDER BY id DESC
+       LIMIT ?`,
+    )
+    .bind(topic0Filter, topic0Filter, cursorId, cursorId, take)
+    .all<{ id: number; row_json: string }>();
+
+  const rows = results ?? [];
+  const withIds: { id: number; row: unknown }[] = [];
+  for (const r of rows) {
+    try {
+      withIds.push({ id: r.id, row: JSON.parse(r.row_json) });
+    } catch {
+      /* skip */
+    }
+  }
+
+  const hasMore = withIds.length > limit;
+  const slice = hasMore ? withIds.slice(0, limit) : withIds;
+  const page = slice.map((x) => x.row);
+  let nextCursor: string | null = null;
+  if (hasMore && slice.length > 0) {
+    nextCursor = String(slice[slice.length - 1]!.id);
+  }
+
+  return {
+    limit,
+    cursor: cursorRaw || null,
+    nextCursor,
+    hasMore,
+    topic0: topic0Filter,
+    logs: page,
   };
 }

@@ -22,6 +22,8 @@ export type NativeDexDirectoryMetaResponse = {
     /** `header.parent_hash` at the indexed tip block when available. */
     indexedParentBlockHash?: string | null;
     nftOwnerRowCount?: number;
+    /** Rows in `directory_receipt_log` when migration `0006` is applied and receipt archiving is enabled. */
+    receiptLogCount?: number;
 };
 export type NativeDexDirectoryPoolsPageResponse = {
     api: string;

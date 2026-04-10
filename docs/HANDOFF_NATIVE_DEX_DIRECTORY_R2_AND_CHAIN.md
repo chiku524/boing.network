@@ -16,26 +16,29 @@ This document is for the **boing.network** AI / engineering agent and protocol o
 |--------|----------|---------|
 | `NATIVE_DEX_INDEXER_KV` | KV | Persisted indexer state key `native_dex_indexer_state_v1` (history, etc.) |
 | `DIRECTORY_DB` | **D1** `boing-native-dex-directory` | **Server-side pool directory** for cursor pagination |
+| `INDEXER_ARCHIVE_R2` | R2 (optional) | Tiny JSON sync manifests per successful directory sync |
 | `BOING_TESTNET_RPC_URL` | var | RPC base URL |
 
 **D1 database ID (production, ENAM):** `68eb37e6-f71c-47fa-9475-19d7a56b0db0`  
-**Migrations:** `0001_directory_pools.sql` → `0002_directory_pool_events.sql` ( **`directory_pool_events`** includes **`caller_hex`** ) → **`0003_pool_events_caller_and_tip.sql`** ( **`directory_indexer_tip`** + caller index). Apply in order on each D1 (`npx wrangler d1 migrations apply boing-native-dex-directory --remote` from `workers/native-dex-indexer/`).
+**Migrations:** `0001_directory_pools.sql` → `0002_directory_pool_events.sql` ( **`directory_pool_events`** includes **`caller_hex`** ) → **`0003_pool_events_caller_and_tip.sql`** ( **`directory_indexer_tip`** + caller index) → **`0004_indexer_tip_parent_hash.sql`** ( **`parent_block_hash`** on tip row) → **`0005_directory_nft_owner.sql`** (LP NFT owner snapshot) → **`0006_directory_receipt_log.sql`** (optional bounded execution-log archive). Apply in order on each D1 (`npx wrangler d1 migrations apply boing-native-dex-directory --remote` from `workers/native-dex-indexer/`).
 
 **HTTP routes:**
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/` or `/stats` | Full indexer JSON (same shape as `REACT_APP_BOING_NATIVE_DEX_INDEXER_STATS_URL`). Optional `?pools_page=&pools_page_size=` (1–500) slices `pools[]` only. |
-| GET | `/v1/directory/meta` | `{ api, resource?, poolCount, eventCount?, latestSyncBatch, indexedTipHeight?, indexedTipBlockHash? }` — D1 + tip row (migration **`0003`**). Tip fields are for **skew checks** vs chain, not a reorg guarantee. |
+| GET | `/v1/directory/meta` | `{ api, poolCount, eventCount?, nftOwnerRowCount?, receiptLogCount?, latestSyncBatch, indexedTipHeight?, indexedTipBlockHash?, indexedParentBlockHash? }` — D1 + tip row (**`0003`+**). Tip / parent-hash fields are for **skew checks** vs chain; shallow reorg at tip clears pool-event + receipt snapshots (see Worker `invalidateDirectoryPoolEventsIfTipReorged`). |
 | GET | `/v1/directory/pools?limit=&cursor=` | **Cursor pagination** over pools from the **last successful indexer sync** (`limit` default 20, max 100). `cursor` = previous page’s last `poolHex` (omit for first page). Response: `pools`, `nextCursor`, `hasMore`, `limit`, `cursor`. |
 | GET | `/v1/history/pool/{pool_hex}/events?limit=&cursor=` | **Snapshot only:** parsed **swap / addLiquidity / removeLiquidity** events for that pool from the last sync, over the configured **`NATIVE_DEX_INDEXER_LOG_SCAN_BLOCKS`** window (same depth as indexer stats). **`cursor`** = numeric D1 row **`id`** from **`nextCursor`**; default `limit` 50, max 200. **Not** reorg-safe canonical history — see [PROTOCOL_NATIVE_DEX_RPC_AND_INDEXING_ROADMAP.md](PROTOCOL_NATIVE_DEX_RPC_AND_INDEXING_ROADMAP.md) §3. |
 | GET | `/v1/history/user/{caller_hex}/events?limit=&cursor=` | Same snapshot window; events whose **`caller`** matches the account (native AMM **`Log2`** **`topic1`**). Not full receipt history. |
+| GET | `/v1/history/receipts?limit=&cursor=&topic0=` | Optional **bounded** execution-log rows from **`getBlockByHeight(..., include_receipts: true)`** for the last **`NATIVE_DEX_INDEXER_RECEIPT_ARCHIVE_BLOCKS`** heights when that var is **> 0** and D1 **`0006`** is applied. **`topic0`** optional (`0x` + 64 hex). Same snapshot semantics as pool events; **not** full-chain archive. |
 | GET | `/v1/lp/vault/{vault_hex}/mapping` | Live **`boing_getContractStorage`** via **`boing-sdk`** — **`configured`**, **`poolHex`**, **`shareTokenHex`**. |
-| GET | `/v1/lp/positions` | **`501`** + JSON **`detail`** — aggregated LP portfolio not implemented here (NFT enumeration / multi-vault scan needs a dedicated indexer or app logic). |
-| POST | `/v1/directory/sync` | Runs full indexer build + **refreshes D1** (pools, pool events, indexer tip row). Requires header `Authorization: Bearer <DIRECTORY_SYNC_SECRET>` and Worker secret `DIRECTORY_SYNC_SECRET` set. |
+| GET | `/v1/lp/positions?owner=` | Live RPC **model A** share rows for each vault in **`NATIVE_DEX_INDEXER_LP_VAULT_HEXES`** (comma-separated) or **`NATIVE_DEX_INDEXER_LP_VAULT_HEX`**, else canonical testnet vault from **`boing-sdk`**. |
+| GET | `/v1/lp/nft/positions?owner=&contract=` | D1 **`directory_nft_owner`** rows when **`NATIVE_DEX_INDEXER_LP_NFT_CONTRACT_HEX`** is set (or **`contract`** query param). |
+| POST | `/v1/directory/sync` | Runs full indexer build + **refreshes D1** (pools, pool events, NFT owners if configured, optional receipt archive, indexer tip row). Requires header `Authorization: Bearer <DIRECTORY_SYNC_SECRET>` and Worker secret `DIRECTORY_SYNC_SECRET` set. |
 | OPTIONS | `*` | CORS preflight for directory endpoints. |
 
-**Cron:** `*/15 * * * *` — runs `buildPayload` and, if `DIRECTORY_DB` is bound, **upserts D1** and deletes rows from older `sync_batch_id` values (full replace semantics per sync).
+**Cron:** `*/15 * * * *` — runs `buildPayload` and, if `DIRECTORY_DB` is bound, **upserts D1** and deletes rows from older `sync_batch_id` values (full replace semantics per sync), including optional receipt rows when **`NATIVE_DEX_INDEXER_RECEIPT_ARCHIVE_BLOCKS` > 0**.
 
 **Important:** Until the first cron run **or** a successful `POST /v1/directory/sync`, `poolCount` may be `0`. That is expected.
 
@@ -86,6 +89,15 @@ These are **not secrets**; save them where your team tracks infra (1Password not
 ---
 
 ## 2. What operators must do (terminal / dashboards)
+
+### 2.0 Where to set Worker environment variables and secrets
+
+| Kind | Where |
+|------|--------|
+| **Secrets** (for example **`DIRECTORY_SYNC_SECRET`**) | Dashboard **Secret**, **or** `npx wrangler secret put DIRECTORY_SYNC_SECRET` from `workers/native-dex-indexer/`. Never commit secret values. |
+| **Plain text vars** | **`wrangler.toml` `[vars]`** (applied on each **`wrangler deploy`**), **or** dashboard **Variables**, **or** `npx wrangler vars put …`. Same key in multiple places can cause confusion — prefer one source of truth. |
+| **Local `wrangler dev`** | Copy **`workers/native-dex-indexer/.dev.vars.example`** to **`.dev.vars`** in that folder. One `KEY=value` per line (same names as production). `.dev.vars` is gitignored — do not commit real secrets. |
+| **Bindings** (D1 **`DIRECTORY_DB`**, KV, R2) | **`wrangler.toml`** only (`[[d1_databases]]`, `[[kv_namespaces]]`, `[[r2_buckets]]`) — not arbitrary string env vars. |
 
 ### 2.1 One-time: Worker secret for manual D1 refresh
 

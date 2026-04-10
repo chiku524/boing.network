@@ -44,6 +44,7 @@ export { type NativeAmmVaultPoolResolution, type NativeDexLpVaultSharePositionFo
 export { type NativeDexMaterializedPoolEvent, type CollectNativeDexPoolEventsOptions, materializeNativeAmmPoolEvent, collectNativeDexPoolEventsForPools, hydrateNativeDexPoolEventsWithBlockHashes, } from './nativeDexPoolHistory.js';
 export { ERC721_TRANSFER_TOPIC0_HEX, tryParseErc721TransferRpcLog, filterMapErc721TransferRpcLogs, type Erc721TransferParsed, } from './erc721Logs.js';
 export { type NativeDexIndexedNftOwnerRow, type CollectNftOwnersFromErc721TransfersOptions, collectNftOwnersFromErc721Transfers, } from './nativeDexNftIndexer.js';
+export { type NativeDexArchivedReceiptLogRow, type CollectArchivedReceiptLogRowsOptions, collectArchivedReceiptLogRows, } from './nativeDexReceiptArchive.js';
 export { SELECTOR_OWNER_OF, SELECTOR_TRANSFER_NFT, SELECTOR_SET_METADATA_HASH, encodeReferenceOwnerOfCalldata, encodeReferenceTransferNftCalldata, encodeReferenceSetMetadataHashCalldata, encodeReferenceOwnerOfCalldataHex, } from './referenceNft.js';
 export { accountsFromSuggestedAccessList, mergeAccessListWithSimulation, accessListFromSimulation, simulationCoversSuggestedAccessList, } from './accessList.js';
 export { normalizeTopicWord, normalizeExecutionLog, logTopic0, iterReceiptLogs, logMatchesTopicFilter, filterReceiptLogsByTopic0, iterBlockReceiptLogs, } from './receiptLogs.js';

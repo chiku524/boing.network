@@ -67,6 +67,16 @@ describe('parseNativeDexDirectoryMetaResponse', () => {
     expect(p?.nftOwnerRowCount).toBe(0);
   });
 
+  it('accepts optional receiptLogCount', () => {
+    const p = parseNativeDexDirectoryMetaResponse({
+      api: NATIVE_DEX_DIRECTORY_API_ID,
+      poolCount: 0,
+      latestSyncBatch: null,
+      receiptLogCount: 12,
+    });
+    expect(p?.receiptLogCount).toBe(12);
+  });
+
   it('rejects wrong api id', () => {
     expect(parseNativeDexDirectoryMetaResponse({ api: 'other', poolCount: 0, latestSyncBatch: null })).toBeNull();
   });

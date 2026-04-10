@@ -1,0 +1,38 @@
+# Deploy Cloudflare Worker `boing-native-dex-indexer` (D1 directory + indexer JSON).
+# Requires repository secret CLOUDFLARE_API_TOKEN (same as Pages deploy). Secrets set
+# in the Cloudflare dashboard for the Worker (e.g. DIRECTORY_SYNC_SECRET) are not
+# overwritten by this job — only the script bundle and [vars] from wrangler.toml update.
+name: Deploy native-dex-indexer Worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "workers/native-dex-indexer/**"
+      - "boing-sdk/**"
+      - ".github/workflows/native-dex-indexer-worker.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workers/native-dex-indexer
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: workers/native-dex-indexer/package-lock.json
+
+      - name: Install and deploy
+        run: npm ci && npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # Same account as `.github/workflows/deploy-pages.yml` (Workers + Pages).
+          CLOUDFLARE_ACCOUNT_ID: "10374f367672f4d19db430601db0926b"

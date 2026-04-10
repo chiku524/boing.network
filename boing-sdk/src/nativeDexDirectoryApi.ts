@@ -27,6 +27,8 @@ export type NativeDexDirectoryMetaResponse = {
   /** `header.parent_hash` at the indexed tip block when available. */
   indexedParentBlockHash?: string | null;
   nftOwnerRowCount?: number;
+  /** Rows in `directory_receipt_log` when migration `0006` is applied and receipt archiving is enabled. */
+  receiptLogCount?: number;
 };
 
 export type NativeDexDirectoryPoolsPageResponse = {
@@ -164,6 +166,11 @@ export function parseNativeDexDirectoryMetaResponse(data: unknown): NativeDexDir
   }
   if (schemaVersion != null) out.schemaVersion = schemaVersion;
   if (nftOwnerRowCount != null) out.nftOwnerRowCount = nftOwnerRowCount;
+  const receiptLogCount = data.receiptLogCount;
+  if (receiptLogCount != null && (typeof receiptLogCount !== 'number' || !Number.isFinite(receiptLogCount) || receiptLogCount < 0)) {
+    return null;
+  }
+  if (receiptLogCount != null) out.receiptLogCount = receiptLogCount;
   return out;
 }
 
