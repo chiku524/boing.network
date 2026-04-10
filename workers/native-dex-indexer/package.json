@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "tail": "wrangler tail"
+    "tail": "wrangler tail",
+    "secret:directory-sync": "wrangler secret put DIRECTORY_SYNC_SECRET"
   },
   "dependencies": {
     "boing-sdk": "file:../../boing-sdk"

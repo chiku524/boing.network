@@ -94,7 +94,7 @@ These are **not secrets**; save them where your team tracks infra (1Password not
 
 | Kind | Where |
 |------|--------|
-| **Secrets** (for example **`DIRECTORY_SYNC_SECRET`**) | Dashboard **Secret**, **or** `npx wrangler secret put DIRECTORY_SYNC_SECRET` from `workers/native-dex-indexer/`. Never commit secret values. |
+| **Secrets** (for example **`DIRECTORY_SYNC_SECRET`**) | Dashboard **Secret**, **or** Wrangler from **`workers/native-dex-indexer/`** (`npm run secret:directory-sync`). From repo root use **`npx wrangler secret put DIRECTORY_SYNC_SECRET --cwd workers/native-dex-indexer`** or **`--name boing-native-dex-indexer`**. Never commit secret values. |
 | **Plain text vars** | **`wrangler.toml` `[vars]`** (applied on each **`wrangler deploy`**), **or** dashboard **Variables**, **or** `npx wrangler vars put …`. Same key in multiple places can cause confusion — prefer one source of truth. |
 | **Local `wrangler dev`** | Copy **`workers/native-dex-indexer/.dev.vars.example`** to **`.dev.vars`** in that folder. One `KEY=value` per line (same names as production). `.dev.vars` is gitignored — do not commit real secrets. |
 | **Bindings** (D1 **`DIRECTORY_DB`**, KV, R2) | **`wrangler.toml`** only (`[[d1_databases]]`, `[[kv_namespaces]]`, `[[r2_buckets]]`) — not arbitrary string env vars. |
@@ -103,9 +103,19 @@ These are **not secrets**; save them where your team tracks infra (1Password not
 
 ```bash
 cd boing.network/workers/native-dex-indexer
-npx wrangler secret put DIRECTORY_SYNC_SECRET
-# paste a long random string
+npm install   # once, so local wrangler is available
+npm run secret:directory-sync
+# paste a long random string when prompted
 ```
+
+From **repo root** (no `cd`):
+
+```bash
+npx wrangler secret put DIRECTORY_SYNC_SECRET --cwd workers/native-dex-indexer
+# or: npx wrangler secret put DIRECTORY_SYNC_SECRET --name boing-native-dex-indexer
+```
+
+Or from root **`package.json`**: `npm run native-dex-indexer-secret-put`.
 
 Then (example):
 

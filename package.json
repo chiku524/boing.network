@@ -45,6 +45,7 @@
     "probe-rpc": "node boing-sdk/scripts/probe-rpc.mjs",
     "rpc-endpoint-check": "node scripts/rpc-endpoint-check.mjs",
     "verify-native-dex-directory-worker": "npm run build --prefix boing-sdk && node scripts/verify-native-dex-directory-worker.mjs",
+    "native-dex-indexer-secret-put": "npm run secret:directory-sync --prefix workers/native-dex-indexer",
     "transfer": "npm run transfer --prefix examples/native-boing-tutorial"
   }
 }

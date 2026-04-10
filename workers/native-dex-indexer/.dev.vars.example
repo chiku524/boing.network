@@ -1,4 +1,6 @@
 # Copy to `.dev.vars` in this directory for `wrangler dev` (Wrangler gitignores `.dev.vars`).
+# For production secrets (`wrangler secret put`), run commands from this folder or use
+# `--cwd workers/native-dex-indexer` / `--name boing-native-dex-indexer` from repo root.
 # Do not commit `.dev.vars` — it often holds secrets and account-specific URLs.
 
 # --- Optional secret (same name as production) ---

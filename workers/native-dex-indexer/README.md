@@ -16,7 +16,7 @@ Serves JSON compatible with `REACT_APP_BOING_NATIVE_DEX_INDEXER_STATS_URL` on th
 
 3. **D1:** `wrangler.toml` binds `DIRECTORY_DB` → `boing-native-dex-directory`. For a new account: `npx wrangler d1 create boing-native-dex-directory` then `npx wrangler d1 migrations apply boing-native-dex-directory --remote` (runs `0001` … `0006` from `migrations/`) and update `database_id`.
 
-4. **Manual sync secret (optional):** `npx wrangler secret put DIRECTORY_SYNC_SECRET` — enables `POST /v1/directory/sync` with `Authorization: Bearer …`.
+4. **Manual sync secret (optional):** Wrangler must see **`workers/native-dex-indexer/wrangler.toml`** (Worker name **`boing-native-dex-indexer`**). From **this directory**: `npm run secret:directory-sync` (or `npx wrangler secret put DIRECTORY_SYNC_SECRET`). From **repo root**: `npx wrangler secret put DIRECTORY_SYNC_SECRET --cwd workers/native-dex-indexer` or `npx wrangler secret put DIRECTORY_SYNC_SECRET --name boing-native-dex-indexer`. Enables `POST /v1/directory/sync` with `Authorization: Bearer …`.
 
 5. Set any `REACT_APP_BOING_NATIVE_AMM_POOL` / factory overrides as Worker vars (same names as the frontend build).
 
@@ -26,7 +26,7 @@ Serves JSON compatible with `REACT_APP_BOING_NATIVE_DEX_INDEXER_STATS_URL` on th
 
 | Kind | Where |
 |------|--------|
-| **Secrets** (for example `DIRECTORY_SYNC_SECRET`) | Dashboard **Secret** type, **or** `npx wrangler secret put DIRECTORY_SYNC_SECRET` from this directory. Never put secrets in `wrangler.toml` or git. |
+| **Secrets** (for example `DIRECTORY_SYNC_SECRET`) | Dashboard **Secret**, **or** `npm run secret:directory-sync` from **`workers/native-dex-indexer/`** (not repo root unless you pass **`--cwd`** / **`--name`** — see setup step 4). Never put secrets in `wrangler.toml` or git. |
 | **Plain text vars** | **`[vars]` in `wrangler.toml`** (applied on `wrangler deploy`), **or** dashboard **Variables**, **or** `npx wrangler vars put KEY --value "..."` (Wrangler 4+). Use one source of truth to avoid conflicting values. |
 | **Local `wrangler dev`** | Copy `.dev.vars.example` to **`.dev.vars`** in this folder (same `KEY=value` lines as production). Wrangler ignores `.dev.vars` in git by default — do not commit real secrets. |
 
