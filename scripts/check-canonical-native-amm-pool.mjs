@@ -13,7 +13,8 @@
  * Optional strict mode (CI):
  *   BOING_REQUIRE_NONZERO_RESERVE=1  — exit 1 if reserve A word is all zeros (wrong chain, undeployed pool, or drained).
  *
- * Retries (transient HTML/WAF/5xx): BOING_RPC_RETRIES (default 3), BOING_RPC_RETRY_MS (default 2000, backoff × attempt).
+ * Retries (transient HTML/WAF/5xx/Cloudflare tunnel): BOING_RPC_RETRIES (default 5), BOING_RPC_RETRY_MS (default 3000, backoff × attempt).
+ * Cloudflare **530** (tunnel origin down) uses **retry_after** from the JSON body when present (seconds → ms, capped).
  *
  * Note: Without strict mode, all-zero reserve still exits 0 — RPC round-trip succeeded.
  * Compare with docs: docs/RPC-API-SPEC.md (Native constant-product AMM).
@@ -21,8 +22,9 @@
 const requireNonzeroReserve =
   process.env.BOING_REQUIRE_NONZERO_RESERVE === '1' ||
   process.env.BOING_REQUIRE_NONZERO_RESERVE === 'true';
+/** Align with `boing-sdk/src/canonicalTestnet.ts` `CANONICAL_BOING_TESTNET_NATIVE_CP_POOL_HEX`. */
 const DEFAULT_POOL =
-  '0xce4f819369630e89c4634112fdf01e1907f076bc30907f0402591abfca66518d';
+  '0x7247ddc3180fdc4d3fd1e716229bfa16bad334a07d28aa9fda9ad1bfa7bdacc3';
 /** `native_amm::reserve_a_key` — k[31] = 0x01 */
 const RESERVE_A_KEY = `0x${'00'.repeat(31)}01`;
 
@@ -30,11 +32,11 @@ const pool = (process.env.BOING_POOL_HEX ?? DEFAULT_POOL).trim();
 const base = (process.env.BOING_RPC_URL ?? 'https://testnet-rpc.boing.network/').replace(/\/$/, '');
 const rpcRetries = Math.max(
   1,
-  Math.min(8, parseInt(process.env.BOING_RPC_RETRIES ?? '3', 10) || 3),
+  Math.min(12, parseInt(process.env.BOING_RPC_RETRIES ?? '5', 10) || 5),
 );
 const rpcRetryMs = Math.max(
   200,
-  Math.min(30_000, parseInt(process.env.BOING_RPC_RETRY_MS ?? '2000', 10) || 2000),
+  Math.min(60_000, parseInt(process.env.BOING_RPC_RETRY_MS ?? '3000', 10) || 3000),
 );
 
 const UA = 'boing.network-check-canonical-pool/1.0 (CI JSON-RPC probe)';
@@ -121,6 +123,27 @@ async function rpcOnce(method, params) {
   return { ok: true, result: j.result };
 }
 
+/** Cloudflare / edge: tunnel unreachable (530), origin errors (52x). */
+function isRetryableHttpStatus(status) {
+  if (typeof status !== 'number') return false;
+  if (status === 429) return true;
+  if (status >= 520 && status <= 530) return true;
+  return status === 502 || status === 503 || status === 504;
+}
+
+/** Prefer operator-provided retry_after (seconds) from Cloudflare problem+json body. */
+function retryDelayMsFromError(err, fallbackMs) {
+  const j = err?.jsonrpc;
+  if (j && typeof j === 'object' && j !== null) {
+    const ra = /** @type {{ retry_after?: unknown }} */ (j).retry_after;
+    if (typeof ra === 'number' && Number.isFinite(ra) && ra > 0) {
+      const sec = ra > 500 ? ra / 1000 : ra;
+      return Math.min(180_000, Math.max(2000, Math.round(sec * 1000)));
+    }
+  }
+  return fallbackMs;
+}
+
 async function rpc(method, params) {
   let last = /** @type {{ ok: false, error: Record<string, unknown> }} */ ({
     ok: false,
@@ -129,16 +152,16 @@ async function rpc(method, params) {
   for (let attempt = 1; attempt <= rpcRetries; attempt += 1) {
     last = await rpcOnce(method, params);
     if (last.ok) return last;
+    const st = last.error?.httpStatus;
     const retryable =
-      last.error?.httpStatus === 429 ||
-      last.error?.httpStatus === 502 ||
-      last.error?.httpStatus === 503 ||
-      last.error?.httpStatus === 504 ||
+      isRetryableHttpStatus(st) ||
       (typeof last.error?.message === 'string' &&
         last.error.message.includes('HTML, not JSON')) ||
       last.error?.message === 'fetch failed';
     if (!retryable || attempt === rpcRetries) break;
-    await sleep(rpcRetryMs * attempt);
+    const backoff = rpcRetryMs * attempt;
+    const delay = retryDelayMsFromError(last.error, backoff);
+    await sleep(delay);
   }
   return last;
 }
