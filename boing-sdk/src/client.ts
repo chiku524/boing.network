@@ -28,6 +28,9 @@ import type {
   RpcOpenApiDocument,
   BoingRpcPreflightResult,
   ContractStorageWord,
+  DexPoolListPage,
+  DexTokenListPage,
+  DexTokenListRow,
   VerifyProofResult,
   OperatorApplyQaPolicyResult,
   QaRegistryResult,
@@ -686,6 +689,53 @@ export class BoingClient {
       validateHex32(hexContractId),
       validateHex32(hexKey32),
     ]);
+  }
+
+  /**
+   * Cursor-paginated native DEX pools (`boing_listDexPools`).
+   * Factory: **`params.factory`** (32-byte hex) overrides **`BOING_CANONICAL_NATIVE_DEX_FACTORY`**.
+   * Set **`light`** / **`enrich: false`** to skip receipt scan (**`createdAtHeight`** stays null).
+   * Each pool row includes **`tokenADecimals`** / **`tokenBDecimals`** (**`BOING_DEX_TOKEN_DECIMALS_JSON`**, default **18**).
+   */
+  async listDexPoolsPage(params?: {
+    cursor?: string | null;
+    limit?: number;
+    factory?: string;
+    /** Fast path: skip receipt scan (no **`createdAtHeight`**). */
+    light?: boolean;
+    /** When false, same as **`light: true`**. */
+    enrich?: boolean;
+    /** When true, response may include **`diagnostics`** (receipt scan counters). */
+    includeDiagnostics?: boolean;
+  }): Promise<DexPoolListPage> {
+    return this.request<DexPoolListPage>('boing_listDexPools', [params ?? {}]);
+  }
+
+  /**
+   * Cursor-paginated DEX-derived token universe (`boing_listDexTokens`).
+   * Optional **`minReserveProduct`** / **`minLiquidityWei`** are decimal digit strings (same as node).
+   * **`light`** skips receipt + deploy metadata scans (**`firstSeenHeight`** null, **`metadataSource`** abbrev-only).
+   */
+  async listDexTokensPage(params?: {
+    cursor?: string | null;
+    limit?: number;
+    factory?: string;
+    light?: boolean;
+    enrich?: boolean;
+    minReserveProduct?: string;
+    minLiquidityWei?: string;
+    includeDiagnostics?: boolean;
+  }): Promise<DexTokenListPage> {
+    return this.request<DexTokenListPage>('boing_listDexTokens', [params ?? {}]);
+  }
+
+  /** Single-token lookup in the DEX-derived universe (`boing_getDexToken`). */
+  async getDexToken(
+    idHex32: string,
+    options?: { factory?: string; light?: boolean; enrich?: boolean; includeDiagnostics?: boolean },
+  ): Promise<DexTokenListRow | null> {
+    const id = validateHex32(idHex32);
+    return this.request<DexTokenListRow | null>('boing_getDexToken', [{ id, ...options }]);
   }
 
   /** Simulate a transaction without applying it. Params: hex-encoded signed transaction. */

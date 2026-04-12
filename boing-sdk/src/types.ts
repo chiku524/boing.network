@@ -68,6 +68,64 @@ export interface BoingRpcPreflightResult {
   httpLiveJsonOk: boolean;
 }
 
+/** One row from **`boing_listDexPools`** (DEX-derived discovery). */
+export interface DexPoolListRow {
+  poolHex: string;
+  tokenAHex: string;
+  tokenBHex: string;
+  /** Token A decimals (**`BOING_DEX_TOKEN_DECIMALS_JSON`** or default **18**). */
+  tokenADecimals: number;
+  /** Token B decimals (**`BOING_DEX_TOKEN_DECIMALS_JSON`** or default **18**). */
+  tokenBDecimals: number;
+  feeBps: number;
+  reserveA: string;
+  reserveB: string;
+  /** Block height of a validated factory **`register_pair`** log for this pool, when known. */
+  createdAtHeight: number | null;
+}
+
+/** Optional scan counters when **`includeDiagnostics: true`** was sent on the request. */
+export interface DexDiscoveryPoolDiagnostics {
+  receiptScans: number;
+  receiptScanCapped: boolean;
+}
+
+/** Optional counters for token discovery (includes deploy metadata scan stats). */
+export interface DexDiscoveryTokenDiagnostics extends DexDiscoveryPoolDiagnostics {
+  deployBlocksScanned: number;
+  deployMetadataMatched: number;
+  deployMetadataUnmatchedWant: number;
+}
+
+/** One row from **`boing_listDexTokens`** (DEX-derived token universe). */
+export interface DexTokenListRow {
+  id: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  poolCount: number;
+  /** Minimum known pool registration height for this token in the directory, when known. */
+  firstSeenHeight: number | null;
+  /** `deploy` when **`symbol` / `name`** came from an on-chain metadata deploy scan; otherwise `abbrev`. */
+  metadataSource?: 'deploy' | 'abbrev';
+  /** Present on **`boing_getDexToken`** when **`includeDiagnostics: true`**. */
+  diagnostics?: DexDiscoveryTokenDiagnostics;
+}
+
+/** Paginated **`boing_listDexPools`** result. */
+export interface DexPoolListPage {
+  pools: DexPoolListRow[];
+  nextCursor: string | null;
+  diagnostics?: DexDiscoveryPoolDiagnostics;
+}
+
+/** Paginated **`boing_listDexTokens`** result. */
+export interface DexTokenListPage {
+  tokens: DexTokenListRow[];
+  nextCursor: string | null;
+  diagnostics?: DexDiscoveryTokenDiagnostics;
+}
+
 /** Result of `boing_getSyncState` — committed tip; `finalized_height` matches `head_height` until the node exposes pre-commit data. */
 export interface SyncState {
   head_height: number;

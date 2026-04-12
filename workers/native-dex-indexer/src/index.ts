@@ -1,6 +1,9 @@
 /**
  * Cloudflare Worker: native DEX indexer with KV-backed reserve history + D1 directory API.
- * - GET /stats, GET / — full indexer JSON (optional pools_page pools_page_size)
+ * - GET /stats, GET / — full indexer JSON: **`schemaVersion`: 1**, **`tokens`** (alias of **`tokenDirectory`**),
+ *   pools with **`reserveA` / `reserveB`** when available (aligns with `boing_listDexPools` / HANDOFF §4).
+ *   Pool rows may include **`createdAtHeight`**, **`tokenADecimals`**, **`tokenBDecimals`** when stats are built with **`buildNativeDexIndexerStatsForClient`** merging **`boing_listDexPools`** for the canonical factory.
+ *   Optional pools_page pools_page_size
  * - GET /v1/directory/meta — row counts + last sync batch id
  * - GET /v1/directory/pools?limit=&cursor= — cursor pagination (stable order by pool_hex)
  * - GET /v1/history/pool/{pool_hex}/events?limit=&cursor= — materialized Log2 snapshot (newest first)

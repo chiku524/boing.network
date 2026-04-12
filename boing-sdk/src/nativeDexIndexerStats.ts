@@ -5,6 +5,7 @@
 
 import type { BoingClient } from './client.js';
 import { fetchNativeDexIntegrationDefaults, type NativeDexIntegrationOverrides } from './dexIntegration.js';
+import { isBoingRpcMethodNotFound } from './errors.js';
 import { getLogsChunked, mapWithConcurrencyLimit } from './indexerBatch.js';
 import { fetchNativeDexDirectorySnapshot } from './nativeDexDirectory.js';
 import { filterMapNativeAmmRpcLogs } from './nativeAmmLogs.js';
@@ -60,6 +61,16 @@ export type NativeDexIndexerPoolRow = {
   poolHex: string;
   tokenAHex: string;
   tokenBHex: string;
+  /** From **`boing_listDexPools.createdAtHeight`** when the node supports discovery RPC (merged after stats build). */
+  createdAtHeight?: number;
+  /** From **`boing_listDexPools`** when merged (same source as **`tokenADecimals`** on RPC pool rows). */
+  tokenADecimals?: number;
+  /** From **`boing_listDexPools`** when merged. */
+  tokenBDecimals?: number;
+  /** On-chain reserve A (decimal string); aligns with `boing_listDexPools.reserveA` when present. */
+  reserveA?: string;
+  /** On-chain reserve B (decimal string); aligns with `boing_listDexPools.reserveB` when present. */
+  reserveB?: string;
   /** Swaps in the full `[head - logScanBlocks + 1, head]` window. */
   swapCount: number;
   swapCount24h: number;
@@ -76,12 +87,19 @@ export type NativeDexIndexerPoolRow = {
 };
 
 export type NativeDexIndexerStatsPayload = {
+  /**
+   * HTTP discovery mirror version (`docs/HANDOFF_Boing_Network_Global_Token_Discovery.md` §4).
+   * Present on indexer **`/stats`** payloads built by **`buildNativeDexIndexerStatsForClient`**.
+   */
+  schemaVersion?: number;
   updatedAt: string;
   note: string;
   headHeight: number | null;
   pools: NativeDexIndexerPoolRow[];
   history: Record<string, NativeDexIndexerHistoryPoint[]>;
   tokenDirectory: NativeDexIndexerTokenMeta[];
+  /** Alias of **`tokenDirectory`** for RPC-aligned consumers (`boing_listDexTokens`-style naming). */
+  tokens?: NativeDexIndexerTokenMeta[];
 };
 
 function storageWordToAccountHex(valueHex: string | undefined): string | null {
@@ -331,6 +349,60 @@ export function buildDexOverridesFromPlainEnv(env: Record<string, string | undef
   return o;
 }
 
+type ListDexPoolsDiscoveryMerge = {
+  createdAtHeight?: number;
+  tokenADecimals?: number;
+  tokenBDecimals?: number;
+};
+
+async function mergePoolDiscoveryFromListDexPoolsRpc(
+  client: BoingClient,
+  factoryHex: string | null | undefined,
+  pools: NativeDexIndexerPoolRow[],
+): Promise<void> {
+  if (!factoryHex?.trim() || pools.length === 0) return;
+  let factoryNorm: string;
+  try {
+    factoryNorm = validateHex32(factoryHex.trim()) as string;
+  } catch {
+    return;
+  }
+  try {
+    const map = new Map<string, ListDexPoolsDiscoveryMerge>();
+    let cursor: string | null = null;
+    for (;;) {
+      const page = await client.listDexPoolsPage({ factory: factoryNorm, cursor, limit: 500 });
+      for (const p of page.pools) {
+        const k = p.poolHex.toLowerCase();
+        const cur: ListDexPoolsDiscoveryMerge = { ...map.get(k) };
+        if (typeof p.createdAtHeight === 'number' && Number.isFinite(p.createdAtHeight)) {
+          cur.createdAtHeight = p.createdAtHeight;
+        }
+        if (typeof p.tokenADecimals === 'number' && Number.isFinite(p.tokenADecimals)) {
+          cur.tokenADecimals = p.tokenADecimals;
+        }
+        if (typeof p.tokenBDecimals === 'number' && Number.isFinite(p.tokenBDecimals)) {
+          cur.tokenBDecimals = p.tokenBDecimals;
+        }
+        map.set(k, cur);
+      }
+      const next = page.nextCursor;
+      if (!next) break;
+      cursor = next;
+    }
+    for (const row of pools) {
+      const m = map.get(row.poolHex.toLowerCase());
+      if (!m) continue;
+      if (m.createdAtHeight !== undefined) row.createdAtHeight = m.createdAtHeight;
+      if (m.tokenADecimals !== undefined) row.tokenADecimals = m.tokenADecimals;
+      if (m.tokenBDecimals !== undefined) row.tokenBDecimals = m.tokenBDecimals;
+    }
+  } catch (e) {
+    if (isBoingRpcMethodNotFound(e)) return;
+    throw e;
+  }
+}
+
 /**
  * Core indexer run (RPC via `client`). Does not create the client.
  */
@@ -351,12 +423,14 @@ export async function buildNativeDexIndexerStatsForClient(
   const poolHex = d.nativeCpPoolAccountHex;
   if (!poolHex) {
     return {
+      schemaVersion: 1,
       updatedAt: new Date().toISOString(),
       note: 'No native CP pool in RPC defaults / overrides',
       headHeight: null,
       pools: [],
       history: {},
       tokenDirectory: [],
+      tokens: [],
     };
   }
 
@@ -464,6 +538,8 @@ export async function buildNativeDexIndexerStatsForClient(
       poolHex: v.poolHex,
       tokenAHex: v.tokenAHex,
       tokenBHex: v.tokenBHex,
+      reserveA: v.reserveA.toString(),
+      reserveB: v.reserveB.toString(),
       swapCount,
       swapCount24h,
       swaps24h: swapCount24h,
@@ -487,12 +563,16 @@ export async function buildNativeDexIndexerStatsForClient(
   ];
   if (registerMeta) noteParts.push(`registerLogs ${JSON.stringify(registerMeta)}`);
 
+  await mergePoolDiscoveryFromListDexPoolsRpc(client, d.nativeDexFactoryAccountHex, pools);
+
   return {
+    schemaVersion: 1,
     updatedAt: new Date().toISOString(),
     note: noteParts.join(' · '),
     headHeight,
     pools,
     history,
     tokenDirectory,
+    tokens: tokenDirectory,
   };
 }

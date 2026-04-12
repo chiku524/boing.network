@@ -3,6 +3,7 @@
  * Used by boing.finance CLI/Pages and boing.network Cloudflare Workers (KV-backed history).
  */
 import { fetchNativeDexIntegrationDefaults } from './dexIntegration.js';
+import { isBoingRpcMethodNotFound } from './errors.js';
 import { getLogsChunked, mapWithConcurrencyLimit } from './indexerBatch.js';
 import { fetchNativeDexDirectorySnapshot } from './nativeDexDirectory.js';
 import { filterMapNativeAmmRpcLogs } from './nativeAmmLogs.js';
@@ -238,6 +239,58 @@ export function buildDexOverridesFromPlainEnv(env) {
         o.nativeLpShareTokenAccountHex = share;
     return o;
 }
+async function mergePoolDiscoveryFromListDexPoolsRpc(client, factoryHex, pools) {
+    if (!factoryHex?.trim() || pools.length === 0)
+        return;
+    let factoryNorm;
+    try {
+        factoryNorm = validateHex32(factoryHex.trim());
+    }
+    catch {
+        return;
+    }
+    try {
+        const map = new Map();
+        let cursor = null;
+        for (;;) {
+            const page = await client.listDexPoolsPage({ factory: factoryNorm, cursor, limit: 500 });
+            for (const p of page.pools) {
+                const k = p.poolHex.toLowerCase();
+                const cur = { ...map.get(k) };
+                if (typeof p.createdAtHeight === 'number' && Number.isFinite(p.createdAtHeight)) {
+                    cur.createdAtHeight = p.createdAtHeight;
+                }
+                if (typeof p.tokenADecimals === 'number' && Number.isFinite(p.tokenADecimals)) {
+                    cur.tokenADecimals = p.tokenADecimals;
+                }
+                if (typeof p.tokenBDecimals === 'number' && Number.isFinite(p.tokenBDecimals)) {
+                    cur.tokenBDecimals = p.tokenBDecimals;
+                }
+                map.set(k, cur);
+            }
+            const next = page.nextCursor;
+            if (!next)
+                break;
+            cursor = next;
+        }
+        for (const row of pools) {
+            const m = map.get(row.poolHex.toLowerCase());
+            if (!m)
+                continue;
+            if (m.createdAtHeight !== undefined)
+                row.createdAtHeight = m.createdAtHeight;
+            if (m.tokenADecimals !== undefined)
+                row.tokenADecimals = m.tokenADecimals;
+            if (m.tokenBDecimals !== undefined)
+                row.tokenBDecimals = m.tokenBDecimals;
+        }
+    }
+    catch (e) {
+        if (isBoingRpcMethodNotFound(e))
+            return;
+        throw e;
+    }
+}
 /**
  * Core indexer run (RPC via `client`). Does not create the client.
  */
@@ -252,12 +305,14 @@ export async function buildNativeDexIndexerStatsForClient(client, opts = {}) {
     const poolHex = d.nativeCpPoolAccountHex;
     if (!poolHex) {
         return {
+            schemaVersion: 1,
             updatedAt: new Date().toISOString(),
             note: 'No native CP pool in RPC defaults / overrides',
             headHeight: null,
             pools: [],
             history: {},
             tokenDirectory: [],
+            tokens: [],
         };
     }
     const row = await fetchNativeCpPoolTokenRow(client, poolHex);
@@ -356,6 +411,8 @@ export async function buildNativeDexIndexerStatsForClient(client, opts = {}) {
             poolHex: v.poolHex,
             tokenAHex: v.tokenAHex,
             tokenBHex: v.tokenBHex,
+            reserveA: v.reserveA.toString(),
+            reserveB: v.reserveB.toString(),
             swapCount,
             swapCount24h,
             swaps24h: swapCount24h,
@@ -377,12 +434,15 @@ export async function buildNativeDexIndexerStatsForClient(client, opts = {}) {
     ];
     if (registerMeta)
         noteParts.push(`registerLogs ${JSON.stringify(registerMeta)}`);
+    await mergePoolDiscoveryFromListDexPoolsRpc(client, d.nativeDexFactoryAccountHex, pools);
     return {
+        schemaVersion: 1,
         updatedAt: new Date().toISOString(),
         note: noteParts.join(' · '),
         headHeight,
         pools,
         history,
         tokenDirectory,
+        tokens: tokenDirectory,
     };
 }

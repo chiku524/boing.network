@@ -222,6 +222,24 @@
         "result": { "type": "object" }
       },
       {
+        "name": "boing_getDexToken",
+        "summary": "Single token row from the DEX-derived discovery universe. Factory: params.factory or BOING_CANONICAL_NATIVE_DEX_FACTORY. Optional light / enrich; includeDiagnostics for scan counters; BOING_DEX_TOKEN_DECIMALS_JSON overrides decimals.",
+        "params": { "type": "array", "minItems": 1, "maxItems": 1 },
+        "result": { "description": "Token object or JSON null when unknown", "type": ["object", "null"] }
+      },
+      {
+        "name": "boing_listDexPools",
+        "summary": "Cursor-paginated native DEX pools (directory + live reserves). Each row includes tokenADecimals/tokenBDecimals from BOING_DEX_TOKEN_DECIMALS_JSON (default 18). Factory: params.factory or env. Receipt-backed createdAtHeight unless light=true; BOING_DEX_DISCOVERY_MAX_RECEIPT_SCANS; includeDiagnostics.",
+        "params": { "type": "array", "minItems": 1, "maxItems": 1 },
+        "result": { "type": "object" }
+      },
+      {
+        "name": "boing_listDexTokens",
+        "summary": "DEX-derived token set with optional minReserveProduct / minLiquidityWei. Enriches from receipts + recent metadata deploys unless light=true. Factory: params.factory or env. includeDiagnostics; BOING_DEX_TOKEN_DECIMALS_JSON.",
+        "params": { "type": "array", "minItems": 1, "maxItems": 1 },
+        "result": { "type": "object" }
+      },
+      {
         "name": "boing_qaCheck",
         "summary": "Run QA checks on contract bytecode/metadata.",
         "params": { "type": "array", "minItems": 1 },
@@ -448,6 +466,100 @@
     },
     "components": {
       "schemas": {
+        "DexDiscoveryParams": {
+          "type": "object",
+          "description": "Params object for boing_listDexPools / boing_listDexTokens / boing_getDexToken (single-element JSON-RPC params array).",
+          "properties": {
+            "factory": { "type": "string", "description": "Optional 32-byte account id (hex); overrides BOING_CANONICAL_NATIVE_DEX_FACTORY." },
+            "cursor": { "type": ["string", "null"], "description": "Opaque pagination cursor." },
+            "limit": { "type": "integer", "minimum": 1, "maximum": 500, "description": "Page size (default 100)." },
+            "light": { "type": "boolean", "description": "When true, skip receipt + deploy scans (heights null; token metadataSource abbrev-only)." },
+            "enrich": { "type": "boolean", "description": "When false, same as light: true." },
+            "includeDiagnostics": { "type": "boolean", "description": "When true, include diagnostics counters on the result." },
+            "minReserveProduct": { "type": "string", "description": "listDexTokens only: decimal digit string u128 filter." },
+            "minLiquidityWei": { "type": "string", "description": "listDexTokens only: decimal digit string u128 per-leg minimum." },
+            "id": { "type": "string", "description": "getDexToken only: 32-byte token account id hex." }
+          }
+        },
+        "DexDiscoveryPoolDiagnostics": {
+          "type": "object",
+          "required": ["receiptScans", "receiptScanCapped"],
+          "properties": {
+            "receiptScans": { "type": "integer", "minimum": 0 },
+            "receiptScanCapped": { "type": "boolean" }
+          }
+        },
+        "DexDiscoveryTokenDiagnostics": {
+          "allOf": [
+            { "$ref": "#/components/schemas/DexDiscoveryPoolDiagnostics" },
+            {
+              "type": "object",
+              "required": ["deployBlocksScanned", "deployMetadataMatched", "deployMetadataUnmatchedWant"],
+              "properties": {
+                "deployBlocksScanned": { "type": "integer", "minimum": 0 },
+                "deployMetadataMatched": { "type": "integer", "minimum": 0 },
+                "deployMetadataUnmatchedWant": { "type": "integer", "minimum": 0 }
+              }
+            }
+          ]
+        },
+        "DexPoolListRow": {
+          "type": "object",
+          "required": [
+            "poolHex",
+            "tokenAHex",
+            "tokenBHex",
+            "tokenADecimals",
+            "tokenBDecimals",
+            "feeBps",
+            "reserveA",
+            "reserveB",
+            "createdAtHeight"
+          ],
+          "properties": {
+            "poolHex": { "type": "string" },
+            "tokenAHex": { "type": "string" },
+            "tokenBHex": { "type": "string" },
+            "tokenADecimals": { "type": "integer", "minimum": 0, "maximum": 255 },
+            "tokenBDecimals": { "type": "integer", "minimum": 0, "maximum": 255 },
+            "feeBps": { "type": "integer" },
+            "reserveA": { "type": "string" },
+            "reserveB": { "type": "string" },
+            "createdAtHeight": { "type": ["integer", "null"] }
+          }
+        },
+        "DexTokenListRow": {
+          "type": "object",
+          "required": ["id", "symbol", "name", "decimals", "poolCount", "firstSeenHeight", "metadataSource"],
+          "properties": {
+            "id": { "type": "string" },
+            "symbol": { "type": "string" },
+            "name": { "type": "string" },
+            "decimals": { "type": "integer", "minimum": 0, "maximum": 255 },
+            "poolCount": { "type": "integer", "minimum": 0 },
+            "firstSeenHeight": { "type": ["integer", "null"] },
+            "metadataSource": { "type": "string", "enum": ["deploy", "abbrev"] },
+            "diagnostics": { "$ref": "#/components/schemas/DexDiscoveryTokenDiagnostics" }
+          }
+        },
+        "DexPoolListPage": {
+          "type": "object",
+          "required": ["pools", "nextCursor"],
+          "properties": {
+            "pools": { "type": "array", "items": { "$ref": "#/components/schemas/DexPoolListRow" } },
+            "nextCursor": { "type": ["string", "null"] },
+            "diagnostics": { "$ref": "#/components/schemas/DexDiscoveryPoolDiagnostics" }
+          }
+        },
+        "DexTokenListPage": {
+          "type": "object",
+          "required": ["tokens", "nextCursor"],
+          "properties": {
+            "tokens": { "type": "array", "items": { "$ref": "#/components/schemas/DexTokenListRow" } },
+            "nextCursor": { "type": ["string", "null"] },
+            "diagnostics": { "$ref": "#/components/schemas/DexDiscoveryTokenDiagnostics" }
+          }
+        },
         "JsonRpcRequest": {
           "type": "object",
           "required": ["method"],

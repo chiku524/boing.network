@@ -128,6 +128,12 @@ export type {
   BoingRpcPreflightResult,
   AccessListJson,
   ContractStorageWord,
+  DexPoolListPage,
+  DexPoolListRow,
+  DexDiscoveryPoolDiagnostics,
+  DexDiscoveryTokenDiagnostics,
+  DexTokenListPage,
+  DexTokenListRow,
   GetLogsFilter,
   RpcLogEntry,
 } from './types.js';

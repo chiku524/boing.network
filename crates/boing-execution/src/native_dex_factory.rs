@@ -61,6 +61,25 @@ pub fn native_dex_factory_triplet_base_word() -> [u8; 32] {
     w
 }
 
+/// `SLOAD` key for **`token_a`** (**`field` 0**), **`token_b`** (**1**), or **`pool`** (**2**) at pair index **`index`** (0-based).
+///
+/// Matches the on-chain directory layout (`native_dex_factory_bytecode`): triplet offset is
+/// **`index * 4 + field`** added to [`native_dex_factory_triplet_base_word`] as a **256-bit** sum.
+#[must_use]
+pub fn native_dex_factory_triplet_storage_key(index: u64, field: u8) -> [u8; 32] {
+    assert!(field <= 2);
+    let mut w = native_dex_factory_triplet_base_word();
+    let mut addend: u128 = u128::from(index) * 4 + u128::from(field);
+    let mut carry: u128 = 0;
+    for i in (0..32).rev() {
+        let s = u128::from(w[i]) + (addend & 0xff) + carry;
+        w[i] = (s & 0xff) as u8;
+        carry = s >> 8;
+        addend >>= 8;
+    }
+    w
+}
+
 fn append_build_triplet_key(code: &mut Vec<u8>, mem_idx: u64, field: u8) {
     push32(code, &word_u64(mem_idx));
     code.push(Opcode::MLoad as u8);

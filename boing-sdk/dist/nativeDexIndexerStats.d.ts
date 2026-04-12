@@ -44,6 +44,16 @@ export type NativeDexIndexerPoolRow = {
     poolHex: string;
     tokenAHex: string;
     tokenBHex: string;
+    /** From **`boing_listDexPools.createdAtHeight`** when the node supports discovery RPC (merged after stats build). */
+    createdAtHeight?: number;
+    /** From **`boing_listDexPools`** when merged (same source as **`tokenADecimals`** on RPC pool rows). */
+    tokenADecimals?: number;
+    /** From **`boing_listDexPools`** when merged. */
+    tokenBDecimals?: number;
+    /** On-chain reserve A (decimal string); aligns with `boing_listDexPools.reserveA` when present. */
+    reserveA?: string;
+    /** On-chain reserve B (decimal string); aligns with `boing_listDexPools.reserveB` when present. */
+    reserveB?: string;
     /** Swaps in the full `[head - logScanBlocks + 1, head]` window. */
     swapCount: number;
     swapCount24h: number;
@@ -59,12 +69,19 @@ export type NativeDexIndexerPoolRow = {
     note: string;
 };
 export type NativeDexIndexerStatsPayload = {
+    /**
+     * HTTP discovery mirror version (`docs/HANDOFF_Boing_Network_Global_Token_Discovery.md` §4).
+     * Present on indexer **`/stats`** payloads built by **`buildNativeDexIndexerStatsForClient`**.
+     */
+    schemaVersion?: number;
     updatedAt: string;
     note: string;
     headHeight: number | null;
     pools: NativeDexIndexerPoolRow[];
     history: Record<string, NativeDexIndexerHistoryPoint[]>;
     tokenDirectory: NativeDexIndexerTokenMeta[];
+    /** Alias of **`tokenDirectory`** for RPC-aligned consumers (`boing_listDexTokens`-style naming). */
+    tokens?: NativeDexIndexerTokenMeta[];
 };
 export declare function parseNativeDexIndexerPersistedDoc(raw: string | null | undefined): NativeDexIndexerPersistedDoc;
 export declare function appendVenuesToHistoryDoc(doc: NativeDexIndexerPersistedDoc, venues: readonly CpPoolVenue[], headHeight: number, nowMs: number, maxPerPool?: number): NativeDexIndexerPersistedDoc;

@@ -16,8 +16,8 @@ use boing_execution::{
 use boing_node::rpc::rpc_router;
 use boing_node::security::RateLimitConfig;
 use boing_primitives::{
-    nonce_derived_contract_address, AccessList, Account, AccountId, AccountState, SignedTransaction,
-    Transaction, TransactionPayload,
+    nonce_derived_contract_address, AccessList, Account, AccountId, AccountState,
+    SignedTransaction, Transaction, TransactionPayload,
 };
 use boing_state::StateStore;
 use ed25519_dalek::SigningKey;
@@ -109,7 +109,10 @@ fn assert_factory_register_log3(
     let t0 = format!("0x{}", hex::encode(NATIVE_DEX_FACTORY_TOPIC_REGISTER));
     let mut found = false;
     for log in logs {
-        let topics = log.get("topics").and_then(|t| t.as_array()).expect("topics");
+        let topics = log
+            .get("topics")
+            .and_then(|t| t.as_array())
+            .expect("topics");
         if topics.len() != 3 {
             continue;
         }
@@ -132,7 +135,10 @@ fn assert_factory_register_log3(
 async fn native_dex_factory_deploy_register_and_query_via_rpc() {
     let signing_key = SigningKey::generate(&mut OsRng);
     let proposer = AccountId(signing_key.verifying_key().to_bytes());
-    let node = Arc::new(RwLock::new(node_with_proposer_key(&signing_key, 50_000_000)));
+    let node = Arc::new(RwLock::new(node_with_proposer_key(
+        &signing_key,
+        50_000_000,
+    )));
     let mut app = rpc_router(node.clone(), &RateLimitConfig::default(), None, None, None);
 
     let pool_bytecode = boing_execution::constant_product_pool_bytecode();
@@ -190,7 +196,8 @@ async fn native_dex_factory_deploy_register_and_query_via_rpc() {
     assert!(v1.get("error").is_none(), "{v1:?}");
     {
         let mut n = node.write().await;
-        n.produce_block_if_ready().expect("block with factory deploy");
+        n.produce_block_if_ready()
+            .expect("block with factory deploy");
     }
 
     let pool = nonce_derived_contract_address(&proposer, 0);
@@ -225,6 +232,10 @@ async fn native_dex_factory_deploy_register_and_query_via_rpc() {
         let mut n = node.write().await;
         n.produce_block_if_ready().expect("block with register");
     }
+    let register_block_height = {
+        let n = node.read().await;
+        n.chain.height()
+    };
 
     let r_reg = rpc_call(
         &mut app,
@@ -317,4 +328,174 @@ async fn native_dex_factory_deploy_register_and_query_via_rpc() {
     assert_eq!(&raw2[0..32], token_a.0.as_slice());
     assert_eq!(&raw2[32..64], token_b.0.as_slice());
     assert_eq!(&raw2[64..96], pool.0.as_slice());
+
+    let factory_hex = hex_account(&factory);
+    let pool_hex = hex_account(&pool);
+    let token_a_hex = hex_account(&token_a);
+    std::env::set_var("BOING_CANONICAL_NATIVE_DEX_FACTORY", &factory_hex);
+    let lp = rpc_call(
+        &mut app,
+        "boing_listDexPools",
+        serde_json::json!([{ "limit": 10 }]),
+    )
+    .await;
+    assert!(lp.get("error").is_none(), "{lp:?}");
+    let pools = lp
+        .get("result")
+        .and_then(|r| r.get("pools"))
+        .and_then(|p| p.as_array())
+        .expect("pools");
+    assert_eq!(pools.len(), 1);
+    assert_eq!(
+        pools[0].get("poolHex").and_then(|x| x.as_str()),
+        Some(pool_hex.as_str())
+    );
+    assert_eq!(
+        pools[0].get("tokenAHex").and_then(|x| x.as_str()),
+        Some(token_a_hex.as_str())
+    );
+    assert_eq!(
+        pools[0].get("tokenADecimals").and_then(|x| x.as_u64()),
+        Some(18)
+    );
+    assert_eq!(
+        pools[0].get("tokenBDecimals").and_then(|x| x.as_u64()),
+        Some(18)
+    );
+    assert_eq!(
+        pools[0].get("createdAtHeight").and_then(|x| x.as_u64()),
+        Some(register_block_height)
+    );
+
+    let lt = rpc_call(
+        &mut app,
+        "boing_listDexTokens",
+        serde_json::json!([{ "limit": 50 }]),
+    )
+    .await;
+    assert!(lt.get("error").is_none(), "{lt:?}");
+    let tokens = lt
+        .get("result")
+        .and_then(|r| r.get("tokens"))
+        .and_then(|p| p.as_array())
+        .expect("tokens");
+    assert_eq!(tokens.len(), 2);
+    for t in tokens {
+        assert_eq!(
+            t.get("firstSeenHeight").and_then(|x| x.as_u64()),
+            Some(register_block_height)
+        );
+        assert_eq!(
+            t.get("metadataSource").and_then(|x| x.as_str()),
+            Some("abbrev")
+        );
+        assert_eq!(t.get("decimals").and_then(|x| x.as_u64()), Some(18));
+    }
+
+    let lt_diag = rpc_call(
+        &mut app,
+        "boing_listDexTokens",
+        serde_json::json!([{ "limit": 50, "includeDiagnostics": true }]),
+    )
+    .await;
+    assert!(lt_diag.get("error").is_none(), "{lt_diag:?}");
+    let d = lt_diag
+        .get("result")
+        .and_then(|r| r.get("diagnostics"))
+        .expect("diagnostics");
+    assert!(d.get("receiptScans").and_then(|x| x.as_u64()).unwrap_or(0) >= 1);
+    assert_eq!(
+        d.get("receiptScanCapped").and_then(|x| x.as_bool()),
+        Some(false)
+    );
+
+    let dec_json = serde_json::json!({ token_a_hex.clone(): 6 }).to_string();
+    std::env::set_var("BOING_DEX_TOKEN_DECIMALS_JSON", dec_json);
+    let lt_dec = rpc_call(
+        &mut app,
+        "boing_listDexTokens",
+        serde_json::json!([{ "limit": 50 }]),
+    )
+    .await;
+    assert!(lt_dec.get("error").is_none(), "{lt_dec:?}");
+    let tokens2 = lt_dec
+        .get("result")
+        .and_then(|r| r.get("tokens"))
+        .and_then(|p| p.as_array())
+        .expect("tokens2");
+    let row_a = tokens2
+        .iter()
+        .find(|t| t.get("id").and_then(|x| x.as_str()) == Some(token_a_hex.as_str()))
+        .expect("token a row");
+    assert_eq!(row_a.get("decimals").and_then(|x| x.as_u64()), Some(6));
+
+    let lp_dec = rpc_call(
+        &mut app,
+        "boing_listDexPools",
+        serde_json::json!([{ "limit": 10 }]),
+    )
+    .await;
+    assert!(lp_dec.get("error").is_none(), "{lp_dec:?}");
+    let pools_dec = lp_dec
+        .get("result")
+        .and_then(|r| r.get("pools"))
+        .and_then(|p| p.as_array())
+        .expect("pools_dec");
+    assert_eq!(
+        pools_dec[0].get("tokenADecimals").and_then(|x| x.as_u64()),
+        Some(6)
+    );
+    assert_eq!(
+        pools_dec[0].get("tokenBDecimals").and_then(|x| x.as_u64()),
+        Some(18)
+    );
+
+    let _ = std::env::remove_var("BOING_DEX_TOKEN_DECIMALS_JSON");
+
+    let gt = rpc_call(
+        &mut app,
+        "boing_getDexToken",
+        serde_json::json!([{ "id": token_a_hex.clone() }]),
+    )
+    .await;
+    assert!(gt.get("error").is_none(), "{gt:?}");
+    let one = gt.get("result").expect("result");
+    assert!(!one.is_null());
+    assert_eq!(
+        one.get("id").and_then(|x| x.as_str()),
+        Some(token_a_hex.as_str())
+    );
+    assert_eq!(
+        one.get("firstSeenHeight").and_then(|x| x.as_u64()),
+        Some(register_block_height)
+    );
+
+    let _ = std::env::remove_var("BOING_CANONICAL_NATIVE_DEX_FACTORY");
+    let lp2 = rpc_call(
+        &mut app,
+        "boing_listDexPools",
+        serde_json::json!([{ "factory": factory_hex.clone(), "limit": 5 }]),
+    )
+    .await;
+    assert!(lp2.get("error").is_none(), "{lp2:?}");
+    let pools2 = lp2
+        .get("result")
+        .and_then(|r| r.get("pools"))
+        .and_then(|p| p.as_array())
+        .expect("pools2");
+    assert_eq!(pools2.len(), 1);
+
+    let lp_light = rpc_call(
+        &mut app,
+        "boing_listDexPools",
+        serde_json::json!([{ "factory": factory_hex.clone(), "light": true, "limit": 5 }]),
+    )
+    .await;
+    assert!(lp_light.get("error").is_none(), "{lp_light:?}");
+    let p0 = &lp_light
+        .get("result")
+        .and_then(|r| r.get("pools"))
+        .and_then(|x| x.as_array())
+        .unwrap()[0];
+    assert!(p0.get("createdAtHeight").unwrap().is_null());
 }

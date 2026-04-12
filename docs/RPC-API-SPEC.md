@@ -125,7 +125,7 @@ Wallets and observers that need a single number for “how deep is my tx” can 
 
 Current `boing-node` implements these JSON-RPC methods (same set returned by **`boing_rpcSupportedMethods`**, sorted alphabetically):
 
-`boing_chainHeight`, `boing_clientVersion`, `boing_faucetRequest`, `boing_getAccount`, `boing_getAccountProof`, `boing_getBalance`, `boing_getBlockByHash`, `boing_getBlockByHeight`, `boing_getContractStorage`, `boing_getLogs`, `boing_getNetworkInfo`, `boing_getQaRegistry`, `boing_getRpcMethodCatalog`, `boing_getRpcOpenApi`, `boing_getSyncState`, `boing_getTransactionReceipt`, `boing_health`, `boing_operatorApplyQaPolicy`, `boing_qaCheck`, `boing_qaPoolConfig`, `boing_qaPoolList`, `boing_qaPoolVote`, `boing_registerDappMetrics`, `boing_rpcSupportedMethods`, `boing_simulateContractCall`, `boing_simulateTransaction`, `boing_submitIntent`, `boing_submitTransaction`, `boing_verifyAccountProof`.
+`boing_chainHeight`, `boing_clientVersion`, `boing_faucetRequest`, `boing_getAccount`, `boing_getAccountProof`, `boing_getBalance`, `boing_getBlockByHash`, `boing_getBlockByHeight`, `boing_getContractStorage`, `boing_getDexToken`, `boing_getLogs`, `boing_getNetworkInfo`, `boing_getQaRegistry`, `boing_getRpcMethodCatalog`, `boing_getRpcOpenApi`, `boing_getSyncState`, `boing_getTransactionReceipt`, `boing_health`, `boing_listDexPools`, `boing_listDexTokens`, `boing_operatorApplyQaPolicy`, `boing_qaCheck`, `boing_qaPoolConfig`, `boing_qaPoolList`, `boing_qaPoolVote`, `boing_registerDappMetrics`, `boing_rpcSupportedMethods`, `boing_simulateContractCall`, `boing_simulateTransaction`, `boing_submitIntent`, `boing_submitTransaction`, `boing_verifyAccountProof`.
 
 **Implementation:** `BOING_RPC_SUPPORTED_METHODS` in `crates/boing-node/src/rpc.rs` — keep this list, the router match arms, and this spec in sync when adding a method.
 
@@ -598,6 +598,31 @@ Read a single 32-byte Boing VM storage word for a contract (same semantics as `S
 
 ---
 
+### boing_listDexPools / boing_listDexTokens / boing_getDexToken
+
+First-class **DEX-derived discovery** (see [HANDOFF_Boing_Network_Global_Token_Discovery.md](HANDOFF_Boing_Network_Global_Token_Discovery.md)): pools and tokens come from the on-chain pair directory plus live pool storage reads — **not** “every ledger account.”
+
+| Field | Type | Description |
+|-------|------|-------------|
+| **Env** | — | **`BOING_CANONICAL_NATIVE_DEX_FACTORY`** (same id as **`boing_getNetworkInfo.end_user.canonical_native_dex_factory`**) when **`params.factory`** is omitted. If neither is set, these methods return **`-32000`**. Optional **`BOING_DEX_TOKEN_METADATA_SCAN_BLOCKS`** (default **8192**, max **500000**): how many recent blocks the node scans for **`ContractDeployWithPurposeAndMetadata`** (**`asset_symbol`** / **`asset_name`**) when enriching token rows. Optional **`BOING_DEX_DISCOVERY_MAX_RECEIPT_SCANS`**: max receipt rows examined per call for **`Log3`** register matching (default **500000**; set **`0`** for unlimited). Optional **`BOING_DEX_TOKEN_DECIMALS_JSON`**: JSON object **`{ "0x" + 64hex: number }`** overriding default **`decimals`** (**18**) for **`boing_listDexPools`** (**`tokenADecimals`** / **`tokenBDecimals`**), **`boing_listDexTokens`**, and **`boing_getDexToken`**. |
+| **Params** | `[object]` | Single JSON object (or `[object]` one-element array). Common fields: **`factory`** (optional **32-byte hex** directory id — overrides env for multi-directory / self-serve RPC), **`cursor`**, **`limit`**. **`light`: true** (or **`enrich`: false**) skips receipt + deploy scans: **`createdAtHeight`** / **`firstSeenHeight`** are JSON **`null`**, and token **`metadataSource`** is **`abbrev`** only. Token listing also accepts **`minReserveProduct`** and **`minLiquidityWei`** as **decimal digit strings** (unsigned integers). **`includeDiagnostics`: true** adds a top-level **`diagnostics`** object (pool and token responses) or embeds it on **`boing_getDexToken`** when present. |
+
+**Persistence:** When the node is started with a **data directory** and receipt persistence enabled, committed **`ExecutionReceipt`** blobs (**`receipts_{height}.bin`**) for heights **`0..=tip`** are loaded into the in-memory receipt map used by these methods, so **`createdAtHeight`** / **`firstSeenHeight`** reflect every receipt the process has loaded (same trust model as **`boing_getTransactionReceipt`** for those heights).
+
+**`boing_listDexPools` result:** `{ pools: [...], nextCursor: string | null }` — each pool has **`poolHex`**, **`tokenAHex`**, **`tokenBHex`**, **`tokenADecimals`** / **`tokenBDecimals`** (same resolution as token-list **`decimals`**: **`BOING_DEX_TOKEN_DECIMALS_JSON`**, default **18**), **`feeBps`**, **`reserveA`** / **`reserveB`** (decimal strings), and **`createdAtHeight`**: committed block height of a validated factory **`Log3`** register for that pool when known (else JSON **`null`**, e.g. **`light`** mode). Optional **`diagnostics`** when **`includeDiagnostics`** was set.
+
+**`boing_listDexTokens` result:** `{ tokens: [...], nextCursor: string | null }` — each token has **`id`**, **`symbol`**, **`name`**, **`decimals`**, **`poolCount`**, **`firstSeenHeight`** (minimum known pool registration height for that token, else **`null`**), and **`metadataSource`**: **`deploy`** when **`symbol` / `name`** were taken from a recent metadata deploy, else **`abbrev`**. **`nextCursor`** is the last token’s **`id`** when another page may exist; otherwise **`null`**. Optional **`diagnostics`** when **`includeDiagnostics`** was set.
+
+**`boing_getDexToken` params:** `{ "id": "0x" + 64 hex, "factory"?: ..., "light"?: bool, "includeDiagnostics"?: bool }` — **result** is one token object or JSON **`null`**. **`diagnostics`** may appear on the token object when requested.
+
+**Pagination cursors:** pool pages use opaque strings of the form **`i{start_index}`** (implementation detail; treat as opaque). Token pages use the last returned **`id`** as the next **`cursor`**.
+
+**SDK:** `BoingClient.listDexPoolsPage`, `listDexTokensPage`, `getDexToken`.
+
+**Regression:** `cargo test -p boing-node --test native_dex_factory_rpc_happy_path`.
+
+---
+
 ### Native constant-product AMM (chain 6913 — integration note)
 
 Wallets and dApps still **configure** the pool **`AccountId`** in their own env (the JSON-RPC methods are generic). For **public testnet**, operators maintain a single **canonical** pool id so tutorials and UIs can default to one known-good deployment.
@@ -620,7 +645,7 @@ Publish checklist (for **future** pool rotations): [OPS-CANONICAL-TESTNET-NATIVE
 
 ### Native DEX directory + ledger router (integration note)
 
-Multi-pair flows use **generic** JSON-RPC (`contract_call`, `getContractStorage`, `getLogs`, `simulateTransaction`) — no new method names. Specs and bytecode live in the node repo:
+Multi-pair flows use **generic** JSON-RPC (`contract_call`, `getContractStorage`, `getLogs`, `simulateTransaction`). Nodes with **`BOING_CANONICAL_NATIVE_DEX_FACTORY`** also expose **`boing_listDexPools`** / **`boing_listDexTokens`** / **`boing_getDexToken`** for cursor-paginated discovery (see above). Specs and bytecode live in the node repo:
 
 | Artifact | Doc | Notes |
 |----------|-----|--------|

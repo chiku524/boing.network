@@ -533,6 +533,28 @@ export class BoingClient {
             validateHex32(hexKey32),
         ]);
     }
+    /**
+     * Cursor-paginated native DEX pools (`boing_listDexPools`).
+     * Factory: **`params.factory`** (32-byte hex) overrides **`BOING_CANONICAL_NATIVE_DEX_FACTORY`**.
+     * Set **`light`** / **`enrich: false`** to skip receipt scan (**`createdAtHeight`** stays null).
+     * Each pool row includes **`tokenADecimals`** / **`tokenBDecimals`** (**`BOING_DEX_TOKEN_DECIMALS_JSON`**, default **18**).
+     */
+    async listDexPoolsPage(params) {
+        return this.request('boing_listDexPools', [params ?? {}]);
+    }
+    /**
+     * Cursor-paginated DEX-derived token universe (`boing_listDexTokens`).
+     * Optional **`minReserveProduct`** / **`minLiquidityWei`** are decimal digit strings (same as node).
+     * **`light`** skips receipt + deploy metadata scans (**`firstSeenHeight`** null, **`metadataSource`** abbrev-only).
+     */
+    async listDexTokensPage(params) {
+        return this.request('boing_listDexTokens', [params ?? {}]);
+    }
+    /** Single-token lookup in the DEX-derived universe (`boing_getDexToken`). */
+    async getDexToken(idHex32, options) {
+        const id = validateHex32(idHex32);
+        return this.request('boing_getDexToken', [{ id, ...options }]);
+    }
     /** Simulate a transaction without applying it. Params: hex-encoded signed transaction. */
     async simulateTransaction(hexSignedTx) {
         const hex = ensureHex(hexSignedTx);

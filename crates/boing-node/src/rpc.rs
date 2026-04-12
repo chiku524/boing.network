@@ -31,7 +31,9 @@ use std::num::NonZeroU32;
 use tokio::sync::{broadcast, Mutex as TokioMutex, RwLock};
 use tower::ServiceBuilder;
 use tower_http::cors::{AllowOrigin, CorsLayer};
-use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, RequestId, SetRequestIdLayer};
+use tower_http::request_id::{
+    MakeRequestUuid, PropagateRequestIdLayer, RequestId, SetRequestIdLayer,
+};
 use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::{DefaultOnFailure, DefaultOnRequest, DefaultOnResponse, TraceLayer};
 use tower_http::LatencyUnit;
@@ -44,8 +46,8 @@ use crate::node::{BoingNode, QaPoolVoteResult};
 use crate::security::RateLimitConfig;
 use boing_primitives::{
     create2_contract_address, nonce_derived_contract_address, AccessList, Account, AccountId,
-    AccountState, ExecutionLog, ExecutionReceipt, Hash, SignedIntent, SignedTransaction, Transaction,
-    TransactionPayload, MAX_EXECUTION_LOG_TOPICS,
+    AccountState, ExecutionLog, ExecutionReceipt, Hash, SignedIntent, SignedTransaction,
+    Transaction, TransactionPayload, MAX_EXECUTION_LOG_TOPICS,
 };
 use boing_qa::pool::{PoolError, QaPoolVote};
 use boing_qa::{
@@ -355,9 +357,9 @@ fn parse_at_block_for_simulate_contract_call(
         Some(serde_json::Value::Null) => Ok(()),
         Some(serde_json::Value::String(s)) if s.eq_ignore_ascii_case("latest") => Ok(()),
         Some(serde_json::Value::Number(n)) => {
-            let h = n.as_u64().ok_or_else(|| {
-                "at_block: height must be a non-negative integer".to_string()
-            })?;
+            let h = n
+                .as_u64()
+                .ok_or_else(|| "at_block: height must be a non-negative integer".to_string())?;
             if h != tip_height {
                 return Err(format!(
                     "at_block: only \"latest\", null, or current tip height {} is supported (got {})",
@@ -366,9 +368,9 @@ fn parse_at_block_for_simulate_contract_call(
             }
             Ok(())
         }
-        Some(_) => Err(
-            "at_block: expected null, \"latest\", or current tip height (integer)".to_string(),
-        ),
+        Some(_) => {
+            Err("at_block: expected null, \"latest\", or current tip height (integer)".to_string())
+        }
     }
 }
 
@@ -389,6 +391,7 @@ const BOING_RPC_SUPPORTED_METHODS: &[&str] = &[
     "boing_getBlockByHash",
     "boing_getBlockByHeight",
     "boing_getContractStorage",
+    "boing_getDexToken",
     "boing_getLogs",
     "boing_getNetworkInfo",
     "boing_getQaRegistry",
@@ -397,6 +400,8 @@ const BOING_RPC_SUPPORTED_METHODS: &[&str] = &[
     "boing_getSyncState",
     "boing_getTransactionReceipt",
     "boing_health",
+    "boing_listDexPools",
+    "boing_listDexTokens",
     "boing_operatorApplyQaPolicy",
     "boing_qaCheck",
     "boing_qaPoolConfig",
@@ -495,7 +500,10 @@ fn max_rpc_body_bytes() -> usize {
                 DEFAULT_MB * 1024 * 1024
             }
             Err(_) => {
-                tracing::warn!("BOING_RPC_MAX_BODY_MB invalid; using default {}", DEFAULT_MB);
+                tracing::warn!(
+                    "BOING_RPC_MAX_BODY_MB invalid; using default {}",
+                    DEFAULT_MB
+                );
                 DEFAULT_MB * 1024 * 1024
             }
         },
@@ -510,7 +518,10 @@ fn max_rpc_batch_len() -> usize {
     match std::env::var("BOING_RPC_MAX_BATCH") {
         Ok(s) => match s.trim().parse::<usize>() {
             Ok(0) => {
-                tracing::warn!("BOING_RPC_MAX_BATCH 0 is invalid; using default {}", DEFAULT);
+                tracing::warn!(
+                    "BOING_RPC_MAX_BATCH 0 is invalid; using default {}",
+                    DEFAULT
+                );
                 DEFAULT
             }
             Ok(n) => n.min(HARD_CAP),
@@ -537,7 +548,9 @@ fn max_ws_connections() -> usize {
                 n
             }
             Err(_) => {
-                tracing::warn!("BOING_RPC_WS_MAX_CONNECTIONS invalid; WebSocket connections unlimited");
+                tracing::warn!(
+                    "BOING_RPC_WS_MAX_CONNECTIONS invalid; WebSocket connections unlimited"
+                );
                 0
             }
         },
@@ -548,24 +561,22 @@ fn max_ws_connections() -> usize {
 /// When set, `GET /ready` returns **503** unless `connected_peers().len() >= N`. Unset = no peer check.
 fn ready_min_peers() -> Option<u32> {
     static PARSED: OnceLock<Option<u32>> = OnceLock::new();
-    *PARSED.get_or_init(|| {
-        match std::env::var("BOING_RPC_READY_MIN_PEERS") {
-            Ok(s) => match s.trim().parse::<u32>() {
-                Ok(0) => None,
-                Ok(n) => {
-                    tracing::info!(
-                        min_peers = n,
-                        "BOING_RPC_READY_MIN_PEERS: /ready requires at least this many P2P peers"
-                    );
-                    Some(n)
-                }
-                Err(_) => {
-                    tracing::warn!("BOING_RPC_READY_MIN_PEERS invalid; ignoring peer requirement");
-                    None
-                }
-            },
-            Err(_) => None,
-        }
+    *PARSED.get_or_init(|| match std::env::var("BOING_RPC_READY_MIN_PEERS") {
+        Ok(s) => match s.trim().parse::<u32>() {
+            Ok(0) => None,
+            Ok(n) => {
+                tracing::info!(
+                    min_peers = n,
+                    "BOING_RPC_READY_MIN_PEERS: /ready requires at least this many P2P peers"
+                );
+                Some(n)
+            }
+            Err(_) => {
+                tracing::warn!("BOING_RPC_READY_MIN_PEERS invalid; ignoring peer requirement");
+                None
+            }
+        },
+        Err(_) => None,
     })
 }
 
@@ -723,10 +734,9 @@ async fn map_payload_too_large_to_json(req: IncomingRequest, next: Next) -> Resp
         ),
         "request_id": rid,
     });
-    parts.headers.insert(
-        CONTENT_TYPE,
-        HeaderValue::from_static("application/json"),
-    );
+    parts
+        .headers
+        .insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
     Response::from_parts(parts, Body::from(body.to_string()))
 }
 
@@ -940,26 +950,20 @@ fn parse_qa_pool_vote(s: &str) -> Result<QaPoolVote, String> {
     }
 }
 
-
-async fn handle_rpc(
-    State(state): State<RpcState>,
-    headers: HeaderMap,
-    body: Bytes,
-) -> Response {
+async fn handle_rpc(State(state): State<RpcState>, headers: HeaderMap, body: Bytes) -> Response {
     let hdr_request_id = headers
         .get(HeaderName::from_static("x-request-id"))
         .and_then(|v| v.to_str().ok());
 
     if let Some(ref limiter) = state.rate_limiter {
         if limiter.check().is_err() {
-            state.rpc_metrics.rate_limited.fetch_add(1, Ordering::Relaxed);
+            state
+                .rpc_metrics
+                .rate_limited
+                .fetch_add(1, Ordering::Relaxed);
             return respond_jsonrpc_rate_limited(
                 "jsonrpc",
-                rpc_error(
-                    None,
-                    -32016,
-                    "Rate limit exceeded. Try again later.".into(),
-                ),
+                rpc_error(None, -32016, "Rate limit exceeded. Try again later.".into()),
                 hdr_request_id,
             );
         }
@@ -975,11 +979,7 @@ async fn handle_rpc(
             return respond_jsonrpc(
                 "jsonrpc",
                 StatusCode::OK,
-                rpc_error(
-                    None,
-                    -32700,
-                    format!("Parse error: {}", e),
-                ),
+                rpc_error(None, -32700, format!("Parse error: {}", e)),
             )
             .into_response();
         }
@@ -1015,11 +1015,7 @@ async fn handle_rpc(
                 let req = match serde_json::from_value::<JsonRpcRequest>(item) {
                     Ok(r) => r,
                     Err(_) => {
-                        out.push(rpc_error(
-                            None,
-                            -32600,
-                            "Invalid Request".into(),
-                        ));
+                        out.push(rpc_error(None, -32600, "Invalid Request".into()));
                         continue;
                     }
                 };
@@ -1044,11 +1040,7 @@ async fn handle_rpc(
                     return respond_jsonrpc(
                         "jsonrpc",
                         StatusCode::OK,
-                        rpc_error(
-                            None,
-                            -32600,
-                            format!("Invalid Request: {}", e),
-                        ),
+                        rpc_error(None, -32600, format!("Invalid Request: {}", e)),
                     )
                     .into_response();
                 }
@@ -1090,7 +1082,9 @@ async fn dispatch_jsonrpc_request(
             let hex_tx = match params {
                 Some(v) if !v.is_empty() => v[0].clone(),
                 _ => {
-                    return (StatusCode::OK, rpc_error(
+                    return (
+                        StatusCode::OK,
+                        rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_signed_tx]".into(),
@@ -1291,22 +1285,18 @@ async fn dispatch_jsonrpc_request(
             let registry = match rule_registry_from_json(reg_json.as_bytes()) {
                 Ok(r) => r,
                 Err(e) => {
-                    return (StatusCode::OK, rpc_error(
-                            id,
-                            -32602,
-                            format!("Invalid qa_registry JSON: {}", e),
-                        ),
+                    return (
+                        StatusCode::OK,
+                        rpc_error(id, -32602, format!("Invalid qa_registry JSON: {}", e)),
                     );
                 }
             };
             let pool_cfg = match qa_pool_config_from_json(pool_json.as_bytes()) {
                 Ok(c) => c,
                 Err(e) => {
-                    return (StatusCode::OK, rpc_error(
-                            id,
-                            -32602,
-                            format!("Invalid qa_pool_config JSON: {}", e),
-                        ),
+                    return (
+                        StatusCode::OK,
+                        rpc_error(id, -32602, format!("Invalid qa_pool_config JSON: {}", e)),
                     );
                 }
             };
@@ -1438,7 +1428,9 @@ async fn dispatch_jsonrpc_request(
             let hex_account = match params {
                 Some(v) if !v.is_empty() => v[0].clone(),
                 _ => {
-                    return (StatusCode::OK, rpc_error(
+                    return (
+                        StatusCode::OK,
+                        rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_account_id]".into(),
@@ -1469,7 +1461,9 @@ async fn dispatch_jsonrpc_request(
             let hex_account = match params {
                 Some(v) if !v.is_empty() => v[0].clone(),
                 _ => {
-                    return (StatusCode::OK, rpc_error(
+                    return (
+                        StatusCode::OK,
+                        rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_account_id]".into(),
@@ -1516,7 +1510,9 @@ async fn dispatch_jsonrpc_request(
             let (hex_contract, hex_key) = match params.as_ref() {
                 Some(v) if v.len() >= 2 => (v[0].clone(), v[1].clone()),
                 _ => {
-                    return (StatusCode::OK, rpc_error(
+                    return (
+                        StatusCode::OK,
+                        rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_contract_id, hex_storage_key]".into(),
@@ -1527,7 +1523,9 @@ async fn dispatch_jsonrpc_request(
             let contract_bytes = match hex::decode(hex_contract.trim_start_matches("0x")) {
                 Ok(b) if b.len() == 32 => b,
                 _ => {
-                    return (StatusCode::OK, rpc_error(
+                    return (
+                        StatusCode::OK,
+                        rpc_error(
                             id,
                             -32602,
                             "Invalid contract id: expected 32 bytes hex".into(),
@@ -1538,7 +1536,9 @@ async fn dispatch_jsonrpc_request(
             let key_bytes = match hex::decode(hex_key.trim_start_matches("0x")) {
                 Ok(b) if b.len() == 32 => b,
                 _ => {
-                    return (StatusCode::OK, rpc_error(
+                    return (
+                        StatusCode::OK,
+                        rpc_error(
                             id,
                             -32602,
                             "Invalid storage key: expected 32 bytes hex".into(),
@@ -1560,6 +1560,42 @@ async fn dispatch_jsonrpc_request(
                 }),
             )
         }
+        "boing_getDexToken" => {
+            let n = node.read().await;
+            match crate::native_dex_discovery::get_dex_token(
+                &n.state,
+                &n.receipts,
+                &n.chain,
+                &req.params,
+            ) {
+                Ok(v) => rpc_ok(id, v),
+                Err((code, msg)) => rpc_error(id, code, msg),
+            }
+        }
+        "boing_listDexPools" => {
+            let n = node.read().await;
+            match crate::native_dex_discovery::list_dex_pools(
+                &n.state,
+                &n.receipts,
+                &n.chain,
+                &req.params,
+            ) {
+                Ok(v) => rpc_ok(id, v),
+                Err((code, msg)) => rpc_error(id, code, msg),
+            }
+        }
+        "boing_listDexTokens" => {
+            let n = node.read().await;
+            match crate::native_dex_discovery::list_dex_tokens(
+                &n.state,
+                &n.receipts,
+                &n.chain,
+                &req.params,
+            ) {
+                Ok(v) => rpc_ok(id, v),
+                Err((code, msg)) => rpc_error(id, code, msg),
+            }
+        }
         "boing_getAccountProof" => {
             let params = req
                 .params
@@ -1567,7 +1603,9 @@ async fn dispatch_jsonrpc_request(
             let hex_account = match params {
                 Some(v) if !v.is_empty() => v[0].clone(),
                 _ => {
-                    return (StatusCode::OK, rpc_error(
+                    return (
+                        StatusCode::OK,
+                        rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_account_id]".into(),
@@ -1611,7 +1649,9 @@ async fn dispatch_jsonrpc_request(
             let (hex_proof, hex_root) = match params {
                 Some(v) if v.len() >= 2 => (v[0].clone(), v[1].clone()),
                 _ => {
-                    return (StatusCode::OK, rpc_error(
+                    return (
+                        StatusCode::OK,
+                        rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_proof, hex_state_root]".into(),
@@ -1643,7 +1683,9 @@ async fn dispatch_jsonrpc_request(
             let hex_tx = match params {
                 Some(v) if !v.is_empty() => v[0].clone(),
                 _ => {
-                    return (StatusCode::OK, rpc_error(
+                    return (
+                        StatusCode::OK,
+                        rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_signed_tx]".into(),
@@ -1729,7 +1771,11 @@ async fn dispatch_jsonrpc_request(
                 None => {
                     return (
                         StatusCode::OK,
-                        rpc_error(id, -32602, "contract must be a hex string (32-byte AccountId)".into()),
+                        rpc_error(
+                            id,
+                            -32602,
+                            "contract must be a hex string (32-byte AccountId)".into(),
+                        ),
                     );
                 }
             };
@@ -1803,7 +1849,8 @@ async fn dispatch_jsonrpc_request(
 
             let n = node.read().await;
             let tip_height = n.chain.height();
-            if let Err(msg) = parse_at_block_for_simulate_contract_call(at_block_param, tip_height) {
+            if let Err(msg) = parse_at_block_for_simulate_contract_call(at_block_param, tip_height)
+            {
                 return (StatusCode::OK, rpc_error(id, -32602, msg));
             }
             let ts = n
@@ -1835,17 +1882,11 @@ async fn dispatch_jsonrpc_request(
                     ),
                 );
             }
-            let nonce = state_copy
-                .get(&sender)
-                .map(|a| a.nonce)
-                .unwrap_or(0);
+            let nonce = state_copy.get(&sender).map(|a| a.nonce).unwrap_or(0);
             let tx_base = Transaction {
                 nonce,
                 sender,
-                payload: TransactionPayload::ContractCall {
-                    contract,
-                    calldata,
-                },
+                payload: TransactionPayload::ContractCall { contract, calldata },
                 access_list: AccessList::default(),
             };
             let access_list = tx_base.suggested_parallel_access_list();
@@ -1894,7 +1935,9 @@ async fn dispatch_jsonrpc_request(
             let height = match params.as_ref() {
                 Some(v) if !v.is_empty() => v[0].as_u64(),
                 _ => {
-                    return (StatusCode::OK, rpc_error(
+                    return (
+                        StatusCode::OK,
+                        rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [height] or [height, include_receipts]"
@@ -1906,7 +1949,9 @@ async fn dispatch_jsonrpc_request(
             let height = match height {
                 Some(h) => h,
                 None => {
-                    return (StatusCode::OK, rpc_error(id, -32602, "Invalid height: expected u64".into()),
+                    return (
+                        StatusCode::OK,
+                        rpc_error(id, -32602, "Invalid height: expected u64".into()),
                     );
                 }
             };
@@ -1949,11 +1994,9 @@ async fn dispatch_jsonrpc_request(
             let hex_id = match params {
                 Some(v) if !v.is_empty() => v[0].clone(),
                 _ => {
-                    return (StatusCode::OK, rpc_error(
-                            id,
-                            -32602,
-                            "Invalid params: expected [hex_tx_id]".into(),
-                        ),
+                    return (
+                        StatusCode::OK,
+                        rpc_error(id, -32602, "Invalid params: expected [hex_tx_id]".into()),
                     );
                 }
             };
@@ -1972,26 +2015,25 @@ async fn dispatch_jsonrpc_request(
             let params = req
                 .params
                 .and_then(|p| serde_json::from_value::<Vec<serde_json::Value>>(p).ok());
-            let filter_val = match params.as_ref().and_then(|v| v.first()) {
-                Some(v) => v.clone(),
-                None => {
-                    return (StatusCode::OK, rpc_error(
+            let filter_val =
+                match params.as_ref().and_then(|v| v.first()) {
+                    Some(v) => v.clone(),
+                    None => {
+                        return (StatusCode::OK, rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [filter_object] with fromBlock and toBlock"
                                 .into(),
                         ),
                     );
-                }
-            };
+                    }
+                };
             let filter: GetLogsFilterParams = match serde_json::from_value(filter_val) {
                 Ok(f) => f,
                 Err(e) => {
-                    return (StatusCode::OK, rpc_error(
-                            id,
-                            -32602,
-                            format!("Invalid getLogs filter: {}", e),
-                        ),
+                    return (
+                        StatusCode::OK,
+                        rpc_error(id, -32602, format!("Invalid getLogs filter: {}", e)),
                     );
                 }
             };
@@ -2004,12 +2046,16 @@ async fn dispatch_jsonrpc_request(
                 Err(e) => return (StatusCode::OK, rpc_error(id, -32602, e)),
             };
             if to_block < from_block {
-                return (StatusCode::OK, rpc_error(id, -32602, "toBlock must be >= fromBlock".into()),
+                return (
+                    StatusCode::OK,
+                    rpc_error(id, -32602, "toBlock must be >= fromBlock".into()),
                 );
             }
             let span = to_block.saturating_sub(from_block).saturating_add(1);
             if span > GET_LOGS_MAX_BLOCK_RANGE {
-                return (StatusCode::OK, rpc_error(
+                return (
+                    StatusCode::OK,
+                    rpc_error(
                         id,
                         -32602,
                         format!(
@@ -2116,11 +2162,15 @@ async fn dispatch_jsonrpc_request(
             let bytes = match hex::decode(hex_hash.trim_start_matches("0x")) {
                 Ok(b) if b.len() == 32 => b,
                 Ok(_) => {
-                    return (StatusCode::OK, rpc_error(id, -32602, "Hash must be 32 bytes".into()),
+                    return (
+                        StatusCode::OK,
+                        rpc_error(id, -32602, "Hash must be 32 bytes".into()),
                     );
                 }
                 Err(e) => {
-                    return (StatusCode::OK, rpc_error(id, -32602, format!("Invalid hex: {}", e)),
+                    return (
+                        StatusCode::OK,
+                        rpc_error(id, -32602, format!("Invalid hex: {}", e)),
                     );
                 }
             };
@@ -2163,7 +2213,9 @@ async fn dispatch_jsonrpc_request(
             let (hex_contract, hex_owner) = match params {
                 Some(v) if v.len() >= 2 => (v[0].clone(), v[1].clone()),
                 _ => {
-                    return (StatusCode::OK, rpc_error(
+                    return (
+                        StatusCode::OK,
+                        rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_contract, hex_owner]".into(),
@@ -2209,11 +2261,9 @@ async fn dispatch_jsonrpc_request(
             let bytecode = match hex::decode(hex_bytecode.trim_start_matches("0x")) {
                 Ok(b) => b,
                 Err(e) => {
-                    return (StatusCode::OK, rpc_error(
-                            id,
-                            -32602,
-                            format!("Invalid hex bytecode: {}", e),
-                        ),
+                    return (
+                        StatusCode::OK,
+                        rpc_error(id, -32602, format!("Invalid hex bytecode: {}", e)),
                     )
                 }
             };
@@ -2282,7 +2332,9 @@ async fn dispatch_jsonrpc_request(
             let hex_intent = match params {
                 Some(v) if !v.is_empty() => v[0].clone(),
                 _ => {
-                    return (StatusCode::OK, rpc_error(
+                    return (
+                        StatusCode::OK,
+                        rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_signed_intent]".into(),
@@ -2312,27 +2364,21 @@ async fn dispatch_jsonrpc_request(
         }
         "boing_faucetRequest" => {
             let Some(ref faucet_signer) = state.faucet_signer else {
-                return (StatusCode::OK, rpc_error(
-                        id,
-                        -32601,
-                        "Faucet not enabled on this node.".into(),
-                    ),
+                return (
+                    StatusCode::OK,
+                    rpc_error(id, -32601, "Faucet not enabled on this node.".into()),
                 );
             };
             let Some(ref cooldown) = state.faucet_cooldown else {
-                return (StatusCode::OK, rpc_error(
-                        id,
-                        -32601,
-                        "Faucet not enabled on this node.".into(),
-                    ),
+                return (
+                    StatusCode::OK,
+                    rpc_error(id, -32601, "Faucet not enabled on this node.".into()),
                 );
             };
             let Some(ref submit_lock) = state.faucet_submit_lock else {
-                return (StatusCode::OK, rpc_error(
-                        id,
-                        -32601,
-                        "Faucet not enabled on this node.".into(),
-                    ),
+                return (
+                    StatusCode::OK,
+                    rpc_error(id, -32601, "Faucet not enabled on this node.".into()),
                 );
             };
             let params = req
@@ -2341,7 +2387,9 @@ async fn dispatch_jsonrpc_request(
             let hex_account = match params {
                 Some(v) if !v.is_empty() => v[0].clone(),
                 _ => {
-                    return (StatusCode::OK, rpc_error(
+                    return (
+                        StatusCode::OK,
+                        rpc_error(
                             id,
                             -32602,
                             "Invalid params: expected [hex_account_id] (32 bytes hex)".into(),
@@ -2352,15 +2400,15 @@ async fn dispatch_jsonrpc_request(
             let to_bytes = match hex::decode(hex_account.trim_start_matches("0x")) {
                 Ok(b) if b.len() == 32 => b,
                 Ok(_) => {
-                    return (StatusCode::OK, rpc_error(
-                            id,
-                            -32602,
-                            "Account ID must be 32 bytes hex.".into(),
-                        ),
+                    return (
+                        StatusCode::OK,
+                        rpc_error(id, -32602, "Account ID must be 32 bytes hex.".into()),
                     )
                 }
                 Err(e) => {
-                    return (StatusCode::OK, rpc_error(id, -32602, format!("Invalid hex: {}", e)),
+                    return (
+                        StatusCode::OK,
+                        rpc_error(id, -32602, format!("Invalid hex: {}", e)),
                     );
                 }
             };
@@ -2373,7 +2421,9 @@ async fn dispatch_jsonrpc_request(
                 let map = cooldown.lock().unwrap();
                 if let Some(&last) = map.get(&to_id) {
                     if last.elapsed() < COOLDOWN {
-                        return (StatusCode::OK, rpc_error(
+                        return (
+                            StatusCode::OK,
+                            rpc_error(
                                 id,
                                 -32016,
                                 format!(
@@ -2393,21 +2443,19 @@ async fn dispatch_jsonrpc_request(
             let (chain_nonce, balance_ok) = match n.state.get(&faucet_id) {
                 Some(s) => (s.nonce, s.balance >= faucet::FAUCET_DISPENSE_AMOUNT),
                 None => {
-                    return (StatusCode::OK, rpc_error(
-                            id,
-                            -32000,
-                            "Faucet account not initialized.".into(),
-                        ),
+                    return (
+                        StatusCode::OK,
+                        rpc_error(id, -32000, "Faucet account not initialized.".into()),
                     );
                 }
             };
             if !balance_ok {
-                return (StatusCode::OK, rpc_error(id, -32000, "Faucet balance too low.".into()),
+                return (
+                    StatusCode::OK,
+                    rpc_error(id, -32000, "Faucet balance too low.".into()),
                 );
             }
-            let nonce = n
-                .mempool
-                .suggested_next_nonce(faucet_id, chain_nonce);
+            let nonce = n.mempool.suggested_next_nonce(faucet_id, chain_nonce);
             let tx = Transaction {
                 nonce,
                 sender: faucet_id,
@@ -2600,8 +2648,9 @@ pub fn rpc_router(
 
     let cors = build_rpc_cors_layer();
 
-    let rpc_version_hdr = HeaderValue::try_from(format!("boing-node/{}", env!("CARGO_PKG_VERSION")))
-        .expect("CARGO_PKG_VERSION produces valid header value");
+    let rpc_version_hdr =
+        HeaderValue::try_from(format!("boing-node/{}", env!("CARGO_PKG_VERSION")))
+            .expect("CARGO_PKG_VERSION produces valid header value");
 
     let ws_max_connections = max_ws_connections();
     let ws_active = Arc::new(AtomicUsize::new(0));
@@ -2623,10 +2672,7 @@ pub fn rpc_router(
         .route("/live.json", get(http_live).head(http_head_live))
         .route("/ready", get(http_ready).head(http_head_ready))
         .route("/ready.json", get(http_ready).head(http_head_ready))
-        .route(
-            "/ws",
-            get(crate::rpc_ws::ws_new_heads_upgrade),
-        )
+        .route("/ws", get(crate::rpc_ws::ws_new_heads_upgrade))
         .layer(
             ServiceBuilder::new()
                 .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
