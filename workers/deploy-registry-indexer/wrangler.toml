@@ -1,0 +1,29 @@
+# Indexes **all** `ContractDeploy` / `ContractDeployWithPurpose` / `ContractDeployWithPurposeAndMetadata`
+# transactions into D1 and serves paginated HTTP + optional SSE stream.
+#
+# Setup:
+# 1. `cd workers/deploy-registry-indexer && npm install`
+# 2. `npx wrangler d1 create boing-deploy-registry` → paste database_id below
+# 3. `npx wrangler d1 migrations apply boing-deploy-registry --local` (and `--remote` after deploy)
+# 4. Set DEPLOY_REGISTRY_RPC_URL (or use [vars] below) to your Boing JSON-RPC
+#
+name = "boing-deploy-registry-indexer"
+main = "src/index.ts"
+compatibility_date = "2026-03-06"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DEPLOY_REGISTRY_DB"
+database_name = "boing-deploy-registry"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+DEPLOY_REGISTRY_RPC_URL = "https://testnet-rpc.boing.network"
+# First height to index (inclusive). Omit or "0" = genesis.
+DEPLOY_REGISTRY_FROM_HEIGHT = "0"
+# Max blocks processed per cron tick (keep small for Worker CPU limits).
+DEPLOY_REGISTRY_MAX_BLOCKS_PER_TICK = "8"

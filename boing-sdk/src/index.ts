@@ -467,6 +467,15 @@ export {
   NATIVE_AMM_LP_VAULT_CREATE2_SALT_V1,
 } from './create2.js';
 export {
+  CONTRACT_DEPLOY_INIT_CODE_MARKER,
+  extractUniversalContractDeploymentsFromBlock,
+  extractUniversalContractDeploymentsFromBlockJson,
+  rpcTransactionJsonToTransactionInput,
+  transactionIdFromUnsignedRpcTransaction,
+  type UniversalContractDeployPayloadKind,
+  type UniversalContractDeploymentRow,
+} from './universalContractDeployIndex.js';
+export {
   submitTransferWithSimulationRetry,
   submitContractCallWithSimulationRetry,
   submitDeployWithPurposeFlow,

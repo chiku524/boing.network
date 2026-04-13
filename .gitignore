@@ -2,6 +2,9 @@
 examples/native-boing-tutorial/pool-lines.hex
 examples/native-boing-tutorial/dex-factory.hex
 
+# Cursor IDE (local)
+.cursor/
+
 # Dependencies
 node_modules/
 
