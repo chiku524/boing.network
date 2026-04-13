@@ -156,3 +156,5 @@ Until L1 RPC exists end-to-end:
 - **Receipt scan cap:** env **`BOING_DEX_DISCOVERY_MAX_RECEIPT_SCANS`** (default **500000** per RPC call; **`0`** = unlimited). **`includeDiagnostics: true`** returns counters (**`receiptScans`**, **`receiptScanCapped`**, deploy scan stats on token methods).
 - **Decimals override:** env **`BOING_DEX_TOKEN_DECIMALS_JSON`** — JSON object of **`"0x" + 64 hex` → number** for **`boing_listDexPools`** (**`tokenADecimals`** / **`tokenBDecimals`** per leg), **`boing_listDexTokens`**, and **`boing_getDexToken`** (default **18** when omitted).
 - **Indexer / SDK:** **`buildNativeDexIndexerStatsForClient`** merges **`createdAtHeight`**, **`tokenADecimals`**, and **`tokenBDecimals`** from **`boing_listDexPools`** per canonical factory when RPC supports it.
+
+**Cross-repo handoff** for **`boing.finance`**, **`boing.observer`**, **`boing.express`**: [HANDOFF_DexDiscovery_Consumer_Repos.md](HANDOFF_DexDiscovery_Consumer_Repos.md).
