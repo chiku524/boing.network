@@ -15,7 +15,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DEPLOY_REGISTRY_DB"
 database_name = "boing-deploy-registry"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "a1368306-3159-4088-bba9-5b7db15e657b"
 migrations_dir = "migrations"
 
 [triggers]
