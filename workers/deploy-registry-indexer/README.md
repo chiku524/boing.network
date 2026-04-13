@@ -7,9 +7,12 @@ Materializes **every contract deploy** (`ContractDeploy*`) seen on a Boing chain
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/health` | Liveness JSON. |
-| GET | `/v1/status` | Ingest cursor, chain tip, **blocks pending** estimate, effective `maxBlocksPerTick` / `parallelFetches`. |
+| GET | `/health` | Liveness JSON. Optional **`?deep=1`** runs a trivial D1 query (`db: true` / `503`). |
+| GET | `/v1/status` | Ingest cursor, chain tip, **blocks pending**, effective config, and **`lastSync`** (last cron/sync duration, rows inserted, error if any). |
 | GET | `/v1/deployments?limit=&cursor=` | Paginate rows (`cursor` = last `id` from previous page; default `0`). |
+| GET | `/v1/deployments/by-tx/{0x…64}?limit=` | All indexed deploy rows for a transaction id (CREATE2 edge cases can return **2** rows). |
+| GET | `/v1/deployments/by-block/{height}?limit=` | Deploy rows in a block (ordered by `tx_index`). |
+| GET | `/v1/deployments/by-sender/{0x…64}?limit=&cursor=` | Paginate by `sender_hex` (cursor = last `id`). |
 | GET | `/v1/deployments/stream?since_id=` | **SSE** stream of new rows + `ping` when idle (~2.5s); **~100ms** between polls when rows are flowing. |
 | GET | `/v1/contract/{0x…64}` | Lookup one deployment row by predicted contract account id. |
 | POST | `/v1/sync` | Run **one bounded** ingest pass (same limits as cron). Requires `DEPLOY_REGISTRY_SYNC_SECRET` and header `Authorization: Bearer <secret>`. Configure with `npm run secret:sync`. |

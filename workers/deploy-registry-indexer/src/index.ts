@@ -7,6 +7,7 @@
  * - **GET /v1/status** — ingest cursor, chain tip, pending block count, effective config.
  * - **GET /v1/contract/{0x…64}** — single-row lookup by predicted contract id.
  * - **POST /v1/sync** — optional one-shot ingest (requires `DEPLOY_REGISTRY_SYNC_SECRET` + `Authorization: Bearer …`).
+ * - **GET /v1/deployments/by-tx/{0x…64}**, **by-block/{height}**, **by-sender/{0x…64}** — filtered lists (indexed columns).
  *
  * Pair with **`BoingNewHeadsWs`** on the node (or poll chain height) if you want tighter client-side scheduling;
  * this worker advances on **cron** by default.
@@ -33,6 +34,36 @@ const cors: Record<string, string> = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
 };
+
+const ROW_SELECT = `id, contract_hex, block_height, tx_index, tx_id_hex, sender_hex, payload_kind, purpose_category, asset_name, asset_symbol` as const;
+
+export type SyncTelemetry = {
+  ok: boolean;
+  at: string;
+  durationMs: number;
+  indexedBlocks?: number;
+  rowsInserted?: number;
+  nextHeight?: number;
+  chainTip?: number | null;
+  error?: string;
+};
+
+async function writeSyncTelemetry(db: D1Database, t: SyncTelemetry): Promise<void> {
+  await db
+    .prepare(`INSERT INTO ingest_state (k, v) VALUES ('last_sync', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v`)
+    .bind(JSON.stringify(t))
+    .run();
+}
+
+async function readSyncTelemetry(db: D1Database): Promise<SyncTelemetry | null> {
+  const r = await db.prepare(`SELECT v FROM ingest_state WHERE k = 'last_sync'`).first<{ v: string }>();
+  if (r?.v == null || r.v === '') return null;
+  try {
+    return JSON.parse(r.v) as SyncTelemetry;
+  } catch {
+    return null;
+  }
+}
 
 function json(data: unknown, status = 200, extra: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(data), { status, headers: { ...cors, ...extra } });
@@ -97,50 +128,93 @@ async function insertDeploymentRowsBatch(db: D1Database, rows: UniversalContract
   return inserted;
 }
 
-export async function syncDeployRegistry(env: Env): Promise<{ indexedBlocks: number; rowsInserted: number; nextHeight: number }> {
+export type SyncDeployRegistryResult = {
+  indexedBlocks: number;
+  rowsInserted: number;
+  nextHeight: number;
+  chainTip: number | null;
+  durationMs: number;
+};
+
+export async function syncDeployRegistry(env: Env): Promise<SyncDeployRegistryResult> {
+  const t0 = Date.now();
   const baseUrl = String(env.DEPLOY_REGISTRY_RPC_URL || '').trim();
-  if (!baseUrl) return { indexedBlocks: 0, rowsInserted: 0, nextHeight: 0 };
-
-  const client = createClient({ baseUrl });
-  const head = await client.chainHeight();
-  const fromDefault = parseIntOpt(env.DEPLOY_REGISTRY_FROM_HEIGHT, 0);
-  const maxPer = Math.min(256, Math.max(1, parseIntOpt(env.DEPLOY_REGISTRY_MAX_BLOCKS_PER_TICK, 8)));
-  const parallel = Math.min(16, Math.max(1, parseIntOpt(env.DEPLOY_REGISTRY_PARALLEL_FETCHES, 6)));
-
-  let cursor = await readNextHeight(env.DEPLOY_REGISTRY_DB, fromDefault);
-  let indexedBlocks = 0;
-  let rowsInserted = 0;
-
-  const tip = typeof head === 'number' && Number.isFinite(head) ? head : 0;
-  let h = cursor;
-  while (indexedBlocks < maxPer && h <= tip) {
-    const room = maxPer - indexedBlocks;
-    const horizon = tip - h + 1;
-    const chunk = Math.min(parallel, room, horizon);
-    const heights = Array.from({ length: chunk }, (_, i) => h + i);
-    const blocks = await Promise.all(heights.map((height) => client.getBlockByHeight(height, false)));
-
-    const batchRows: UniversalContractDeploymentRow[] = [];
-    for (const block of blocks) {
-      if (block) batchRows.push(...extractUniversalContractDeploymentsFromBlock(block as unknown));
-    }
-    rowsInserted += await insertDeploymentRowsBatch(env.DEPLOY_REGISTRY_DB, batchRows);
-
-    h += chunk;
-    indexedBlocks += chunk;
+  if (!baseUrl) {
+    return {
+      indexedBlocks: 0,
+      rowsInserted: 0,
+      nextHeight: 0,
+      chainTip: null,
+      durationMs: Date.now() - t0,
+    };
   }
 
-  await writeNextHeight(env.DEPLOY_REGISTRY_DB, h);
-  return { indexedBlocks, rowsInserted, nextHeight: h, chainTip: tip };
+  try {
+    const client = createClient({ baseUrl });
+    const head = await client.chainHeight();
+    const fromDefault = parseIntOpt(env.DEPLOY_REGISTRY_FROM_HEIGHT, 0);
+    const maxPer = Math.min(256, Math.max(1, parseIntOpt(env.DEPLOY_REGISTRY_MAX_BLOCKS_PER_TICK, 8)));
+    const parallel = Math.min(16, Math.max(1, parseIntOpt(env.DEPLOY_REGISTRY_PARALLEL_FETCHES, 6)));
+
+    let cursor = await readNextHeight(env.DEPLOY_REGISTRY_DB, fromDefault);
+    let indexedBlocks = 0;
+    let rowsInserted = 0;
+
+    const chainTip = typeof head === 'number' && Number.isFinite(head) ? head : null;
+    const tipN = chainTip ?? 0;
+    let h = cursor;
+    while (indexedBlocks < maxPer && h <= tipN) {
+      const room = maxPer - indexedBlocks;
+      const horizon = tipN - h + 1;
+      const chunk = Math.min(parallel, room, horizon);
+      const heights = Array.from({ length: chunk }, (_, i) => h + i);
+      const blocks = await Promise.all(heights.map((height) => client.getBlockByHeight(height, false)));
+
+      const batchRows: UniversalContractDeploymentRow[] = [];
+      for (const block of blocks) {
+        if (block) batchRows.push(...extractUniversalContractDeploymentsFromBlock(block as unknown));
+      }
+      rowsInserted += await insertDeploymentRowsBatch(env.DEPLOY_REGISTRY_DB, batchRows);
+
+      h += chunk;
+      indexedBlocks += chunk;
+    }
+
+    await writeNextHeight(env.DEPLOY_REGISTRY_DB, h);
+    const durationMs = Date.now() - t0;
+    await writeSyncTelemetry(env.DEPLOY_REGISTRY_DB, {
+      ok: true,
+      at: new Date().toISOString(),
+      durationMs,
+      indexedBlocks,
+      rowsInserted,
+      nextHeight: h,
+      chainTip,
+    });
+    return { indexedBlocks, rowsInserted, nextHeight: h, chainTip, durationMs };
+  } catch (e) {
+    const durationMs = Date.now() - t0;
+    await writeSyncTelemetry(env.DEPLOY_REGISTRY_DB, {
+      ok: false,
+      at: new Date().toISOString(),
+      durationMs,
+      error: String(e).slice(0, 900),
+    });
+    throw e;
+  }
 }
 
 async function buildStatus(env: Env): Promise<{
   ingest: { nextHeight: number; defaultFromHeight: number };
   chain: { configured: boolean; tipHeight: number | null; blocksPending: number | null };
   config: { maxBlocksPerTick: number; parallelFetches: number };
+  lastSync: SyncTelemetry | null;
 }> {
   const fromDefault = parseIntOpt(env.DEPLOY_REGISTRY_FROM_HEIGHT, 0);
-  const nextHeight = await readNextHeight(env.DEPLOY_REGISTRY_DB, fromDefault);
+  const [nextHeight, lastSync] = await Promise.all([
+    readNextHeight(env.DEPLOY_REGISTRY_DB, fromDefault),
+    readSyncTelemetry(env.DEPLOY_REGISTRY_DB),
+  ]);
   const maxPer = Math.min(256, Math.max(1, parseIntOpt(env.DEPLOY_REGISTRY_MAX_BLOCKS_PER_TICK, 8)));
   const parallel = Math.min(16, Math.max(1, parseIntOpt(env.DEPLOY_REGISTRY_PARALLEL_FETCHES, 6)));
   const baseUrl = String(env.DEPLOY_REGISTRY_RPC_URL || '').trim();
@@ -150,6 +224,7 @@ async function buildStatus(env: Env): Promise<{
       ingest: { nextHeight, defaultFromHeight: fromDefault },
       chain: { configured: false, tipHeight: null, blocksPending: null },
       config,
+      lastSync,
     };
   }
   const client = createClient({ baseUrl });
@@ -163,6 +238,7 @@ async function buildStatus(env: Env): Promise<{
     ingest: { nextHeight, defaultFromHeight: fromDefault },
     chain: { configured: true, tipHeight: t, blocksPending },
     config,
+    lastSync,
   };
 }
 
@@ -191,12 +267,21 @@ export default {
     }
 
     if (url.pathname === '/health') {
-      return json({ ok: true, service: 'boing-deploy-registry-indexer' });
+      const deep = url.searchParams.get('deep') === '1' || url.searchParams.get('deep') === 'true';
+      if (!deep) {
+        return json({ ok: true, service: 'boing-deploy-registry-indexer' });
+      }
+      try {
+        await env.DEPLOY_REGISTRY_DB.prepare(`SELECT 1 AS ok`).first();
+        return json({ ok: true, service: 'boing-deploy-registry-indexer', db: true });
+      } catch (e) {
+        return json({ ok: false, service: 'boing-deploy-registry-indexer', db: false, error: String(e) }, 503);
+      }
     }
 
     if (url.pathname === '/v1/status' && req.method === 'GET') {
       const status = await buildStatus(env);
-      return json({ ok: true, schemaVersion: 1, ...status }, 200, { 'Cache-Control': 'no-store' });
+      return json({ ok: true, schemaVersion: 2, ...status }, 200, { 'Cache-Control': 'no-store' });
     }
 
     if (url.pathname === '/v1/sync' && req.method === 'POST') {
@@ -215,6 +300,56 @@ export default {
       }
     }
 
+    if (req.method === 'GET' && url.pathname.startsWith('/v1/deployments/by-tx/')) {
+      const raw = decodeURIComponent(url.pathname.slice('/v1/deployments/by-tx/'.length).trim());
+      if (!/^0x[0-9a-f]{64}$/i.test(raw)) {
+        return json({ error: 'invalid_tx_id_hex', expected: '0x + 64 hex chars' }, 400);
+      }
+      const hex = raw.toLowerCase();
+      const limit = Math.min(500, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10)));
+      const r = await env.DEPLOY_REGISTRY_DB.prepare(
+        `SELECT ${ROW_SELECT} FROM contract_deployments WHERE tx_id_hex = ? ORDER BY id ASC LIMIT ?`,
+      )
+        .bind(hex, limit)
+        .all();
+      return json({ rows: r.results || [], schemaVersion: 1, tx_id_hex: hex });
+    }
+
+    if (req.method === 'GET' && url.pathname.startsWith('/v1/deployments/by-block/')) {
+      const hStr = url.pathname.slice('/v1/deployments/by-block/'.length).trim();
+      const bh = parseInt(hStr, 10);
+      if (!Number.isFinite(bh) || bh < 0 || String(bh) !== hStr) {
+        return json({ error: 'invalid_block_height', expected: 'non-negative integer' }, 400);
+      }
+      const limit = Math.min(500, Math.max(1, parseInt(url.searchParams.get('limit') || '200', 10)));
+      const r = await env.DEPLOY_REGISTRY_DB.prepare(
+        `SELECT ${ROW_SELECT} FROM contract_deployments WHERE block_height = ? ORDER BY tx_index ASC, id ASC LIMIT ?`,
+      )
+        .bind(bh, limit)
+        .all();
+      return json({ rows: r.results || [], schemaVersion: 1, block_height: bh });
+    }
+
+    if (req.method === 'GET' && url.pathname.startsWith('/v1/deployments/by-sender/')) {
+      const raw = decodeURIComponent(url.pathname.slice('/v1/deployments/by-sender/'.length).trim());
+      if (!/^0x[0-9a-f]{64}$/i.test(raw)) {
+        return json({ error: 'invalid_sender_hex', expected: '0x + 64 hex chars' }, 400);
+      }
+      const sender = raw.toLowerCase();
+      const limit = Math.min(500, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10)));
+      const cursor = parseInt(url.searchParams.get('cursor') || '0', 10);
+      const cur = Number.isFinite(cursor) ? cursor : 0;
+      const r = await env.DEPLOY_REGISTRY_DB.prepare(
+        `SELECT ${ROW_SELECT} FROM contract_deployments WHERE sender_hex = ? AND id > ? ORDER BY id ASC LIMIT ?`,
+      )
+        .bind(sender, cur, limit)
+        .all();
+      const rows = (r.results || []) as Record<string, unknown>[];
+      const lastId = rows.length ? (rows[rows.length - 1]!.id as number) : cur;
+      const nextCursor = rows.length === limit ? String(lastId) : null;
+      return json({ rows, nextCursor, schemaVersion: 1, sender_hex: sender });
+    }
+
     if (req.method === 'GET' && url.pathname.startsWith('/v1/contract/')) {
       const raw = decodeURIComponent(url.pathname.slice('/v1/contract/'.length).trim());
       if (!/^0x[0-9a-f]{64}$/i.test(raw)) {
@@ -222,8 +357,7 @@ export default {
       }
       const hex = raw.toLowerCase();
       const row = await env.DEPLOY_REGISTRY_DB.prepare(
-        `SELECT id, contract_hex, block_height, tx_index, tx_id_hex, sender_hex, payload_kind, purpose_category, asset_name, asset_symbol
-         FROM contract_deployments WHERE contract_hex = ? LIMIT 1`,
+        `SELECT ${ROW_SELECT} FROM contract_deployments WHERE contract_hex = ? LIMIT 1`,
       )
         .bind(hex)
         .first();
@@ -266,8 +400,7 @@ export default {
           let hadRows = false;
           try {
             const r = await env.DEPLOY_REGISTRY_DB.prepare(
-              `SELECT id, contract_hex, block_height, tx_index, tx_id_hex, sender_hex, payload_kind, purpose_category, asset_name, asset_symbol
-               FROM contract_deployments WHERE id > ? ORDER BY id ASC LIMIT 50`,
+              `SELECT ${ROW_SELECT} FROM contract_deployments WHERE id > ? ORDER BY id ASC LIMIT 50`,
             )
               .bind(lastId)
               .all();
