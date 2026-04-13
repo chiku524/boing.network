@@ -509,6 +509,8 @@ Get a block by height.
 
 **Result:** Block object or `null` if not found. `header` includes `receipts_root` (hex-encoded 32-byte Merkle root over execution receipts; see protocol spec). Optional `hash` field (hex) is added for convenience. With `include_receipts: true`, each entry matches **`boing_getTransactionReceipt`** shape or `null`.
 
+**Off-chain deploy registry:** indexers that need a **chain-wide list of predicted `ContractDeploy*` contract addresses** (and BLAKE3 **transaction ids**) can call this method with **`include_receipts: false`** and parse **`transactions`**. The TypeScript SDK exposes **`extractUniversalContractDeploymentsFromBlock`** and related helpers (`boing-sdk`, **`universalContractDeployIndex.ts`**). An optional Cloudflare Worker materializes rows into D1 and serves HTTP/SSE; see [HANDOFF_Universal_Contract_Deploy_Indexer.md](HANDOFF_Universal_Contract_Deploy_Indexer.md).
+
 ---
 
 ### boing_getTransactionReceipt

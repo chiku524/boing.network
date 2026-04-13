@@ -65,6 +65,7 @@ Start with [BOING-NETWORK-ESSENTIALS.md](BOING-NETWORK-ESSENTIALS.md) for the si
 | [BOING-PATTERN-ORACLE-PRICE-FEEDS.md](BOING-PATTERN-ORACLE-PRICE-FEEDS.md) | Oracle / price feeds (app layer, TWAP, multisig) |
 | [BOING-PATTERN-UPGRADE-PROXY.md](BOING-PATTERN-UPGRADE-PROXY.md) | Upgradeable / hub-pointer patterns vs QA |
 | [INDEXER-RECEIPT-AND-LOG-INGESTION.md](INDEXER-RECEIPT-AND-LOG-INGESTION.md) | Receipt + `LOG*` ingestion for indexers / explorers (I1–I3; replay vs `boing_getLogs`) |
+| [HANDOFF_Universal_Contract_Deploy_Indexer.md](HANDOFF_Universal_Contract_Deploy_Indexer.md) | **Universal contract deploy registry:** chain-wide `ContractDeploy*` feed — **`boing-sdk`** extractors + optional Cloudflare Worker (D1, HTTP, SSE); not DEX-scoped discovery |
 | [OBSERVER-HOSTED-SERVICE.md](OBSERVER-HOSTED-SERVICE.md) | **OBS-1:** hosted observer / durable indexer — architecture, schema, reorgs, read API, deployment |
 | [E2-PARTNER-APP-NATIVE-BOING.md](E2-PARTNER-APP-NATIVE-BOING.md) | Partner apps: native Boing path without foreign chain client SDKs (E2) |
 | [BOING-CANONICAL-DEPLOY-ARTIFACTS.md](BOING-CANONICAL-DEPLOY-ARTIFACTS.md) | Pinned native **minimal + secured** fungible + NFT bytecode versioning; form-parity with EVM; **`boing-sdk`** + env matrix |

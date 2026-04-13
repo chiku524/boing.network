@@ -63,6 +63,7 @@ All project documentation lives in **[docs/](docs/)**. **Canonical index:** [doc
 | [BUILD-ROADMAP.md](docs/BUILD-ROADMAP.md) | Implementation tasks and phases |
 | [NETWORK-COST-ESTIMATE.md](docs/NETWORK-COST-ESTIMATE.md) | Cost overview and economic parameters |
 | [RPC-API-SPEC.md](docs/RPC-API-SPEC.md) | JSON-RPC API reference |
+| [**HANDOFF_Universal_Contract_Deploy_Indexer.md**](docs/HANDOFF_Universal_Contract_Deploy_Indexer.md) | **Universal contract deploy registry** — SDK extractors + optional Worker (D1, HTTP, SSE) for all `ContractDeploy*` txs |
 | [TESTNET-RPC-INFRA.md](docs/TESTNET-RPC-INFRA.md) | One map: testnet ops, public RPC, and infra (routing + env matrix) |
 | [INFRASTRUCTURE-SETUP.md](docs/INFRASTRUCTURE-SETUP.md) | Testnet bootnodes, Cloudflare tunnel, deploy config |
 | [WEBSITE-AND-DEPLOYMENT.md](docs/WEBSITE-AND-DEPLOYMENT.md) | Website spec, Cloudflare setup (D1, R2, KV), deployment |

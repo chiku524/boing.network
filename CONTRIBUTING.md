@@ -27,6 +27,7 @@ npm run preflight-rpc
 - **Index:** [docs/README.md](docs/README.md)
 - **Technical reference:** [docs/TECHNICAL-SPECIFICATION.md](docs/TECHNICAL-SPECIFICATION.md), [docs/RPC-API-SPEC.md](docs/RPC-API-SPEC.md)
 - **Cross-repo consumers** (wallet, explorer, partners): [docs/HANDOFF-DEPENDENT-PROJECTS.md](docs/HANDOFF-DEPENDENT-PROJECTS.md), [docs/THREE-CODEBASE-ALIGNMENT.md](docs/THREE-CODEBASE-ALIGNMENT.md)
+- **Universal contract deploy registry** (SDK + optional Cloudflare Worker): [docs/HANDOFF_Universal_Contract_Deploy_Indexer.md](docs/HANDOFF_Universal_Contract_Deploy_Indexer.md), `workers/deploy-registry-indexer/`
 
 ## Pull requests
 

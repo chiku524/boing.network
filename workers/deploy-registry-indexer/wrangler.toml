@@ -1,5 +1,7 @@
 # Indexes **all** `ContractDeploy` / `ContractDeployWithPurpose` / `ContractDeployWithPurposeAndMetadata`
-# transactions into D1 and serves paginated HTTP + optional SSE stream.
+# transactions into D1 and serves HTTP + SSE (`/v1/deployments`, `/v1/status`, filtered routes, optional `POST /v1/sync`).
+#
+# Docs: ../../docs/HANDOFF_Universal_Contract_Deploy_Indexer.md
 #
 # Setup:
 # 1. `cd workers/deploy-registry-indexer && npm install`

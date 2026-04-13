@@ -3,6 +3,10 @@
 Materializes **every contract deploy** (`ContractDeploy*`) seen on a Boing chain into **D1**, using
 `boing-sdk` helpers that match node address rules (nonce-derived + CREATE2 + init-code).
 
+**Canonical spec (API, D1 keys, migrations, ops):** [../../docs/HANDOFF_Universal_Contract_Deploy_Indexer.md](../../docs/HANDOFF_Universal_Contract_Deploy_Indexer.md).
+
+**D1 migrations:** `migrations/0001_contract_deployments.sql` (tables + base indexes), `migrations/0002_indexes_and_telemetry.sql` (indexes on `tx_id_hex`, `sender_hex`; `last_sync` telemetry is written by the Worker, not SQL).
+
 ## Endpoints
 
 | Method | Path | Description |
@@ -29,8 +33,19 @@ Materializes **every contract deploy** (`ContractDeploy*`) seen on a Boing chain
 1. `npm install`
 2. Create D1: `npx wrangler d1 create boing-deploy-registry`
 3. Put `database_id` into `wrangler.toml`
-4. `npx wrangler d1 migrations apply boing-deploy-registry --local`
-5. `npm run dev` — set `DEPLOY_REGISTRY_RPC_URL` if not using `[vars]` in `wrangler.toml`
+4. `npx wrangler d1 migrations apply boing-deploy-registry --local` (and **`--remote`** before/after `wrangler deploy` for production)
+5. Optional: `npm run secret:sync` — sets **`DEPLOY_REGISTRY_SYNC_SECRET`** for **`POST /v1/sync`**
+6. `npm run dev` — set `DEPLOY_REGISTRY_RPC_URL` if not using `[vars]` in `wrangler.toml`
+
+## Environment (summary)
+
+| Name | Role |
+|------|------|
+| `DEPLOY_REGISTRY_RPC_URL` | Boing JSON-RPC base URL |
+| `DEPLOY_REGISTRY_FROM_HEIGHT` | First block height (inclusive) |
+| `DEPLOY_REGISTRY_MAX_BLOCKS_PER_TICK` | Max blocks per cron / sync (≤256) |
+| `DEPLOY_REGISTRY_PARALLEL_FETCHES` | Parallel `getBlockByHeight` calls (1–16) |
+| `DEPLOY_REGISTRY_SYNC_SECRET` | **Secret** — bearer token for **`POST /v1/sync`** |
 
 ## Trust / scope
 

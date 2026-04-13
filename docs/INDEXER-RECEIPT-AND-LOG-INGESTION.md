@@ -163,6 +163,7 @@ flowchart TD
 
 | Item | Where |
 |------|--------|
+| **Universal contract deploy registry (deploy txs only)** | [HANDOFF_Universal_Contract_Deploy_Indexer.md](HANDOFF_Universal_Contract_Deploy_Indexer.md) — **`boing_getBlockByHeight`** without receipts; **`boing-sdk`** **`extractUniversalContractDeploymentsFromBlock`**; optional **`workers/deploy-registry-indexer`** Worker (D1 + HTTP/SSE) |
 | **Hosted observer / durable service (OBS-1)** | [OBSERVER-HOSTED-SERVICE.md](OBSERVER-HOSTED-SERVICE.md) — ingestion plane, SQL schema sketch, reorg rewind, read API, milestones |
 | **Consolidated future / backlog** | [NEXT-STEPS-FUTURE-WORK.md](NEXT-STEPS-FUTURE-WORK.md) — indexer scale, NATIVE-AMM, testnet/ops, BUILD-ROADMAP pointers |
 | **Wallet RPC error fidelity** | **boing.express:** preserve JSON-RPC **`code`** and **`data`** when proxying the node (roadmap **W2**). |

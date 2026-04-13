@@ -4,7 +4,7 @@
 **Source of truth (this repo):** `docs/RPC-API-SPEC.md` § *boing_listDexPools / boing_listDexTokens / boing_getDexToken*, `docs/HANDOFF_Boing_Network_Global_Token_Discovery.md`, `crates/boing-node/schemas/developer_api.json`  
 **SDK:** **`boing-sdk@^0.3.1`** on [npm](https://www.npmjs.com/package/boing-sdk) — `BoingClient.listDexPoolsPage`, `listDexTokensPage`, `getDexToken`, related types (`DexPoolListRow`, `DexTokenListRow`, diagnostics types).
 
-**Universal deploy feed (all `ContractDeploy*`, not DEX-only):** [HANDOFF_Universal_Contract_Deploy_Indexer.md](HANDOFF_Universal_Contract_Deploy_Indexer.md) and `workers/deploy-registry-indexer`.
+**Universal deploy feed (all `ContractDeploy*`, not DEX-only):** [HANDOFF_Universal_Contract_Deploy_Indexer.md](HANDOFF_Universal_Contract_Deploy_Indexer.md) — **`boing-sdk`** parsing helpers plus optional **`workers/deploy-registry-indexer`** Cloudflare Worker (**D1**, **`GET /v1/deployments`**, **`/v1/status`**, **`/v1/contract/…`**, filtered **`by-tx` / `by-block` / `by-sender`**, SSE **`/v1/deployments/stream`**, optional **`POST /v1/sync`**). Full HTTP and schema details are in that handoff and the Worker **`README.md`**.
 
 ---
 

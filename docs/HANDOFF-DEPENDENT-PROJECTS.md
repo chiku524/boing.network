@@ -11,7 +11,8 @@ Use this as the **upstream contract** for dependent projects. **Canonical GitHub
 | Area | Location / artifact |
 |------|---------------------|
 | **Protocol** | `crates/boing-node`, `crates/boing-execution` — VM programs (native CP pool, DEX factory, ledger / swap2 / multihop routers), JSON-RPC |
-| **TypeScript SDK** | `boing-sdk/` — RPC client, calldata + access-list builders, directory snapshot (`fetchNativeDexDirectorySnapshot`), routing (`nativeDexRouting.ts`: quotes, `findBestCpRoutes`, `fetchCpRoutingFromDirectoryLogs`), wallet helpers (`connectInjectedBoingWallet`, `mapInjectedProviderErrorToUiMessage`), preflight (`assertBoingNativeDexToolkitRpc`) |
+| **TypeScript SDK** | `boing-sdk/` — RPC client, calldata + access-list builders, directory snapshot (`fetchNativeDexDirectorySnapshot`), routing (`nativeDexRouting.ts`: quotes, `findBestCpRoutes`, `fetchCpRoutingFromDirectoryLogs`), wallet helpers (`connectInjectedBoingWallet`, `mapInjectedProviderErrorToUiMessage`), preflight (`assertBoingNativeDexToolkitRpc`), universal deploy extractors (`universalContractDeployIndex.ts`; **npm `boing-sdk@0.3.1+`**) |
+| **Universal deploy registry (optional Worker)** | `workers/deploy-registry-indexer/` — D1 + cron + HTTP/SSE for every **`ContractDeploy*`** on a chain; not DEX-scoped discovery — [HANDOFF_Universal_Contract_Deploy_Indexer.md](HANDOFF_Universal_Contract_Deploy_Indexer.md) |
 | **Operator docs** | `docs/RUNBOOK.md`, `docs/RPC-API-SPEC.md`, `tools/boing-node-public-testnet.env.example` — `BOING_CANONICAL_NATIVE_*` (`CP_POOL`, `DEX_FACTORY`, multihop router, ledger v2/v3, LP vault, share) for `boing_getNetworkInfo.end_user` |
 | **Integration specs** | `docs/BOING-DAPP-INTEGRATION.md`, `docs/BOING-NATIVE-DEX-CAPABILITY.md`, `docs/BOING-EXPRESS-WALLET.md`, `docs/BOING-OBSERVER-AND-EXPRESS.md` |
 | **Tutorial CLI** | `examples/native-boing-tutorial/scripts/` — including **`print-native-dex-routes`** (off-chain route dump over public RPC) |
