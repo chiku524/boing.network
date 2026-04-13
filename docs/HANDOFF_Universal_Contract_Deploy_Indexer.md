@@ -27,7 +27,10 @@
 ## Client integration
 
 - **Pagination:** `GET /v1/deployments?cursor={last_id}&limit=100` — treat `nextCursor` as opaque.
+- **Observability:** `GET /v1/status` — cursor vs chain tip, pending block estimate, effective ingest batch sizes.
+- **Single contract:** `GET /v1/contract/0x…` (64 hex chars) when you only need one predicted deploy row.
 - **Near-real-time:** open **`GET /v1/deployments/stream?since_id=`** (SSE) or combine **`BoingNewHeadsWs`** with periodic HTTP refresh.
+- **Burst ingest (ops):** `POST /v1/sync` with `Authorization: Bearer <DEPLOY_REGISTRY_SYNC_SECRET>` runs one bounded pass (same limits as cron); set the secret with `wrangler secret put DEPLOY_REGISTRY_SYNC_SECRET`.
 - **Verification:** recompute predicted addresses with **`predictNonceDerivedContractAddress`** / **`predictCreate2ContractAddress`** from the same deploy tx JSON if you need to audit the indexer.
 
 ---

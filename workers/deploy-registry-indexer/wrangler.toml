@@ -6,6 +6,7 @@
 # 2. `npx wrangler d1 create boing-deploy-registry` → paste database_id below
 # 3. `npx wrangler d1 migrations apply boing-deploy-registry --local` (and `--remote` after deploy)
 # 4. Set DEPLOY_REGISTRY_RPC_URL (or use [vars] below) to your Boing JSON-RPC
+# 5. Optional: `npm run secret:sync` for authenticated `POST /v1/sync` catch-up
 #
 name = "boing-deploy-registry-indexer"
 main = "src/index.ts"
@@ -26,4 +27,6 @@ DEPLOY_REGISTRY_RPC_URL = "https://testnet-rpc.boing.network"
 # First height to index (inclusive). Omit or "0" = genesis.
 DEPLOY_REGISTRY_FROM_HEIGHT = "0"
 # Max blocks processed per cron tick (keep small for Worker CPU limits).
-DEPLOY_REGISTRY_MAX_BLOCKS_PER_TICK = "8"
+DEPLOY_REGISTRY_MAX_BLOCKS_PER_TICK = "12"
+# Concurrent `boing_getBlockByHeight` JSON-RPC calls per tick (1–16).
+DEPLOY_REGISTRY_PARALLEL_FETCHES = "6"

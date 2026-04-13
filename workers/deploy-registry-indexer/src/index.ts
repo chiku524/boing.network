@@ -4,6 +4,9 @@
  * - **Cron:** scans `boing_getBlockByHeight` from a persisted cursor through tip (bounded blocks/tick).
  * - **GET /v1/deployments** — cursor pagination by monotonic `id`.
  * - **GET /v1/deployments/stream** — **SSE** (`text/event-stream`): emits JSON rows for new deploys and `ping` when idle (clients reconnect as needed).
+ * - **GET /v1/status** — ingest cursor, chain tip, pending block count, effective config.
+ * - **GET /v1/contract/{0x…64}** — single-row lookup by predicted contract id.
+ * - **POST /v1/sync** — optional one-shot ingest (requires `DEPLOY_REGISTRY_SYNC_SECRET` + `Authorization: Bearer …`).
  *
  * Pair with **`BoingNewHeadsWs`** on the node (or poll chain height) if you want tighter client-side scheduling;
  * this worker advances on **cron** by default.
@@ -20,6 +23,10 @@ type Env = {
   DEPLOY_REGISTRY_RPC_URL?: string;
   DEPLOY_REGISTRY_FROM_HEIGHT?: string;
   DEPLOY_REGISTRY_MAX_BLOCKS_PER_TICK?: string;
+  /** Concurrent `getBlockByHeight` calls per tick (1–16). */
+  DEPLOY_REGISTRY_PARALLEL_FETCHES?: string;
+  /** If set, `POST /v1/sync` with matching `Authorization: Bearer …` runs one bounded ingest pass. */
+  DEPLOY_REGISTRY_SYNC_SECRET?: string;
 };
 
 const cors: Record<string, string> = {
@@ -53,8 +60,10 @@ async function writeNextHeight(db: D1Database, h: number): Promise<void> {
     .run();
 }
 
-async function insertDeploymentRow(db: D1Database, row: UniversalContractDeploymentRow): Promise<number> {
-  const res = await db
+const D1_INSERT_BATCH = 100;
+
+function prepareInsertDeployment(db: D1Database, row: UniversalContractDeploymentRow) {
+  return db
     .prepare(
       `INSERT OR IGNORE INTO contract_deployments
        (contract_hex, block_height, tx_index, tx_id_hex, sender_hex, payload_kind, purpose_category, asset_name, asset_symbol)
@@ -70,9 +79,22 @@ async function insertDeploymentRow(db: D1Database, row: UniversalContractDeploym
       row.purposeCategory ?? null,
       row.assetName ?? null,
       row.assetSymbol ?? null,
-    )
-    .run();
-  return typeof res.meta?.changes === 'number' ? res.meta.changes : 0;
+    );
+}
+
+/** Sum `changes` from batched `INSERT OR IGNORE` statements (fewer D1 round-trips than one-by-one). */
+async function insertDeploymentRowsBatch(db: D1Database, rows: UniversalContractDeploymentRow[]): Promise<number> {
+  if (rows.length === 0) return 0;
+  let inserted = 0;
+  for (let i = 0; i < rows.length; i += D1_INSERT_BATCH) {
+    const slice = rows.slice(i, i + D1_INSERT_BATCH);
+    const stmts = slice.map((row) => prepareInsertDeployment(db, row));
+    const results = await db.batch(stmts);
+    for (const res of results) {
+      inserted += typeof res.meta?.changes === 'number' ? res.meta.changes : 0;
+    }
+  }
+  return inserted;
 }
 
 export async function syncDeployRegistry(env: Env): Promise<{ indexedBlocks: number; rowsInserted: number; nextHeight: number }> {
@@ -83,6 +105,7 @@ export async function syncDeployRegistry(env: Env): Promise<{ indexedBlocks: num
   const head = await client.chainHeight();
   const fromDefault = parseIntOpt(env.DEPLOY_REGISTRY_FROM_HEIGHT, 0);
   const maxPer = Math.min(256, Math.max(1, parseIntOpt(env.DEPLOY_REGISTRY_MAX_BLOCKS_PER_TICK, 8)));
+  const parallel = Math.min(16, Math.max(1, parseIntOpt(env.DEPLOY_REGISTRY_PARALLEL_FETCHES, 6)));
 
   let cursor = await readNextHeight(env.DEPLOY_REGISTRY_DB, fromDefault);
   let indexedBlocks = 0;
@@ -91,19 +114,56 @@ export async function syncDeployRegistry(env: Env): Promise<{ indexedBlocks: num
   const tip = typeof head === 'number' && Number.isFinite(head) ? head : 0;
   let h = cursor;
   while (indexedBlocks < maxPer && h <= tip) {
-    const block = await client.getBlockByHeight(h, false);
-    if (block) {
-      const rows = extractUniversalContractDeploymentsFromBlock(block as unknown);
-      for (const row of rows) {
-        rowsInserted += await insertDeploymentRow(env.DEPLOY_REGISTRY_DB, row);
-      }
+    const room = maxPer - indexedBlocks;
+    const horizon = tip - h + 1;
+    const chunk = Math.min(parallel, room, horizon);
+    const heights = Array.from({ length: chunk }, (_, i) => h + i);
+    const blocks = await Promise.all(heights.map((height) => client.getBlockByHeight(height, false)));
+
+    const batchRows: UniversalContractDeploymentRow[] = [];
+    for (const block of blocks) {
+      if (block) batchRows.push(...extractUniversalContractDeploymentsFromBlock(block as unknown));
     }
-    h += 1;
-    indexedBlocks += 1;
+    rowsInserted += await insertDeploymentRowsBatch(env.DEPLOY_REGISTRY_DB, batchRows);
+
+    h += chunk;
+    indexedBlocks += chunk;
   }
 
   await writeNextHeight(env.DEPLOY_REGISTRY_DB, h);
-  return { indexedBlocks, rowsInserted, nextHeight: h };
+  return { indexedBlocks, rowsInserted, nextHeight: h, chainTip: tip };
+}
+
+async function buildStatus(env: Env): Promise<{
+  ingest: { nextHeight: number; defaultFromHeight: number };
+  chain: { configured: boolean; tipHeight: number | null; blocksPending: number | null };
+  config: { maxBlocksPerTick: number; parallelFetches: number };
+}> {
+  const fromDefault = parseIntOpt(env.DEPLOY_REGISTRY_FROM_HEIGHT, 0);
+  const nextHeight = await readNextHeight(env.DEPLOY_REGISTRY_DB, fromDefault);
+  const maxPer = Math.min(256, Math.max(1, parseIntOpt(env.DEPLOY_REGISTRY_MAX_BLOCKS_PER_TICK, 8)));
+  const parallel = Math.min(16, Math.max(1, parseIntOpt(env.DEPLOY_REGISTRY_PARALLEL_FETCHES, 6)));
+  const baseUrl = String(env.DEPLOY_REGISTRY_RPC_URL || '').trim();
+  const config = { maxBlocksPerTick: maxPer, parallelFetches: parallel };
+  if (!baseUrl) {
+    return {
+      ingest: { nextHeight, defaultFromHeight: fromDefault },
+      chain: { configured: false, tipHeight: null, blocksPending: null },
+      config,
+    };
+  }
+  const client = createClient({ baseUrl });
+  const tip = await client.chainHeight();
+  const t = typeof tip === 'number' && Number.isFinite(tip) ? tip : null;
+  let blocksPending: number | null = null;
+  if (t != null) {
+    blocksPending = Math.max(0, t - nextHeight + 1);
+  }
+  return {
+    ingest: { nextHeight, defaultFromHeight: fromDefault },
+    chain: { configured: true, tipHeight: t, blocksPending },
+    config,
+  };
 }
 
 function sseHeaders(): Record<string, string> {
@@ -121,12 +181,53 @@ export default {
     if (req.method === 'OPTIONS') {
       return new Response(null, {
         status: 204,
-        headers: { ...cors, 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Access-Control-Max-Age': '86400' },
+        headers: {
+          ...cors,
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+          'Access-Control-Max-Age': '86400',
+        },
       });
     }
 
     if (url.pathname === '/health') {
       return json({ ok: true, service: 'boing-deploy-registry-indexer' });
+    }
+
+    if (url.pathname === '/v1/status' && req.method === 'GET') {
+      const status = await buildStatus(env);
+      return json({ ok: true, schemaVersion: 1, ...status }, 200, { 'Cache-Control': 'no-store' });
+    }
+
+    if (url.pathname === '/v1/sync' && req.method === 'POST') {
+      const secret = String(env.DEPLOY_REGISTRY_SYNC_SECRET || '').trim();
+      if (!secret) {
+        return json({ ok: false, error: 'sync_disabled', hint: 'Set secret DEPLOY_REGISTRY_SYNC_SECRET' }, 503);
+      }
+      const auth = req.headers.get('Authorization') || '';
+      const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+      if (token !== secret) return json({ ok: false, error: 'unauthorized' }, 401);
+      try {
+        const out = await syncDeployRegistry(env);
+        return json({ ok: true, schemaVersion: 1, ...out });
+      } catch (e) {
+        return json({ ok: false, error: String(e) }, 500);
+      }
+    }
+
+    if (req.method === 'GET' && url.pathname.startsWith('/v1/contract/')) {
+      const raw = decodeURIComponent(url.pathname.slice('/v1/contract/'.length).trim());
+      if (!/^0x[0-9a-f]{64}$/i.test(raw)) {
+        return json({ error: 'invalid_contract_hex', expected: '0x + 64 hex chars' }, 400);
+      }
+      const hex = raw.toLowerCase();
+      const row = await env.DEPLOY_REGISTRY_DB.prepare(
+        `SELECT id, contract_hex, block_height, tx_index, tx_id_hex, sender_hex, payload_kind, purpose_category, asset_name, asset_symbol
+         FROM contract_deployments WHERE contract_hex = ? LIMIT 1`,
+      )
+        .bind(hex)
+        .first();
+      return row ? json(row) : json({ error: 'not_found', contract_hex: hex }, 404);
     }
 
     if (url.pathname === '/v1/deployments' && req.method === 'GET') {
@@ -150,18 +251,29 @@ export default {
       let lastId = sinceRaw != null && sinceRaw !== '' ? parseInt(sinceRaw, 10) : 0;
       if (!Number.isFinite(lastId)) lastId = 0;
 
+      const signal = req.signal;
       const stream = new ReadableStream<Uint8Array>({
         async pull(controller) {
+          if (signal.aborted) {
+            try {
+              controller.close();
+            } catch {
+              /* ignore */
+            }
+            return;
+          }
           const enc = new TextEncoder();
+          let hadRows = false;
           try {
             const r = await env.DEPLOY_REGISTRY_DB.prepare(
               `SELECT id, contract_hex, block_height, tx_index, tx_id_hex, sender_hex, payload_kind, purpose_category, asset_name, asset_symbol
-               FROM contract_deployments WHERE id > ? ORDER BY id ASC LIMIT 25`,
+               FROM contract_deployments WHERE id > ? ORDER BY id ASC LIMIT 50`,
             )
               .bind(lastId)
               .all();
             const rows = (r.results || []) as { id: number }[];
             if (rows.length) {
+              hadRows = true;
               for (const row of rows) {
                 controller.enqueue(enc.encode(`data: ${JSON.stringify(row)}\n\n`));
                 lastId = row.id;
@@ -174,7 +286,15 @@ export default {
               enc.encode(`event: error\ndata: ${JSON.stringify({ message: String(e) })}\n\n`),
             );
           }
-          await new Promise((res) => setTimeout(res, 2500));
+          if (signal.aborted) {
+            try {
+              controller.close();
+            } catch {
+              /* ignore */
+            }
+            return;
+          }
+          await new Promise((res) => setTimeout(res, hadRows ? 100 : 2500));
         },
       });
 
