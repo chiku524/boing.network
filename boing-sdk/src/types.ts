@@ -159,6 +159,8 @@ export interface NetworkDeveloperHints {
     event_types: string[];
   };
   api_discovery_methods: string[];
+  /** L1 native DEX directory RPCs (paginated pools/tokens); advertised alongside catalog entries. */
+  dex_discovery_methods?: string[];
   /** Plain-HTTP probes for orchestration (Kubernetes, Docker, load balancers). */
   http: {
     live_path: string;

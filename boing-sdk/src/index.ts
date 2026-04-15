@@ -301,8 +301,10 @@ export {
   encodeNativeAmmLpVaultConfigureCalldataHex,
   encodeNativeAmmLpVaultDepositAddCalldata,
   encodeNativeAmmLpVaultDepositAddCalldataHex,
+  fetchNativeAmmLpVaultProductReadiness,
   mergeNativeAmmLpVaultConfigureAccessListWithSimulation,
   mergeNativeAmmLpVaultDepositAddAccessListWithSimulation,
+  type NativeAmmLpVaultProductReadiness,
 } from './nativeAmmLpVault.js';
 export {
   buildNativeConstantProductPoolAccessList,

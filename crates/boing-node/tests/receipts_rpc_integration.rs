@@ -298,6 +298,13 @@ async fn rpc_get_network_info_shape() {
         .expect("api_discovery_methods");
     let disc_names: Vec<&str> = disc.iter().filter_map(|x| x.as_str()).collect();
     assert!(disc_names.contains(&"boing_getRpcMethodCatalog"));
+    let dex_disc = dev
+        .get("dex_discovery_methods")
+        .and_then(|x| x.as_array())
+        .expect("dex_discovery_methods");
+    let dex_names: Vec<&str> = dex_disc.iter().filter_map(|x| x.as_str()).collect();
+    assert!(dex_names.contains(&"boing_listDexPools"));
+    assert!(dex_names.contains(&"boing_listDexTokens"));
     let http = dev.get("http").and_then(|x| x.as_object()).expect("developer.http");
     assert_eq!(
         http.get("live_path").and_then(|x| x.as_str()),

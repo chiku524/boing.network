@@ -367,6 +367,11 @@ Single-call snapshot for dApps: chain metadata (from env when configured), tip s
       "boing_getRpcOpenApi",
       "boing_rpcSupportedMethods"
     ],
+    "dex_discovery_methods": [
+      "boing_listDexPools",
+      "boing_listDexTokens",
+      "boing_getDexToken"
+    ],
     "http": {
       "live_path": "/live",
       "ready_path": "/ready",
@@ -393,6 +398,7 @@ Single-call snapshot for dApps: chain metadata (from env when configured), tip s
 }
 ```
 
+- **`developer.dex_discovery_methods`:** Stable list of L1 native DEX discovery JSON-RPC method names (same triple as `docs/HANDOFF_Boing_Network_Global_Token_Discovery.md`). Clients may merge this with `boing_rpcSupportedMethods` / `boing_getRpcMethodCatalog` for capability detection.
 - **`end_user`:** Wallet-facing strings and optional **32-byte hex** hints when operators set the matching **`BOING_CANONICAL_NATIVE_*`** env vars on the node: **`canonical_native_cp_pool`**, **`canonical_native_dex_factory`**, **`canonical_native_dex_multihop_swap_router`**, **`canonical_native_dex_ledger_router_v2`**, **`canonical_native_dex_ledger_router_v3`**, **`canonical_native_amm_lp_vault`**, **`canonical_native_lp_share_token`**. Omitted keys are JSON **`null`**. **`boing-sdk`** **`mergeNativeDexIntegrationDefaults`** merges these with app overrides and embedded **6913** fallbacks ([BOING-DAPP-INTEGRATION.md](BOING-DAPP-INTEGRATION.md), [dApp network discovery](#dapp-network-discovery)).
 - **`chain_id` / `chain_name`:** From **`BOING_CHAIN_ID`** / **`BOING_CHAIN_NAME`** when set on the node process; **`chain_id`** is **`null`** when not configured.
 - **`validator_count`:** Size of this node’s in-process validator set (HotStuff BFT); not a network-wide discovery endpoint for all operators.

@@ -80,7 +80,7 @@
       },
       {
         "name": "boing_getNetworkInfo",
-        "summary": "Chain metadata, tip, consensus, native aggregates, developer hints.",
+        "summary": "Chain metadata, tip, consensus, native aggregates, developer hints (includes dex_discovery_methods for L1 DEX directory RPCs).",
         "params": { "type": "array", "maxItems": 0 },
         "result": { "type": "object" }
       },

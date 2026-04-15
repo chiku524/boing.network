@@ -456,6 +456,7 @@ fn network_info_developer_hints() -> serde_json::Value {
             "event_types": ["newHead"]
         },
         "api_discovery_methods": ["boing_getRpcMethodCatalog", "boing_getRpcOpenApi", "boing_rpcSupportedMethods"],
+        "dex_discovery_methods": ["boing_listDexPools", "boing_listDexTokens", "boing_getDexToken"],
         "http": {
             "live_path": "/live",
             "ready_path": "/ready",
