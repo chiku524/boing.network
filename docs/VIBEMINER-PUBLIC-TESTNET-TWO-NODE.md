@@ -18,44 +18,70 @@
 
 ---
 
-## What you should verify on your side
+## A. Automated checklist (repo — start here)
 
-1. **Firewall / router**
-   - **Outbound TCP 4001** (and TCP to bootnode IPs) must work from both PCs.
-   - **Inbound TCP 4001** is **recommended** so other peers can dial you; without it you may still sync via outbound dials, but mesh health is weaker behind symmetric NAT.
+From a clone of **`boing.network`** on any machine that can reach **your** node and the internet (same PC as VibeMiner is fine):
 
-2. **Two distinct roles**
-   - **Validator** machine: only one active validator identity per **staked key**; do not run the **same** validator keys on two machines at once.
-   - **Full node** machine: no stake requirement; safe second box.
+```bash
+npm run vibeminer-public-testnet-preflight
+```
 
-3. **Binary freshness**
-   - If the network ships a new **`boing-node`** for consensus or RPC fixes, update the **node download URL** / tag in the listing (and VibeMiner pin per [VIBEMINER-INTEGRATION.md](VIBEMINER-INTEGRATION.md) §6) so both PCs pull a current zip.
+**What it checks**
 
-4. **“Am I on the same chain as public RPC?”**
-   - From either PC (with a local node running), use the repo helper (no SDK build):
+| Step | Meaning |
+|------|--------|
+| **Outbound TCP to bootnodes** | Opens TCP to each **`/ip4/.../tcp/4001`** in **`BOING_BOOTNODES`** (defaults match [website bootnode fallbacks](https://github.com/Boing-Network/boing.network/blob/main/website/src/config/testnet.ts)). Fails if your network blocks outbound **4001**. |
+| **`GET /api/networks`** | Reads **`meta.boing_testnet_download_tag`** so you can compare with the zip your VibeMiner listing uses. |
+| **Local `boing_clientVersion`** | Shown next to the official tag for a quick “stale binary?” smell test. |
+| **Tip + `chain_id` + sync** | Same logic as **`npm run compare-local-public-tip`** (`boing_chainHeight`, **`boing_getNetworkInfo`**, **`boing_getSyncState`** on local). |
 
-     ```bash
-     npm run compare-local-public-tip
-     ```
+**Environment**
 
-     Optional env:
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| **`BOING_LOCAL_RPC_URL`** | `http://127.0.0.1:8545` | Your VibeMiner / local node JSON-RPC. |
+| **`BOING_PUBLIC_RPC_URL`** | `https://testnet-rpc.boing.network` | Reference tip + `chain_id`. |
+| **`BOING_BOOTNODES`** | testnet defaults | Comma-separated multiaddrs; override if your listing uses different bootnodes. |
+| **`BOING_OFFICIAL_NETWORKS_URL`** | `https://boing.network/api/networks` | Source for official download tag. |
+| **`BOING_SYNC_MAX_LAG`** | `256` | Max blocks local may trail public before exit **2**. |
+| **`BOING_PREFLIGHT_SKIP_TCP`** | unset | Set to **`1`** to skip bootnode TCP checks (e.g. locked-down CI). |
+| **`BOING_PROBE_LOCAL_P2P`** | unset | Set to **`1`** to probe **`127.0.0.1:BOING_LOCAL_P2P_PORT`** (default **4001**) for a listening P2P port. |
 
-     - **`BOING_LOCAL_RPC_URL`** — default `http://127.0.0.1:8545` (use `http://<LAN-ip>:8545` from a **third** machine to probe your full node).
-     - **`BOING_PUBLIC_RPC_URL`** — default `https://testnet-rpc.boing.network/`
-     - **`BOING_SYNC_MAX_LAG`** — default `256` (exit **2** if local tip is farther behind).
+**Lighter check (tip only)**
 
-5. **Optional: tunnel + indexer**
-   - **Tunnel:** only if you want **others** to use **your** RPC URL (wallets, team). Not required to *join* testnet.
-   - **Indexer / Workers:** L2 convenience for explorers and analytics; not required for consensus or for you to develop against **public** RPC + your local node.
+```bash
+npm run compare-local-public-tip
+```
+
+**Exit codes (`vibeminer-public-testnet-preflight`)**
+
+| Code | Meaning |
+|------|--------|
+| **0** | TCP to at least one bootnode succeeded (unless skipped), chain tip within **`BOING_SYNC_MAX_LAG`**, no **`chain_id`** mismatch when both sides report ids. |
+| **1** | Local or public JSON-RPC unreachable / parse failure. |
+| **2** | Local tip too far behind public (**sync / bootnodes / binary**). |
+| **3** | JSON-RPC looked OK but **no** bootnode TCP probe succeeded — **outbound P2P path** likely blocked. |
+| **4** | **`chain_id`** mismatch between local and public **`boing_getNetworkInfo`**. |
 
 ---
 
-## Related docs
+## B. Manual checklist (operator — cannot be fully scripted)
+
+- [ ] **Router / Windows Firewall:** allow **outbound TCP 4001** (and to bootnode IPs). Prefer **inbound TCP 4001** for healthier mesh (optional but recommended).
+- [ ] **Validator keys:** only **one** live validator process per staked identity; never duplicate the same validator keys on two PCs.
+- [ ] **Full node:** second PC without **`--validator`** — separate data dir and keys as usual in VibeMiner.
+- [ ] **Listing alignment:** both PCs use the **same** Boing testnet network entry (same bootnode string and same node download URL / tag after merges from **`/api/networks`**).
+- [ ] **Optional:** Cloudflare tunnel / public DNS only if **you** need to serve RPC to others; not required to stay joined to testnet.
+- [ ] **Optional:** Indexer / Workers for analytics — not required for consensus or local dev against **public** RPC.
+
+---
+
+## C. Related docs and commands
 
 - [VIBEMINER-INTEGRATION.md](VIBEMINER-INTEGRATION.md) — listings, **`/api/networks`**, §5.2 native AMM expectations.
 - [TESTNET.md](TESTNET.md) — bootnodes, chain id **6913** (`0x1b01`), join flow.
 - [RUNBOOK.md](RUNBOOK.md) §8 — public RPC, tunnel **530** / **1033** behavior.
-- [PRE-VIBEMINER-NODE-COMMANDS.md](PRE-VIBEMINER-NODE-COMMANDS.md) — **`preflight-rpc`**, **`check-testnet-rpc`**.
+- [PRE-VIBEMINER-NODE-COMMANDS.md](PRE-VIBEMINER-NODE-COMMANDS.md) — **`preflight-rpc`**, **`check-testnet-rpc`** (tutorial package; uses **`boing-sdk`**).
 
 ---
 

@@ -10,6 +10,8 @@
  *   BOING_SYNC_MAX_LAG    — max allowed blocks behind public tip (default 256); exit 2 if exceeded
  *   BOING_SYNC_OK_LAG     — "good enough" lag for messaging only (default 32)
  */
+import { chainHeight, networkInfo } from './lib/boing-json-rpc-fetch.mjs';
+
 const localUrl = (process.env.BOING_LOCAL_RPC_URL ?? 'http://127.0.0.1:8545').replace(/\/$/, '');
 const publicUrl = (process.env.BOING_PUBLIC_RPC_URL ?? 'https://testnet-rpc.boing.network').replace(/\/$/, '');
 const maxLag = Math.max(0, parseInt(process.env.BOING_SYNC_MAX_LAG ?? '256', 10) || 256);
@@ -17,43 +19,6 @@ const okLag = Math.max(0, parseInt(process.env.BOING_SYNC_OK_LAG ?? '32', 10) ||
 
 function scheduleExit(code) {
   setTimeout(() => process.exit(code), 15);
-}
-
-async function rpcPost(base, method, params) {
-  const res = await fetch(base, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-  });
-  const text = await res.text();
-  let j;
-  try {
-    j = JSON.parse(text);
-  } catch {
-    throw new Error(`Non-JSON from ${base}: HTTP ${res.status} ${text.slice(0, 200)}`);
-  }
-  if (j.error) {
-    const err = new Error(j.error.message ?? 'JSON-RPC error');
-    err.code = j.error.code;
-    throw err;
-  }
-  return j.result;
-}
-
-async function chainHeight(base) {
-  const h = await rpcPost(base, 'boing_chainHeight', []);
-  if (typeof h !== 'number' || !Number.isFinite(h) || h < 0) {
-    throw new Error(`Unexpected boing_chainHeight result: ${JSON.stringify(h)}`);
-  }
-  return h;
-}
-
-async function networkInfo(base) {
-  try {
-    return await rpcPost(base, 'boing_getNetworkInfo', []);
-  } catch {
-    return null;
-  }
 }
 
 async function main() {

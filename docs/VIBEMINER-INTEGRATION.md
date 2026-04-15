@@ -157,7 +157,7 @@ No separate miner binary; no custom daemon protocol—just the node binary and J
 
 ### 5.1 Public testnet — validator + full node (two Windows PCs)
 
-For **joined public testnet** with **one validator** and **one full node** via VibeMiner, see **[VIBEMINER-PUBLIC-TESTNET-TWO-NODE.md](VIBEMINER-PUBLIC-TESTNET-TWO-NODE.md)** (firewall, roles, binary freshness, **`npm run compare-local-public-tip`**).
+For **joined public testnet** with **one validator** and **one full node** via VibeMiner, see **[VIBEMINER-PUBLIC-TESTNET-TWO-NODE.md](VIBEMINER-PUBLIC-TESTNET-TWO-NODE.md)** — automated **`npm run vibeminer-public-testnet-preflight`** (bootnode TCP, official zip tag, tip / **`chain_id`**) plus manual firewall / key hygiene; lighter **`npm run compare-local-public-tip`** for tip-only.
 
 ### 5.2 Native constant-product AMM pool — what VibeMiner does and does not do
 
