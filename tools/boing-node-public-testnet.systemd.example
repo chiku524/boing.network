@@ -1,0 +1,43 @@
+# Example systemd unit for public Boing testnet JSON-RPC (origin behind Cloudflare Tunnel or direct).
+# Copy to e.g. /etc/systemd/system/boing-node-testnet.service, adjust paths, then:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now boing-node-testnet
+#
+# Env: copy https://github.com/Boing-Network/boing.network/blob/main/tools/boing-node-public-testnet.env.example
+# to /etc/boing-node/testnet.env (uncomment BOING_CANONICAL_NATIVE_* for your deployment), chmod 640, root:root.
+
+[Unit]
+Description=Boing testnet boing-node (JSON-RPC + P2P)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=boing
+Group=boing
+WorkingDirectory=/var/lib/boing-node-testnet
+
+# Single file for all BOING_* vars (chain id, canonical native DEX ids, BOING_DEX_* discovery tuning).
+EnvironmentFile=-/etc/boing-node/testnet.env
+
+# Optional: override without editing the env file (later lines win if your systemd version merges that way;
+# prefer one source — either only EnvironmentFile or only inline Environment=).
+# Environment=BOING_CHAIN_ID=6913
+# Environment=BOING_CHAIN_NAME=Boing Testnet
+# Environment=BOING_DEX_TOKEN_METADATA_SCAN_BLOCKS=8192
+# Environment=BOING_DEX_DISCOVERY_MAX_RECEIPT_SCANS=500000
+# Environment=BOING_DEX_TOKEN_DECIMALS_JSON={}
+
+ExecStart=/usr/local/bin/boing-node \
+  --data-dir /var/lib/boing-node-testnet \
+  --p2p-listen /ip4/0.0.0.0/tcp/4001 \
+  --bootnodes /ip4/73.84.106.121/tcp/4001,/ip4/73.84.106.121/tcp/4001 \
+  --rpc-port 8545 \
+  --faucet-enable
+
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

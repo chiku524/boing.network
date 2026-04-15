@@ -1,0 +1,70 @@
+# Example Kubernetes manifests for boing-node (testnet RPC).
+# Adjust namespace, image (build your own or use an internal registry), storage, and bootnodes.
+#
+# Apply:
+#   kubectl apply -f tools/boing-node-public-testnet.kubernetes.example.yaml
+#
+# Env aligns with tools/boing-node-public-testnet.env.example (chain metadata, BOING_CANONICAL_NATIVE_*,
+# BOING_DEX_* discovery tuning). Extend the ConfigMap with uncommented canonical hex from your ops record.
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: boing-node-testnet-env
+  labels:
+    app.kubernetes.io/name: boing-node
+data:
+  BOING_CHAIN_ID: "6913"
+  BOING_CHAIN_NAME: "Boing Testnet"
+  BOING_DEX_TOKEN_METADATA_SCAN_BLOCKS: "8192"
+  BOING_DEX_DISCOVERY_MAX_RECEIPT_SCANS: "500000"
+  BOING_DEX_TOKEN_DECIMALS_JSON: "{}"
+  # BOING_CANONICAL_NATIVE_DEX_FACTORY: "0x..."  # add remaining BOING_CANONICAL_NATIVE_* per docs/RPC-API-SPEC.md
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: boing-node-testnet
+  labels:
+    app.kubernetes.io/name: boing-node
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: boing-node
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: boing-node
+    spec:
+      containers:
+        - name: boing-node
+          # Replace with your image that contains the boing-node binary and any libc deps.
+          image: your-registry/boing-node:testnet
+          imagePullPolicy: IfNotPresent
+          command:
+            - /usr/local/bin/boing-node
+          args:
+            - --data-dir=/data
+            - --p2p-listen=/ip4/0.0.0.0/tcp/4001
+            - --bootnodes=/ip4/73.84.106.121/tcp/4001,/ip4/73.84.106.121/tcp/4001
+            - --rpc-port=8545
+            - --faucet-enable
+          ports:
+            - name: json-rpc
+              containerPort: 8545
+              protocol: TCP
+            - name: p2p
+              containerPort: 4001
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: boing-node-testnet-env
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          emptyDir: {}

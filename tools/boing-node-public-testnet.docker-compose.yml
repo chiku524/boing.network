@@ -1,0 +1,27 @@
+# Example Docker Compose for boing-node on Linux (host networking for P2P + stable RPC port).
+#
+# Setup (paths are relative to this file under tools/):
+#   1. cp boing-node-public-testnet.env.example .env
+#   2. mkdir -p bin data && install your release boing-node binary at bin/boing-node
+#   3. From repo root: docker compose -f tools/boing-node-public-testnet.docker-compose.yml up -d
+#
+# Spec: docs/RPC-API-SPEC.md — BOING_DEX_* vars match tools/boing-node-public-testnet.env.example
+
+services:
+  boing-node:
+    image: debian:bookworm-slim
+    network_mode: host
+    restart: unless-stopped
+    working_dir: /data
+    env_file:
+      - ./.env
+    volumes:
+      - ./data:/data
+      - ./bin/boing-node:/usr/local/bin/boing-node:ro
+    command:
+      - /usr/local/bin/boing-node
+      - --data-dir=/data
+      - --p2p-listen=/ip4/0.0.0.0/tcp/4001
+      - --bootnodes=/ip4/73.84.106.121/tcp/4001,/ip4/73.84.106.121/tcp/4001
+      - --rpc-port=8545
+      - --faucet-enable

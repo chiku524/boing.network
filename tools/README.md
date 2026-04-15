@@ -1,5 +1,16 @@
 # Boing network tooling
 
+## Public testnet `boing-node` operator snippets
+
+| File | Use |
+|------|-----|
+| [`boing-node-public-testnet.env.example`](./boing-node-public-testnet.env.example) | Process env: **`BOING_CHAIN_*`**, **`BOING_CANONICAL_NATIVE_*`**, **`BOING_DEX_*`** (DEX discovery RPC tuning). |
+| [`boing-node-public-testnet.systemd.example`](./boing-node-public-testnet.systemd.example) | **`systemd`** unit: **`EnvironmentFile=`** for `/etc/boing-node/testnet.env` + **`ExecStart`** with bootnodes/RPC flags. |
+| [`boing-node-public-testnet.docker-compose.yml`](./boing-node-public-testnet.docker-compose.yml) | **Docker Compose** (Linux **`network_mode: host`**) + **`env_file: ./.env`**. |
+| [`boing-node-public-testnet.kubernetes.example.yaml`](./boing-node-public-testnet.kubernetes.example.yaml) | **Kubernetes** `ConfigMap` + **`Deployment`** with **`envFrom`**. |
+
+Docs: [docs/PUBLIC-RPC-NODE-UPGRADE-CHECKLIST.md](../docs/PUBLIC-RPC-NODE-UPGRADE-CHECKLIST.md), [docs/RUNBOOK.md](../docs/RUNBOOK.md) § public RPC.
+
 ## `boing-vm-assemble.mjs`
 
 Assembles line-oriented mnemonics into Boing VM bytecode (see `crates/boing-execution/src/bytecode.rs`). Does **not** assign gas; use the technical spec for opcode costs.
