@@ -127,6 +127,8 @@ function buildNetworksMeta() {
     docs: {
       vibeminer_integration: githubBlobMain('docs/VIBEMINER-INTEGRATION.md'),
       pre_vibeminer_commands: githubBlobMain('docs/PRE-VIBEMINER-NODE-COMMANDS.md'),
+      /** Operator template: chain metadata, `BOING_CANONICAL_NATIVE_*`, and `BOING_DEX_*` discovery tuning. */
+      boing_node_public_env_example: githubBlobMain('tools/boing-node-public-testnet.env.example'),
     },
   };
 }

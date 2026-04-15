@@ -60,6 +60,9 @@ jobs:
           echo "Using data dir $DATA"
           export BOING_CHAIN_ID=6913
           export BOING_CHAIN_NAME="Boing Testnet"
+          export BOING_DEX_TOKEN_METADATA_SCAN_BLOCKS=8192
+          export BOING_DEX_DISCOVERY_MAX_RECEIPT_SCANS=500000
+          export BOING_DEX_TOKEN_DECIMALS_JSON='{}'
           RUST_LOG=warn ./target/debug/boing-node --validator --rpc-port 8545 --data-dir "$DATA" &
           echo "NODE_PID=$!" >> "$GITHUB_ENV"
 

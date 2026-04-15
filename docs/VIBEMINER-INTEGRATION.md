@@ -111,7 +111,7 @@ Boing exposes a small JSON list for node runners (used alongside `@vibeminer/sha
 | **`public_testnet_rpc_url`** | Public JSON-RPC (faucet / read-only); same as each row’s **`rpc_url`**. |
 | **`official_bootnodes`** | Multiaddr strings; comma-join for `--bootnodes`. |
 | **`cli_long_flags`** | Always **`kebab-case`** (`--p2p-listen`, not `--p2p_listen`). |
-| **`docs`** | URLs to this file and [PRE-VIBEMINER-NODE-COMMANDS.md](PRE-VIBEMINER-NODE-COMMANDS.md). |
+| **`docs`** | URLs to this file, [PRE-VIBEMINER-NODE-COMMANDS.md](PRE-VIBEMINER-NODE-COMMANDS.md), and [**`tools/boing-node-public-testnet.env.example`**](https://github.com/Boing-Network/boing.network/blob/main/tools/boing-node-public-testnet.env.example) (**`boing_node_public_env_example`**) — operator copy-paste for chain id, **`BOING_CANONICAL_NATIVE_*`**, and **`BOING_DEX_*`** discovery tuning. |
 | **`ecosystem`** | Canonical **`wallet_url`** (boing.express), **`explorer_url`** (boing.observer), **`website_url`**, and GitHub links for [BOING-EXPRESS-WALLET.md](BOING-EXPRESS-WALLET.md), [BOING-OBSERVER-AND-EXPRESS.md](BOING-OBSERVER-AND-EXPRESS.md), [THREE-CODEBASE-ALIGNMENT.md](THREE-CODEBASE-ALIGNMENT.md). Clients may surface these for “Get wallet” / “View explorer” without hard-coding domains. |
 
 **Canonical GitHub org in JSON:** [website/functions/api/networks.js](../website/functions/api/networks.js) normalizes official **`boing.network`** repo URLs in **`meta`** and in **`node_download_url`** (when D1 still stores legacy **`chiku524/boing.network`**) to **`Boing-Network/boing.network`**, so the live payload matches the canonical org without relying only on VibeMiner’s merge-time **`patchBlockchainNetworkJsonForBoing`**.
@@ -176,6 +176,7 @@ Use this when shipping a **VibeMiner** release so the desktop app matches **boin
 4. **Bootnodes + RPC** — align with **`meta.official_bootnodes`** and **`meta.public_testnet_rpc_url`** (also [website/src/config/testnet.ts](../website/src/config/testnet.ts) / `PUBLIC_BOOTNODES` / `PUBLIC_TESTNET_RPC_URL` at site build time).
 5. **Tunnel preset** — default tunnel name and `cloudflared` flow: [INFRASTRUCTURE-SETUP.md](INFRASTRUCTURE-SETUP.md) § **Cloudflare tunnel vs Pages-only DNS (HTTP 405)** (e.g. **`boing-testnet-rpc`**).
 6. **Post-ship smoke** — from [examples/native-boing-tutorial](../examples/native-boing-tutorial): **`npm run preflight-rpc`** with public **`BOING_RPC_URL`** ([PRE-VIBEMINER-NODE-COMMANDS.md](PRE-VIBEMINER-NODE-COMMANDS.md)).
+7. **Canonical `BOING_*` process env** — VibeMiner injects **`BOING_TESTNET_CANONICAL_NATIVE_ENV`** at node spawn (`BOING_CANONICAL_NATIVE_*` + **`BOING_DEX_TOKEN_METADATA_SCAN_BLOCKS`**, **`BOING_DEX_DISCOVERY_MAX_RECEIPT_SCANS`**, **`BOING_DEX_TOKEN_DECIMALS_JSON`**). Keep the constant in **`packages/shared/src/boing-testnet-node.ts`** and **`apps/tauri/src-tauri/src/node.rs`** aligned with [`tools/boing-node-public-testnet.env.example`](../tools/boing-node-public-testnet.env.example).
 
 **Source of truth order:** live **`/api/networks`** → GitHub release assets → this repo’s **`networks.js`** constant **`BOING_TESTNET_DOWNLOAD_TAG`**.
 
