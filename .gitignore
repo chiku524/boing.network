@@ -15,6 +15,10 @@ dist/
 website/dist/
 target/
 
+# Local operator copies for tools/boing-node-public-testnet.docker-compose.yml
+tools/.env
+tools/bin/
+
 # Local dev / Wrangler
 .wrangler/
 website/.env
