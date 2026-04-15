@@ -155,7 +155,11 @@ Share the onboarding flow (or a draft) and we'll integrate it into the docs and 
 
 No separate miner binary; no custom daemon protocol—just the node binary and JSON-RPC. For launch dependencies (bootnodes, public RPC), see [READINESS.md](READINESS.md) §3.
 
-### 5.1 Native constant-product AMM pool — what VibeMiner does and does not do
+### 5.1 Public testnet — validator + full node (two Windows PCs)
+
+For **joined public testnet** with **one validator** and **one full node** via VibeMiner, see **[VIBEMINER-PUBLIC-TESTNET-TWO-NODE.md](VIBEMINER-PUBLIC-TESTNET-TWO-NODE.md)** (firewall, roles, binary freshness, **`npm run compare-local-public-tip`**).
+
+### 5.2 Native constant-product AMM pool — what VibeMiner does and does not do
 
 | Role | What happens |
 |------|----------------|

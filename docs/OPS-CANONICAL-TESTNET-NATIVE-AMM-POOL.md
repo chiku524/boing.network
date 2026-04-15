@@ -4,7 +4,7 @@
 
 **Lost signing seed / chain reset:** [OPS-FRESH-TESTNET-BOOTSTRAP.md](OPS-FRESH-TESTNET-BOOTSTRAP.md) — new `BOING_SECRET_HEX`, CREATE2 manifest, repo sync, redeploy.
 
-**Context:** See [TESTNET-OPS-RUNBOOK.md](TESTNET-OPS-RUNBOOK.md) for how this step fits bootnodes, RPC, and website configuration. **VibeMiner** users run **`boing-node`** locally for JSON-RPC but do not set the pool id in the app — see [VIBEMINER-INTEGRATION.md](VIBEMINER-INTEGRATION.md) §5.1.
+**Context:** See [TESTNET-OPS-RUNBOOK.md](TESTNET-OPS-RUNBOOK.md) for how this step fits bootnodes, RPC, and website configuration. **VibeMiner** users run **`boing-node`** locally for JSON-RPC but do not set the pool id in the app — see [VIBEMINER-INTEGRATION.md](VIBEMINER-INTEGRATION.md) §5.2.
 
 ## Published (canonical public testnet)
 
