@@ -30,10 +30,10 @@ npm run vibeminer-public-testnet-preflight
 
 | Step | Meaning |
 |------|--------|
-| **Outbound TCP to bootnodes** | Opens TCP to each **`/ip4/.../tcp/4001`** in **`BOING_BOOTNODES`** (defaults match [website bootnode fallbacks](https://github.com/Boing-Network/boing.network/blob/main/website/src/config/testnet.ts)). Fails if your network blocks outbound **4001**. |
+| **Outbound TCP to bootnodes** | Opens raw TCP to each deduped **`/ip4/.../tcp/4001`** in **`BOING_BOOTNODES`** (defaults match [website bootnode fallbacks](https://github.com/Boing-Network/boing.network/blob/main/website/src/config/testnet.ts)). **Warn-only by default:** many networks time out this probe while **`boing-node`** still dials libp2p. Set **`BOING_PREFLIGHT_BOOTNODE_TCP_STRICT=1`** to fail the run when every probe times out. |
 | **`GET /api/networks`** | Reads **`meta.boing_testnet_download_tag`** so you can compare with the zip your VibeMiner listing uses. |
 | **Local `boing_clientVersion`** | Shown next to the official tag for a quick “stale binary?” smell test. |
-| **Tip + `chain_id` + sync** | Same logic as **`npm run compare-local-public-tip`** (`boing_chainHeight`, **`boing_getNetworkInfo`**, **`boing_getSyncState`** on local). |
+| **Tip + `chain_id` + sync** | Same logic as **`npm run compare-local-public-tip`** (`boing_chainHeight`, **`boing_getNetworkInfo`**, **`boing_getSyncState`** on local). If **both** heights are **0**, the report adds a **warning** (matching tips at genesis height is not proof of live testnet sync — use explorer or **`npm run check-testnet-rpc`**). |
 
 **Environment**
 
@@ -45,6 +45,8 @@ npm run vibeminer-public-testnet-preflight
 | **`BOING_OFFICIAL_NETWORKS_URL`** | `https://boing.network/api/networks` | Source for official download tag. |
 | **`BOING_SYNC_MAX_LAG`** | `256` | Max blocks local may trail public before exit **2**. |
 | **`BOING_PREFLIGHT_SKIP_TCP`** | unset | Set to **`1`** to skip bootnode TCP checks (e.g. locked-down CI). |
+| **`BOING_PREFLIGHT_BOOTNODE_TCP_STRICT`** | unset | Set to **`1`** to treat “no TCP connect to any bootnode” as a hard failure (**exit 3**) after JSON-RPC checks pass. |
+| **`BOING_BOOTNODE_TCP_TIMEOUT_MS`** | `12000` | Per-target TCP probe timeout. |
 | **`BOING_PROBE_LOCAL_P2P`** | unset | Set to **`1`** to probe **`127.0.0.1:BOING_LOCAL_P2P_PORT`** (default **4001**) for a listening P2P port. |
 
 **Lighter check (tip only)**
@@ -57,10 +59,10 @@ npm run compare-local-public-tip
 
 | Code | Meaning |
 |------|--------|
-| **0** | TCP to at least one bootnode succeeded (unless skipped), chain tip within **`BOING_SYNC_MAX_LAG`**, no **`chain_id`** mismatch when both sides report ids. |
+| **0** | Chain tip within **`BOING_SYNC_MAX_LAG`**, no **`chain_id`** mismatch when both sides report ids. Bootnode TCP failures are **warnings** unless strict mode (see below). |
 | **1** | Local or public JSON-RPC unreachable / parse failure. |
 | **2** | Local tip too far behind public (**sync / bootnodes / binary**). |
-| **3** | JSON-RPC looked OK but **no** bootnode TCP probe succeeded — **outbound P2P path** likely blocked. |
+| **3** | **`BOING_PREFLIGHT_BOOTNODE_TCP_STRICT=1`**, JSON-RPC checks passed, but **no** bootnode TCP probe succeeded — tighten firewall / ISP path or confirm bootnode reachability from the **same host** that runs the node. |
 | **4** | **`chain_id`** mismatch between local and public **`boing_getNetworkInfo`**. |
 
 ---

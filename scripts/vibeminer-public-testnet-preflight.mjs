@@ -11,6 +11,8 @@
  *   BOING_OFFICIAL_NETWORKS_URL — default https://boing.network/api/networks
  *   BOING_SYNC_MAX_LAG        — same as compare-local-public-tip (default 256)
  *   BOING_PREFLIGHT_SKIP_TCP  — set to 1 to skip outbound TCP checks to bootnodes
+ *   BOING_PREFLIGHT_BOOTNODE_TCP_STRICT — set to 1 to fail (exit 3) when no raw TCP connect succeeds; default is warn-only (libp2p can work when this probe times out)
+ *   BOING_BOOTNODE_TCP_TIMEOUT_MS — per-probe timeout (default 12000)
  *   BOING_PROBE_LOCAL_P2P     — set to 1 to try TCP connect 127.0.0.1:BOING_LOCAL_P2P_PORT (default 4001)
  */
 import net from 'node:net';
@@ -31,12 +33,31 @@ const networksUrl = (process.env.BOING_OFFICIAL_NETWORKS_URL ?? 'https://boing.n
 const maxLag = Math.max(0, parseInt(process.env.BOING_SYNC_MAX_LAG ?? '256', 10) || 256);
 const okLag = Math.max(0, parseInt(process.env.BOING_SYNC_OK_LAG ?? '32', 10) || 32);
 const skipTcp = process.env.BOING_PREFLIGHT_SKIP_TCP === '1' || process.env.BOING_PREFLIGHT_SKIP_TCP === 'true';
+const tcpStrict =
+  process.env.BOING_PREFLIGHT_BOOTNODE_TCP_STRICT === '1' ||
+  process.env.BOING_PREFLIGHT_BOOTNODE_TCP_STRICT === 'true';
+const tcpTimeoutMs = Math.max(
+  1000,
+  parseInt(process.env.BOING_BOOTNODE_TCP_TIMEOUT_MS ?? '12000', 10) || 12000
+);
 const probeLocalP2p =
   process.env.BOING_PROBE_LOCAL_P2P === '1' || process.env.BOING_PROBE_LOCAL_P2P === 'true';
 const localP2pPort = Math.max(1, parseInt(process.env.BOING_LOCAL_P2P_PORT ?? '4001', 10) || 4001);
 
-const DEFAULT_BOOTNODES =
-  '/ip4/73.84.106.121/tcp/4001,/ip4/73.84.106.121/tcp/4001';
+const DEFAULT_BOOTNODES = '/ip4/73.84.106.121/tcp/4001,/ip4/73.84.106.121/tcp/4001';
+
+/** @param {{ host: string, port: number }[]} targets */
+function dedupeTargets(targets) {
+  const seen = new Set();
+  const out = [];
+  for (const t of targets) {
+    const k = `${t.host}:${t.port}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(t);
+  }
+  return out;
+}
 
 function scheduleExit(code) {
   setTimeout(() => process.exit(code), 20);
@@ -82,11 +103,12 @@ async function main() {
     ok: true,
     steps: {},
     hints: [],
+    warnings: [],
   };
 
-  /** 1–2: TCP to bootnodes (outbound path) */
+  /** 1–2: TCP to bootnodes (best-effort; libp2p may work when raw TCP times out — see bootnode_tcp.mode) */
   const bootRaw = (process.env.BOING_BOOTNODES ?? DEFAULT_BOOTNODES).trim();
-  const targets = parseIp4TcpMultiaddrs(bootRaw);
+  const targets = dedupeTargets(parseIp4TcpMultiaddrs(bootRaw));
   if (!skipTcp) {
     if (targets.length === 0) {
       report.steps.bootnode_tcp = { skipped: true, reason: 'no parseable /ip4/.../tcp/... in BOING_BOOTNODES' };
@@ -94,15 +116,25 @@ async function main() {
     } else {
       const results = [];
       for (const t of targets) {
-        results.push(await tcpProbe(t.host, t.port));
+        results.push(await tcpProbe(t.host, t.port, tcpTimeoutMs));
       }
       const anyOk = results.some((r) => r.ok);
-      report.steps.bootnode_tcp = { targets, results, any_ok: anyOk };
+      report.steps.bootnode_tcp = {
+        targets,
+        results,
+        any_ok: anyOk,
+        timeout_ms: tcpTimeoutMs,
+        mode: tcpStrict ? 'strict' : 'warn_only',
+      };
       if (!anyOk) {
-        report.ok = false;
-        report.hints.push(
-          'Could not open TCP to any bootnode: check outbound firewall / ISP blocking port 4001.'
-        );
+        const msg =
+          'Raw TCP to bootnode :4001 did not complete within timeout — often a false negative (ISP/NAT, libp2p still dials). For CI hard-gate set BOING_PREFLIGHT_BOOTNODE_TCP_STRICT=1; to probe longer set BOING_BOOTNODE_TCP_TIMEOUT_MS.';
+        if (tcpStrict) {
+          report.ok = false;
+          report.hints.push(msg);
+        } else {
+          report.warnings.push(msg);
+        }
       }
     }
   } else {
@@ -211,13 +243,26 @@ async function main() {
   if (localH === 0 && publicH > 100) {
     report.steps.chain_tip.warning =
       'Local tip is 0 while public is far ahead — likely not synced to public testnet yet (or isolated dev data dir).';
+  } else if (localH === 0 && publicH === 0) {
+    report.warnings.push(
+      'Both local and public boing_chainHeight are 0 — tips match but this does not prove sync to a live public testnet (fresh genesis, idle endpoints, or wrong network). Verify with an explorer or npm run check-testnet-rpc from repo root (set BOING_RPC_URL if not using the default).'
+    );
+    report.steps.chain_tip.note =
+      'Local and public both report height 0 — not evidence of healthy mesh sync; see warnings.';
   } else if (lag > okLag) {
     report.steps.chain_tip.note = `Within max lag (${maxLag}) but > ${okLag} blocks behind — may still be catching up.`;
   } else {
     report.steps.chain_tip.note = 'Local tip is close to public testnet.';
   }
 
-  console.log(JSON.stringify(report, null, 2));
+  if (localInfo?.chain_id == null || publicInfo?.chain_id == null) {
+    report.warnings.push(
+      'boing_getNetworkInfo chain_id is null on at least one endpoint — set BOING_CHAIN_ID (and BOING_CHAIN_NAME) on the boing-node process for clearer verification (docs/RPC-API-SPEC.md).'
+    );
+  }
+
+  const stream = report.ok ? console.log : console.error;
+  stream(JSON.stringify(report, null, 2));
   scheduleExit(report.ok ? 0 : 3);
 }
 

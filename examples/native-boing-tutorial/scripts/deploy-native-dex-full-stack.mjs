@@ -1,19 +1,33 @@
 #!/usr/bin/env node
 /**
  * One script: native CP pool + DEX factory/directory → routers (swap2, ledger v2/v3) → LP vault + LP share
- * → on-chain wiring (`set_minter_once` + vault `configure`). Configuration and secrets come from **`.env`**
- * in the tutorial package root (loaded first; does not override variables already set in the shell).
+ * → on-chain wiring (`set_minter_once` + vault `configure`) → **kickstart liquidity** (vault `deposit_add` when
+ * vault+share exist, otherwise direct pool `add_liquidity` if LP phases were skipped). Configuration and secrets
+ * come from **`.env`** in the tutorial package root (loaded first; does not override variables already set in the shell).
+ *
+ * **Operator RPC flow:** run against a node (or testnet RPC) that is producing blocks — not inside `boing-node`.
+ * For a fresh private network use **`BOING_AUTO_FAUCET_REQUEST=1`** so the deployer account exists before simulates.
  *
  * Prerequisites: same as `bootstrap-native-pool-and-dex.mjs` + aux + LP aux (cargo dump examples, funded key).
  *
  * **`.env`** (copy from `.env.example`): at minimum **`BOING_SECRET_HEX`**. See `.env.example` for toggles and
  * forwarded vars (`BOING_RPC_URL`, `BOING_BOOTSTRAP_REGISTER_PAIR`, router/LP skips, etc.).
  *
+ * **Pair registration:** If **`BOING_BOOTSTRAP_REGISTER_PAIR`** is unset, this script passes **`1`** to bootstrap
+ * only (synthetic token ids unless `BOING_DEX_TOKEN_A_HEX` / `BOING_DEX_TOKEN_B_HEX` are set). Set
+ * **`BOING_BOOTSTRAP_REGISTER_PAIR=0`** to skip `register_pair`.
+ *
+ * **Kickstart reserves:** After wire, **`native-amm-lp-vault-submit-contract-call`** runs with **`deposit_add`**
+ * using **`BOING_KICKSTART_AMOUNT_A`** / **`BOING_KICKSTART_AMOUNT_B`** (defaults `1000000` / `2000000`).
+ * Skip with **`BOING_FULL_STACK_SKIP_SEED=1`**. If LP was skipped, uses **`native-amm-submit-contract-call`**
+ * **`add_liquidity`** on the pool only (set token envs for native AMM v2 access lists if required).
+ *
  * Phase skips (set `1` or `true`):
  *   BOING_FULL_STACK_SKIP_POOL_FACTORY — skip pool + factory bootstrap
  *   BOING_FULL_STACK_SKIP_ROUTERS     — skip swap2 + ledger v2/v3 (+ optional ledger v1)
  *   BOING_FULL_STACK_SKIP_LP          — skip LP vault + share token deploys
  *   BOING_FULL_STACK_SKIP_WIRE        — skip share `set_minter_once` + vault `configure`
+ *   BOING_FULL_STACK_SKIP_SEED        — skip kickstart liquidity
  *
  * If you skip a deploy phase but still run **wire**, set **`BOING_WIRE_POOL_HEX`**, **`BOING_WIRE_VAULT_HEX`**,
  * **`BOING_WIRE_SHARE_HEX`** (0x + 64 hex each).
@@ -63,8 +77,21 @@ const skipPoolFactory = truthy('BOING_FULL_STACK_SKIP_POOL_FACTORY');
 const skipRouters = truthy('BOING_FULL_STACK_SKIP_ROUTERS');
 const skipLp = truthy('BOING_FULL_STACK_SKIP_LP');
 const skipWire = truthy('BOING_FULL_STACK_SKIP_WIRE');
+const skipSeed = truthy('BOING_FULL_STACK_SKIP_SEED');
 
 const userSkipDump = truthy('BOING_SKIP_DUMP');
+
+/**
+ * Default `register_pair` on for full-stack when operator did not set it (fresh devnet kickstart).
+ * Set `BOING_BOOTSTRAP_REGISTER_PAIR=0` in `.env` to disable.
+ */
+function bootstrapChildEnv(base) {
+  const out = { ...base };
+  if (process.env.BOING_BOOTSTRAP_REGISTER_PAIR === undefined) {
+    out.BOING_BOOTSTRAP_REGISTER_PAIR = '1';
+  }
+  return out;
+}
 
 function runNodeScript(relScript, args, extraEnv) {
   const r = spawnSync(process.execPath, [path.join(scriptDir, relScript), ...(args ?? [])], {
@@ -128,7 +155,7 @@ function main() {
 
   if (!skipPoolFactory) {
     console.warn('[full-stack] bootstrap-native-pool-and-dex (pool + factory)…');
-    const b = runNodeScript('bootstrap-native-pool-and-dex.mjs', [], { ...childBase });
+    const b = runNodeScript('bootstrap-native-pool-and-dex.mjs', [], bootstrapChildEnv(childBase));
     if (!b.ok) {
       console.error(b.stderr || b.stdout);
       process.exit(b.status ?? 1);
@@ -275,11 +302,106 @@ function main() {
     report.phases.wire = { skipped: true };
   }
 
+  const pFinal = (poolHex ?? process.env.BOING_WIRE_POOL_HEX ?? process.env.BOING_POOL_HEX)?.trim();
+  const vFinal = (vaultHex ?? process.env.BOING_WIRE_VAULT_HEX ?? process.env.BOING_VAULT_HEX)?.trim();
+  const sFinal = (
+    shareHex ??
+    process.env.BOING_WIRE_SHARE_HEX ??
+    process.env.BOING_SHARE_HEX ??
+    process.env.BOING_LP_SHARE_HEX
+  )?.trim();
+
+  if (!skipSeed && pFinal) {
+    const amountA = (process.env.BOING_KICKSTART_AMOUNT_A ?? process.env.BOING_AMOUNT_A ?? '1000000').trim();
+    const amountB = (process.env.BOING_KICKSTART_AMOUNT_B ?? process.env.BOING_AMOUNT_B ?? '2000000').trim();
+
+    if (vFinal && sFinal) {
+      console.warn(
+        `[full-stack] native-amm-lp-vault-submit deposit_add (kickstart reserves via vault; A=${amountA} B=${amountB})…`
+      );
+      const dep = runNodeScript(
+        'native-amm-lp-vault-submit-contract-call.mjs',
+        [],
+        {
+          ...childBase,
+          BOING_LP_VAULT_ACTION: 'deposit_add',
+          BOING_VAULT_HEX: vFinal,
+          BOING_POOL_HEX: pFinal,
+          BOING_SHARE_HEX: sFinal,
+          BOING_AMOUNT_A: amountA,
+          BOING_AMOUNT_B: amountB,
+          BOING_MIN_LIQUIDITY: process.env.BOING_MIN_LIQUIDITY ?? '0',
+          BOING_VAULT_MIN_LP: process.env.BOING_VAULT_MIN_LP ?? '0',
+        }
+      );
+      if (!dep.ok) {
+        console.error(dep.stderr || dep.stdout);
+        process.exit(dep.status ?? 1);
+      }
+      try {
+        report.phases.kickstartLiquidity = parseDeployJson(dep.stdout);
+      } catch (e) {
+        console.error(dep.stdout);
+        throw e;
+      }
+    } else if (!skipLp) {
+      console.error(
+        JSON.stringify(
+          {
+            ok: false,
+            phase: 'kickstart_liquidity',
+            error: 'missing_vault_or_share_for_deposit_add',
+            hint: 'Kickstart expects LP vault + share after wire. Set BOING_FULL_STACK_SKIP_SEED=1, or deploy LP + wire, or supply BOING_WIRE_VAULT_HEX / BOING_WIRE_SHARE_HEX.',
+          },
+          null,
+          2
+        )
+      );
+      process.exit(1);
+    } else {
+      console.warn(
+        `[full-stack] native-amm-submit-contract-call add_liquidity (pool-only kickstart; A=${amountA} B=${amountB})…`
+      );
+      const ta = process.env.BOING_DEX_TOKEN_A_HEX?.trim() || process.env.BOING_TOKEN_A_HEX?.trim();
+      const tb = process.env.BOING_DEX_TOKEN_B_HEX?.trim() || process.env.BOING_TOKEN_B_HEX?.trim();
+      const poolAddEnv = {
+        ...childBase,
+        BOING_NATIVE_AMM_ACTION: 'add_liquidity',
+        BOING_POOL_HEX: pFinal,
+        BOING_AMOUNT_A: amountA,
+        BOING_AMOUNT_B: amountB,
+        BOING_MIN_LIQUIDITY: process.env.BOING_MIN_LIQUIDITY ?? '0',
+        ...(ta ? { BOING_TOKEN_A_HEX: ta } : {}),
+        ...(tb ? { BOING_TOKEN_B_HEX: tb } : {}),
+      };
+      const add = runNodeScript('native-amm-submit-contract-call.mjs', [], poolAddEnv);
+      if (!add.ok) {
+        console.error(add.stderr || add.stdout);
+        process.exit(add.status ?? 1);
+      }
+      try {
+        report.phases.kickstartLiquidity = parseDeployJson(add.stdout);
+      } catch (e) {
+        console.error(add.stdout);
+        throw e;
+      }
+    }
+  } else if (skipSeed) {
+    report.phases.kickstartLiquidity = { skipped: true };
+  }
+
+  let kickstartSummary = 'not_run';
+  if (skipSeed) kickstartSummary = 'skipped';
+  else if (report.phases.kickstartLiquidity && report.phases.kickstartLiquidity.skipped !== true) {
+    kickstartSummary = 'completed';
+  }
+
   report.summary = {
     poolHex: poolHex ?? null,
     vaultHex: vaultHex ?? null,
     shareHex: shareHex ?? null,
     registerPairSubmitted: Boolean(poolFactoryBundle?.dexDirectory?.register_tx_hash),
+    kickstartLiquidity: kickstartSummary,
   };
 
   /** @type {string[]} */
