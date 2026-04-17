@@ -20,7 +20,7 @@ curl -s -X POST http://127.0.0.1:8545/ -H "Content-Type: application/json" \
 
 **dApp / TypeScript:** the in-repo SDK is **`boing-sdk/`** (`npm install` / `npm run build` there, or use it as a workspace package). See **`boing-sdk/README.md`** and [docs/BOING-DAPP-INTEGRATION.md](docs/BOING-DAPP-INTEGRATION.md).
 
-**Tutorial CLI from repo root:** with **`boing-sdk`** built and **`examples/native-boing-tutorial`** installed, you can run the same scripts as from the tutorial directory — e.g. **`npm run preflight-rpc`**, **`npm run deploy-native-dex-directory`**, **`npm run fetch-native-amm-reserves`**, **`npm run print-native-dex-routes`**, **`npm run indexer-ingest-tick`** — without changing directory. Wrappers live in the root **`package.json`**; full command map: [docs/PRE-VIBEMINER-NODE-COMMANDS.md](docs/PRE-VIBEMINER-NODE-COMMANDS.md) §4.
+**Tutorial CLI from repo root:** with **`boing-sdk`** built and **`examples/native-boing-tutorial`** installed, you can run the same scripts as from the tutorial directory — e.g. **`npm run preflight-rpc`**, **`npm run deploy-native-dex-full-stack`**, **`npm run deploy-native-dex-directory`**, **`npm run fetch-native-amm-reserves`**, **`npm run print-native-dex-routes`**, **`npm run indexer-ingest-tick`** — without changing directory. Wrappers live in the root **`package.json`**; full command map: [docs/PRE-VIBEMINER-NODE-COMMANDS.md](docs/PRE-VIBEMINER-NODE-COMMANDS.md) §4.
 
 **Wallet / explorer / partner workstreams:** see [docs/HANDOFF-DEPENDENT-PROJECTS.md](docs/HANDOFF-DEPENDENT-PROJECTS.md) (complements [docs/THREE-CODEBASE-ALIGNMENT.md](docs/THREE-CODEBASE-ALIGNMENT.md)).
 

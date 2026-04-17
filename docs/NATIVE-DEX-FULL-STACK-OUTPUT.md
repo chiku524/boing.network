@@ -2,6 +2,10 @@
 
 `npm run deploy-native-dex-full-stack` (from `examples/native-boing-tutorial`) prints **one JSON object** to stdout. Use it as a deployment record and to populate env vars for dApps / follow-up scripts.
 
+**What the orchestrator runs (when phases are not skipped):** bytecode dump → pool + pair directory (`bootstrap-native-pool-and-dex`) → multihop swap2 + ledger routers v2–v3 (optional ledger v1 if `BOING_FULL_STACK_INCLUDE_LEDGER_V1=1`) → LP vault + LP share → share `set_minter_once` + vault `configure` → **kickstart liquidity** (vault `deposit_add`, or direct pool `add_liquidity` if LP deploy was skipped). Run only against an RPC where blocks are produced; it is **not** invoked by `boing-node` on startup.
+
+**Defaults:** if **`BOING_BOOTSTRAP_REGISTER_PAIR`** is **unset**, the orchestrator passes **`1`** into bootstrap (synthetic demo token ids unless **`BOING_DEX_TOKEN_A_HEX` / `BOING_DEX_TOKEN_B_HEX`** are set). Set **`BOING_BOOTSTRAP_REGISTER_PAIR=0`** to skip `register_pair`. Kickstart amounts: **`BOING_KICKSTART_AMOUNT_A` / `BOING_KICKSTART_AMOUNT_B`** (fallback **`1000000` / `2000000`**). Skip seeding: **`BOING_FULL_STACK_SKIP_SEED=1`**.
+
 Frozen **canonical** AccountIds for the default testnet deployer are in [`scripts/canonical-testnet-dex-predicted.json`](../scripts/canonical-testnet-dex-predicted.json) (regenerate with `cargo run -p boing-execution --example print_native_create2_manifest -- <DEPLOYER_HEX>`).
 
 ---
@@ -65,6 +69,7 @@ Frozen **canonical** AccountIds for the default testnet deployer are in [`script
 | **`results.*.create2`** | Usually **`true`** at canonical salts. |
 | **`results.*.create2RetriedWithNonce`** | **`true`** if that step fell back to nonce deploy. |
 | **`results.*.skipped`** | Step skipped via **`BOING_AUX_SKIP_*`**. |
+| **`results.ledgerRouterV1`** | Present only when **`BOING_FULL_STACK_INCLUDE_LEDGER_V1=1`** (or child had **`BOING_AUX_INCLUDE_LEDGER_V1=1`**). |
 
 ---
 
@@ -93,6 +98,18 @@ The vault **`configure`** step binds **`BOING_POOL_HEX`** from **`summary.poolHe
 
 ---
 
+## `phases.kickstartLiquidity` (vault `deposit_add` or pool `add_liquidity`)
+
+Present when **`BOING_FULL_STACK_SKIP_SEED`** is not set and a **`poolHex`** is known after prior phases (or from **`BOING_WIRE_POOL_HEX`** / **`BOING_POOL_HEX`** when pool factory was skipped).
+
+| Case | Meaning |
+|------|---------|
+| **Vault path** (default when vault + share hex exist) | JSON from **`native-amm-lp-vault-submit-contract-call`** with **`deposit_add`** — inner **`add_liquidity`** amounts from **`BOING_KICKSTART_AMOUNT_*`** (or **`BOING_AMOUNT_*`**). |
+| **Pool-only path** | When LP deploy was skipped: JSON from **`native-amm-submit-contract-call`** with **`add_liquidity`** on **`BOING_POOL_HEX`**. For native AMM **v2** access lists, set **`BOING_TOKEN_A_HEX` / `BOING_TOKEN_B_HEX`** (or **`BOING_DEX_TOKEN_*`** forwarded from env). |
+| **`{ "skipped": true }`** | Operator set **`BOING_FULL_STACK_SKIP_SEED=1`**. |
+
+---
+
 ## `summary` (convenience)
 
 | Field | Meaning |
@@ -101,6 +118,7 @@ The vault **`configure`** step binds **`BOING_POOL_HEX`** from **`summary.poolHe
 | **`vaultHex`** | LP vault AccountId. |
 | **`shareHex`** | LP share token AccountId. |
 | **`registerPairSubmitted`** | Same as top-level poolFactory flag. |
+| **`kickstartLiquidity`** | **`completed`** — seed tx ran; **`skipped`** — **`BOING_FULL_STACK_SKIP_SEED`**, or **`not_run`** — no pool hex / seed phase not applicable. |
 
 ---
 
@@ -130,5 +148,7 @@ When **`pool.create2`** or **`dexDirectory.create2`** is **`false`**, the full-s
 ## Related
 
 - Tutorial README §7c1 — script list and bootstrap field cheat sheet  
+- [`DEVNET-OPERATOR-NATIVE-AMM.md`](./DEVNET-OPERATOR-NATIVE-AMM.md) §2 — operator copy/paste for **`deploy-native-dex-full-stack`**  
+- [`NATIVE-DEX-OPERATOR-DEPLOYMENT-RECORD.md`](./NATIVE-DEX-OPERATOR-DEPLOYMENT-RECORD.md) — Appendix **C** records a full **`ok: true`** stdout snapshot (mixed CREATE2 / nonce topology, optional v1 / skip flags)  
 - [`NATIVE-DEX-FACTORY.md`](./NATIVE-DEX-FACTORY.md), [`NATIVE-AMM-LP-VAULT.md`](./NATIVE-AMM-LP-VAULT.md)  
 - [`RUNBOOK.md`](./RUNBOOK.md) — **`BOING_CANONICAL_NATIVE_*`** on `boing-node`

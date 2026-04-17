@@ -14,7 +14,8 @@
  *   BOING_REQUIRE_NONZERO_RESERVE=1  — exit 1 if reserve A word is all zeros (wrong chain, undeployed pool, or drained).
  *
  * Retries (transient HTML/WAF/5xx/Cloudflare tunnel): BOING_RPC_RETRIES (default 5), BOING_RPC_RETRY_MS (default 3000, backoff × attempt).
- * Cloudflare **530** (tunnel origin down) uses **retry_after** from the JSON body when present (seconds → ms, capped).
+ * Cloudflare **530** uses **retry_after** from the JSON body when present, except **error_code 1033** (tunnel origin unreachable):
+ *   those delays are capped (default 10s) so CI and local runs do not sit for minutes — see **BOING_RPC_TUNNEL_1033_DELAY_MS_CAP**.
  *
  * Note: Without strict mode, all-zero reserve still exits 0 — RPC round-trip succeeded.
  * Compare with docs: docs/RPC-API-SPEC.md (Native constant-product AMM).
@@ -37,6 +38,11 @@ const rpcRetries = Math.max(
 const rpcRetryMs = Math.max(
   200,
   Math.min(60_000, parseInt(process.env.BOING_RPC_RETRY_MS ?? '3000', 10) || 3000),
+);
+/** Max sleep between retries when CF returns tunnel error 1033 (origin down); avoids 120s×N stalls. */
+const tunnel1033DelayCapMs = Math.max(
+  1000,
+  Math.min(120_000, parseInt(process.env.BOING_RPC_TUNNEL_1033_DELAY_MS_CAP ?? '10000', 10) || 10_000),
 );
 
 const UA = 'boing.network-check-canonical-pool/1.0 (CI JSON-RPC probe)';
@@ -135,11 +141,18 @@ function isRetryableHttpStatus(status) {
 function retryDelayMsFromError(err, fallbackMs) {
   const j = err?.jsonrpc;
   if (j && typeof j === 'object' && j !== null) {
+    const tunnel1033 =
+      j.error_code === 1033 ||
+      j.error_name === 'tunnel_error' ||
+      (typeof j.detail === 'string' && /Cloudflare Tunnel/i.test(j.detail));
     const ra = /** @type {{ retry_after?: unknown }} */ (j).retry_after;
     if (typeof ra === 'number' && Number.isFinite(ra) && ra > 0) {
       const sec = ra > 500 ? ra / 1000 : ra;
-      return Math.min(180_000, Math.max(2000, Math.round(sec * 1000)));
+      const fromRa = Math.min(180_000, Math.max(2000, Math.round(sec * 1000)));
+      if (tunnel1033) return Math.min(tunnel1033DelayCapMs, fromRa, fallbackMs);
+      return fromRa;
     }
+    if (tunnel1033) return Math.min(tunnel1033DelayCapMs, fallbackMs);
   }
   return fallbackMs;
 }
@@ -174,13 +187,24 @@ function isZeroWord(hex) {
 async function main() {
   const height = await rpc('boing_chainHeight', []);
   if (!height.ok) {
-    console.error(
-      JSON.stringify(
-        { ok: false, phase: 'chainHeight', rpc: base, error: height.error },
-        null,
-        2,
-      ),
-    );
+    const jr = height.error?.jsonrpc;
+    const tunnel1033 =
+      jr &&
+      typeof jr === 'object' &&
+      (jr.error_code === 1033 || jr.error_name === 'tunnel_error');
+    const payload = {
+      ok: false,
+      phase: 'chainHeight',
+      rpc: base,
+      error: height.error,
+      ...(tunnel1033
+        ? {
+            opsHint:
+              'Cloudflare tunnel origin is down (HTTP 530 / 1033). Restore cloudflared + boing-node on the RPC host, or point BOING_RPC_URL at a working node. See docs/RUNBOOK.md § 8.3.',
+          }
+        : {}),
+    };
+    console.error(JSON.stringify(payload, null, 2));
     process.exit(1);
   }
 

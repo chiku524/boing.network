@@ -19,6 +19,6 @@ The **LP vault** / **LP share** rows below list the **canonical public testnet**
 
 **`register_pair`:** token_a | token_b | pool
 
-**Scripts used:** `bootstrap-native-pool-and-dex`, `deploy-native-purpose-contract`, `deploy-native-dex-aux-contracts`, `deploy-native-dex-lp-aux-contracts`, `dump-native-bytecodes`.
+**Scripts used:** **`deploy-native-dex-full-stack`** (or stepwise: `bootstrap-native-pool-and-dex`, `deploy-native-dex-aux-contracts`, `deploy-native-dex-lp-aux-contracts`, `deploy-native-purpose-contract`, `dump-native-bytecodes`).
 
-**Reference:** [docs/NATIVE-DEX-OPERATOR-DEPLOYMENT-RECORD.md](../../docs/NATIVE-DEX-OPERATOR-DEPLOYMENT-RECORD.md)
+**Reference:** [docs/NATIVE-DEX-OPERATOR-DEPLOYMENT-RECORD.md](../../docs/NATIVE-DEX-OPERATOR-DEPLOYMENT-RECORD.md) (Appendices **A–C** are worked examples from real **`deploy-native-dex-full-stack`** / related runs — copy ids from the appendix that matches your topology, not into this template blindly.)

@@ -17,8 +17,8 @@ Start with [BOING-NETWORK-ESSENTIALS.md](BOING-NETWORK-ESSENTIALS.md) for the si
 | Doc | Description |
 |-----|-------------|
 | [READINESS.md](READINESS.md) | Beta checklist, six-pillar readiness, launch-blocking path |
-| [NETWORK-GO-LIVE-CHECKLIST.md](NETWORK-GO-LIVE-CHECKLIST.md) | Operator order: genesis → bootnodes → public RPC → **`preflight-rpc`** / **`check-testnet-rpc`** → faucet → optional native pool |
-| [DEVNET-OPERATOR-NATIVE-AMM.md](DEVNET-OPERATOR-NATIVE-AMM.md) | Self-hosted RPC (e.g. VibeMiner): CORS + chain id, deploy native CP pool, seed liquidity, point Express + boing.finance at your pool |
+| [NETWORK-GO-LIVE-CHECKLIST.md](NETWORK-GO-LIVE-CHECKLIST.md) | Operator order: genesis → bootnodes → public RPC → **`preflight-rpc`** / **`check-testnet-rpc`** → faucet → optional native DEX (**`deploy-native-dex-full-stack`** or minimal pool only) |
+| [DEVNET-OPERATOR-NATIVE-AMM.md](DEVNET-OPERATOR-NATIVE-AMM.md) | Self-hosted RPC (e.g. VibeMiner): CORS + chain id; **§2** one-shot **`deploy-native-dex-full-stack`** or step-by-step pool + liquidity; point Express + boing.finance at your pool |
 | [PRE-VIBEMINER-NODE-COMMANDS.md](PRE-VIBEMINER-NODE-COMMANDS.md) | Copy/paste: **`cargo`**, **`boing-node`** flags (**`BOING_RATE_PROFILE`**), tutorial **`npm run`** scripts, SDK **`verify`** |
 | [TESTNET-RPC-INFRA.md](TESTNET-RPC-INFRA.md) | **One map:** testnet ops + public RPC + infra (routing tables, env matrix, post-deploy checks) |
 | [TESTNET-OPS-RUNBOOK.md](TESTNET-OPS-RUNBOOK.md) | Operator umbrella: go-live order, env matrix, monitoring, Playwright / **OPS-1** pointers |
@@ -58,7 +58,7 @@ Start with [BOING-NETWORK-ESSENTIALS.md](BOING-NETWORK-ESSENTIALS.md) for the si
 | [OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md) | Published **canonical testnet** native CP pool id (**OPS-1**) |
 | [OPS-FRESH-TESTNET-BOOTSTRAP.md](OPS-FRESH-TESTNET-BOOTSTRAP.md) | **New operator key** + CREATE2 manifest + `sync-canonical-testnet-manifest` when the old signing seed is lost or the chain is reset |
 | [OPS-CANONICAL-TESTNET-NATIVE-DEX-AUX.md](OPS-CANONICAL-TESTNET-NATIVE-DEX-AUX.md) | **Predicted CREATE2** addresses for factory / routers / LP vault / LP share (6913); `npm run audit-native-dex-testnet` |
-| [NATIVE-DEX-OPERATOR-DEPLOYMENT-RECORD.md](NATIVE-DEX-OPERATOR-DEPLOYMENT-RECORD.md) | **Your** pool / factory / router ids: template + env cheat sheet + worked example vs canonical JSON |
+| [NATIVE-DEX-OPERATOR-DEPLOYMENT-RECORD.md](NATIVE-DEX-OPERATOR-DEPLOYMENT-RECORD.md) | **Your** pool / factory / router ids: template + env cheat sheet + Appendices **A–C** (real **`deploy-native-dex-full-stack`** snapshots vs canonical JSON) |
 | [NATIVE-DEX-FULL-STACK-OUTPUT.md](NATIVE-DEX-FULL-STACK-OUTPUT.md) | **`deploy-native-dex-full-stack`** JSON reference + mixed canonical/nonce topology |
 | [NATIVE-DEX-LIMITS-RATIONALE.md](NATIVE-DEX-LIMITS-RATIONALE.md) | **Why** native DEX differs from EVM (deploy path, multihop cap, CL, oracles) + extension cost |
 | [BOING-PATTERN-AMM-LIQUIDITY.md](BOING-PATTERN-AMM-LIQUIDITY.md) | Constant-product AMM pattern (VM contracts, access lists, QA) |

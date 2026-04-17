@@ -110,7 +110,7 @@ Use **real** reference-token ids for production; synthetic `0xaa…` / `0xbb…`
 | **LP share token** | `0x101201403f573e5b1d6d5c6b93d52d12c68957f4a228d5dad76e78c747044421` | `lpAux.results.lpShareToken.predictedContractHex` |
 | **Ledger router v1** | — | **Not deployed** in this run (default aux bundle: swap2 + ledger v2/v3 only; set **`BOING_AUX_INCLUDE_LEDGER_V1=1`** to add v1). |
 
-**`register_pair`:** `registerPairSubmitted: false` — the directory contract exists, but this bootstrap did **not** submit **`register_pair`**. To register a pair on-chain, re-run bootstrap with **`BOING_BOOTSTRAP_REGISTER_PAIR=1`** and valid **`BOING_DEX_TOKEN_A_HEX` / `BOING_DEX_TOKEN_B_HEX`** (see [tutorial README](../examples/native-boing-tutorial/README.md)).
+**`register_pair`:** `registerPairSubmitted: false` for **this recorded run** — the directory existed without a **`register_pair`** tx in the captured JSON. Current **`deploy-native-dex-full-stack`** defaults **`BOING_BOOTSTRAP_REGISTER_PAIR=1`** when that env is **unset** (synthetic demo token ids unless **`BOING_DEX_TOKEN_*`** are set); set **`BOING_BOOTSTRAP_REGISTER_PAIR=0`** to skip. Standalone bootstrap still requires an explicit **`BOING_BOOTSTRAP_REGISTER_PAIR=1`** (see [tutorial README](../examples/native-boing-tutorial/README.md)).
 
 **LP wiring (this run):** `lpShareSetMinter` (**`set_minter_once`**, vault as minter) and `lpVaultConfigure` (**`configure`**, pool + share) both **`ok: true`**.
 
@@ -145,3 +145,54 @@ REACT_APP_BOING_NATIVE_AMM_LP_SHARE_TOKEN=0x101201403f573e5b1d6d5c6b93d52d12c689
 ```
 
 (`VITE_BOING_NATIVE_*` mirrors exist for each `REACT_APP_*` key above.)
+
+## Appendix C — Public testnet snapshot (`deploy-native-dex-full-stack`, operator `0xc063512f…`)
+
+**Not normative for the monorepo canonical JSON.** Concrete **`ok: true`** JSON-RPC deploy on **`https://testnet-rpc.boing.network`** with deployer / `senderHex` **`0xc063512f42868f1278c59a1f61ec0944785c304dbc48dec7e4c41f70f666733f`**. **Flags for this run:** **`BOING_FULL_STACK_INCLUDE_LEDGER_V1=1`** (ledger v1 included), **`BOING_BOOTSTRAP_REGISTER_PAIR=0`** (no **`register_pair`** tx), **`BOING_FULL_STACK_SKIP_SEED=1`** (no kickstart **`deposit_add`** / pool **`add_liquidity`**). **Mixed topology:** pool, factory, ledger v1/v2/v3, LP vault, and LP share used **nonce-derived** addresses (`create2: false` after CREATE2 collision retry); **swap2** router stayed **CREATE2** (`create2: true`) at the id below (matches canonical predicted multihop router for this deployer).
+
+| Role | `AccountId` (0x + 64 hex) | `create2` in JSON | Notes |
+|------|---------------------------|-------------------|--------|
+| **RPC** | — | — | `https://testnet-rpc.boing.network` |
+| **Deployer** | `0xc063512f42868f1278c59a1f61ec0944785c304dbc48dec7e4c41f70f666733f` | — | Same as `senderHex` in script JSON |
+| **Native CP pool** (v1) | `0x17239f31811e02d9a3cfc24c3f269fea438e56990e992b19adf05e85d68379c5` | false | `pool.predictedPoolHex` |
+| **Pair directory (factory)** | `0x288b836c28877bc313d498437211071d30a9391d643292a83131605f7b9c7999` | false | `dexDirectory.predictedFactoryHex` |
+| **Ledger router v1** | `0x99d7ddece24e63b0cc0f1757bfa80da994440b34b6eea3bce66da319c7053ba2` | false | `routers.results.ledgerRouterV1.predictedContractHex` |
+| **Multihop / swap2 router** | `0x8f8b2ecb6fd5dc7682e41ebe443d6116e0f4ae8247f67b4bfafec4dea2d861a3` | true | `routers.results.swap2MultihopRouter.predictedContractHex` |
+| **Ledger router v2** | `0x52e751b8d753b161553adaea39e1e097e490fd4d9cc0d7b5c2cd2c9975e57618` | false | `routers.results.ledgerRouterV2.predictedContractHex` |
+| **Ledger router v3** | `0x6c7dcf990589ed2a76f0ca3e03eb3ef09f26ec6ec1123044580895568c8f0283` | false | `routers.results.ledgerRouterV3.predictedContractHex` |
+| **AMM LP vault** | `0x8836609eb83d8ac1dca2daf79e06f342d130475d20b8ad370a94d0e40b8cf5a0` | false | `lpAux.results.ammLpVault.predictedContractHex` |
+| **LP share token** | `0x90dde6a159a71dbfb837a4926f4ad87194d3ffe21b59be5098e440dd3437b4ad` | false | `lpAux.results.lpShareToken.predictedContractHex` |
+
+**`register_pair`:** `registerPairSubmitted: false` — intentional via **`BOING_BOOTSTRAP_REGISTER_PAIR=0`**.
+
+**Kickstart liquidity:** `phases.kickstartLiquidity.skipped: true` — intentional via **`BOING_FULL_STACK_SKIP_SEED=1`**. **LP wiring:** `lpShareSetMinter` and `lpVaultConfigure` both **`ok: true`** (vault bound to this run’s pool + share).
+
+**`summary` mirror:** `poolHex` / `vaultHex` / `shareHex` match the pool / vault / share rows above; `kickstartLiquidity: "skipped"`.
+
+### C.1 — `boing-node` RPC hints (`BOING_CANONICAL_NATIVE_*`)
+
+Paste on operators so **`boing_getNetworkInfo`**.**`end_user`** matches **this** deploy (see [RPC-API-SPEC.md](RPC-API-SPEC.md); v1 ledger router has **no** matching `BOING_CANONICAL_NATIVE_*` key in the current spec — configure dApps manually if needed):
+
+```bash
+BOING_CANONICAL_NATIVE_CP_POOL=0x17239f31811e02d9a3cfc24c3f269fea438e56990e992b19adf05e85d68379c5
+BOING_CANONICAL_NATIVE_DEX_FACTORY=0x288b836c28877bc313d498437211071d30a9391d643292a83131605f7b9c7999
+BOING_CANONICAL_NATIVE_DEX_MULTIHOP_SWAP_ROUTER=0x8f8b2ecb6fd5dc7682e41ebe443d6116e0f4ae8247f67b4bfafec4dea2d861a3
+BOING_CANONICAL_NATIVE_DEX_LEDGER_ROUTER_V2=0x52e751b8d753b161553adaea39e1e097e490fd4d9cc0d7b5c2cd2c9975e57618
+BOING_CANONICAL_NATIVE_DEX_LEDGER_ROUTER_V3=0x6c7dcf990589ed2a76f0ca3e03eb3ef09f26ec6ec1123044580895568c8f0283
+BOING_CANONICAL_NATIVE_AMM_LP_VAULT=0x8836609eb83d8ac1dca2daf79e06f342d130475d20b8ad370a94d0e40b8cf5a0
+BOING_CANONICAL_NATIVE_LP_SHARE_TOKEN=0x90dde6a159a71dbfb837a4926f4ad87194d3ffe21b59be5098e440dd3437b4ad
+```
+
+### C.2 — **boing.finance** / Vite overrides (`REACT_APP_*` / `VITE_*`)
+
+Same ids as the pool / factory / swap2 / v2 / v3 / vault / share rows; add **ledger v1** only in app config that reads it (**`0x99d7ddece24e63b0cc0f1757bfa80da994440b34b6eea3bce66da319c7053ba2`**):
+
+```bash
+REACT_APP_BOING_NATIVE_AMM_POOL=0x17239f31811e02d9a3cfc24c3f269fea438e56990e992b19adf05e85d68379c5
+REACT_APP_BOING_NATIVE_VM_DEX_FACTORY=0x288b836c28877bc313d498437211071d30a9391d643292a83131605f7b9c7999
+REACT_APP_BOING_NATIVE_VM_SWAP_ROUTER=0x8f8b2ecb6fd5dc7682e41ebe443d6116e0f4ae8247f67b4bfafec4dea2d861a3
+REACT_APP_BOING_NATIVE_DEX_LEDGER_ROUTER_V2=0x52e751b8d753b161553adaea39e1e097e490fd4d9cc0d7b5c2cd2c9975e57618
+REACT_APP_BOING_NATIVE_DEX_LEDGER_ROUTER_V3=0x6c7dcf990589ed2a76f0ca3e03eb3ef09f26ec6ec1123044580895568c8f0283
+REACT_APP_BOING_NATIVE_AMM_LP_VAULT=0x8836609eb83d8ac1dca2daf79e06f342d130475d20b8ad370a94d0e40b8cf5a0
+REACT_APP_BOING_NATIVE_AMM_LP_SHARE_TOKEN=0x90dde6a159a71dbfb837a4926f4ad87194d3ffe21b59be5098e440dd3437b4ad
+```

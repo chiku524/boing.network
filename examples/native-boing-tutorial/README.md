@@ -205,7 +205,7 @@ After a successful submit, seed liquidity with **`npm run native-amm-submit-cont
 | **`deploy-native-dex-aux-contracts`** | Deploys **multihop (swap2) router** + **ledger routers v2–v3** (optional **v1**); waits for committed nonce between steps. See §7c2c. |
 | **`deploy-native-dex-lp-aux-contracts`** | Deploys **AMM LP vault** + **LP share token** at canonical CREATE2 ids (predicted in **`scripts/canonical-testnet-dex-predicted.json`**). See §7c2c. |
 | **`bootstrap-native-pool-and-dex`** | Optionally runs the dumper (skip with **`BOING_SKIP_DUMP=1`**), then **`deploy-native-amm-pool`** + **`deploy-native-dex-directory`**. After the pool step it **polls `boing_getAccount` until the sender nonce advances** (committed state) so the factory deploy uses the correct nonce — **`BOING_BOOTSTRAP_POOL_COMMIT_WAIT_MS`** (default **120000**). Set **`BOING_BOOTSTRAP_REGISTER_PAIR=1`** for **`register_pair`**. CREATE2 collision → auto-retry with **`BOING_USE_CREATE2=0`** unless **`BOING_BOOTSTRAP_NO_AUTO_NONCE=1`**. |
-| **`deploy-native-dex-full-stack`** | **Single entrypoint** for pool + factory, swap2 + ledger v2/v3, LP vault + share, then LP share **`set_minter_once`** (vault as minter) and vault **`configure`**. Loads **`.env`** from this package (see **`.env.example`**); forwards the same **`BOING_*`** variables as the underlying scripts. Phase skips: **`BOING_FULL_STACK_SKIP_POOL_FACTORY`**, **`BOING_FULL_STACK_SKIP_ROUTERS`**, **`BOING_FULL_STACK_SKIP_LP`**, **`BOING_FULL_STACK_SKIP_WIRE`**. Optional **`BOING_AUTO_FAUCET_REQUEST=1`** runs **`fund-deployer-from-env`** first. |
+| **`deploy-native-dex-full-stack`** | **Single entrypoint** for pool + factory, swap2 + ledger v2/v3 (**optional ledger v1:** **`BOING_FULL_STACK_INCLUDE_LEDGER_V1=1`**), LP vault + share, LP share **`set_minter_once`** (vault as minter), vault **`configure`**, then **kickstart liquidity** (vault **`deposit_add`**, or pool-only **`add_liquidity`** if **`BOING_FULL_STACK_SKIP_LP=1`**). If **`BOING_BOOTSTRAP_REGISTER_PAIR`** is **unset**, orchestrator passes **`1`** into bootstrap (set **`0`** to skip **`register_pair`**). Loads **`.env`** (see **`.env.example`**). Phase skips: **`BOING_FULL_STACK_SKIP_*`** including **`BOING_FULL_STACK_SKIP_SEED`**. Optional **`BOING_AUTO_FAUCET_REQUEST=1`**. JSON reference: [NATIVE-DEX-FULL-STACK-OUTPUT.md](../../docs/NATIVE-DEX-FULL-STACK-OUTPUT.md). |
 | **`fund-deployer-from-env`** | Calls **`boing_faucetRequest`** for the **`BOING_SECRET_HEX`** deployer on **`BOING_RPC_URL`**. Use when deploy simulate fails with **`Account not found`** even though **`boing_getAccount`** showed **`0`/`0`** (account not yet inserted into state). Validates **`BOING_EXPECT_SENDER_HEX`** when set. |
 
 #### Bootstrap / full-stack JSON — fields to save
@@ -218,7 +218,7 @@ After a successful submit, seed liquidity with **`npm run native-amm-submit-cont
 | **`pool.predictedPoolHex`** | Native **constant-product AMM pool** id after CREATE2 deploy (`BOING_POOL_HEX` for scripts / dApps). |
 | **`dexDirectory.predictedFactoryHex`** | **Pair directory** (DEX factory) id (`BOING_DEX_FACTORY_HEX` / routing). |
 | **`pool.tx_hash`** / **`dexDirectory.deploy_tx_hash`** | Submitted tx ids from the node (placeholders like **`ok`** can appear in some test harnesses — confirm on explorer or receipts if needed). |
-| **`registerPairSubmitted`** | **`true`** only if **`dexDirectory.register_tx_hash`** was set (you enabled **`BOING_BOOTSTRAP_REGISTER_PAIR=1`** and token env vars). |
+| **`registerPairSubmitted`** | **`true`** if **`dexDirectory.register_tx_hash`** was set. Standalone bootstrap: set **`BOING_BOOTSTRAP_REGISTER_PAIR=1`**. **`deploy-native-dex-full-stack`:** defaults **`register_pair`** on when **`BOING_BOOTSTRAP_REGISTER_PAIR`** is **unset** (override with **`0`**). |
 
 When your deployer matches the **canonical testnet manifest** ([`scripts/canonical-testnet-dex-predicted.json`](../../scripts/canonical-testnet-dex-predicted.json)), **`predictedPoolHex`** / **`predictedFactoryHex`** match the frozen **`native_cp_pool_v1`** / **`native_dex_factory`** entries there — same ids used for **`BOING_CANONICAL_NATIVE_*`** RPC hints. If CREATE2 slots are already taken, **`create2: false`** and nonce-derived ids apply instead; see [`docs/NATIVE-DEX-FULL-STACK-OUTPUT.md`](../../docs/NATIVE-DEX-FULL-STACK-OUTPUT.md).
 
@@ -264,6 +264,7 @@ Per [BOING-NATIVE-DEX-CAPABILITY.md](../../docs/BOING-NATIVE-DEX-CAPABILITY.md):
 
 | Piece | Role | Typical command |
 |-------|------|-----------------|
+| **All of the rows below + wire + seed** | Operator kickstart | **`npm run deploy-native-dex-full-stack`** ([NATIVE-DEX-FULL-STACK-OUTPUT.md](../../docs/NATIVE-DEX-FULL-STACK-OUTPUT.md)) |
 | Native CP **pool** | Swaps + LP | `deploy-native-amm-pool` / **`bootstrap-native-pool-and-dex`** |
 | **Pair directory** | `register_pair`, indexer discovery | `deploy-native-dex-directory` / bootstrap |
 | **Ledger router v1** | Single-hop `Call` forward (128-byte inner calldata; safe with **v1** ledger pools) | `deploy-native-purpose-contract` + `artifacts/native-dex-ledger-router-v1.hex` |

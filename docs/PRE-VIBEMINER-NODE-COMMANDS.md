@@ -141,6 +141,7 @@ cd ../examples/native-boing-tutorial && npm install
 | `npm run deploy-minimal` | Minimal contract deploy; **`BOING_SECRET_HEX`** |
 | `npm run dump-native-bytecodes` | **`cargo`** dump → **`artifacts/pool-lines.hex`** + **`artifacts/native-dex-factory.hex`** (no keys; from tutorial cwd) |
 | `npm run bootstrap-native-pool-and-dex` | Pool deploy + directory deploy (+ optional **`BOING_BOOTSTRAP_REGISTER_PAIR=1`**); needs **`BOING_SECRET_HEX`**; on CREATE2 “address in use” retries with **`BOING_USE_CREATE2=0`** unless **`BOING_BOOTSTRAP_NO_AUTO_NONCE=1`** — tutorial README §7c1 |
+| `npm run deploy-native-dex-full-stack` | **Orchestrator:** pool + directory + routers + LP + wire + default **`register_pair`** + kickstart liquidity; loads tutorial **`.env`** — [NATIVE-DEX-FULL-STACK-OUTPUT.md](NATIVE-DEX-FULL-STACK-OUTPUT.md), [DEVNET-OPERATOR-NATIVE-AMM.md](DEVNET-OPERATOR-NATIVE-AMM.md) §2 |
 | `npm run print-native-dex-deploy-salts` | JSON: canonical CREATE2 salt hex for native routers / vault / share token ( **`boing-sdk`** built) |
 | `npm run deploy-native-purpose-contract` | Generic purpose deploy: bytecode file + **`BOING_CREATE2_SALT_HEX`** (or nonce deploy); tutorial README §7c2b |
 | `npm run deploy-native-dex-aux-contracts` | Multihop router + ledger routers v2–v3 (optional v1); **`BOING_SKIP_DUMP=1`** if **`artifacts/`** ready — tutorial README §7c2c |

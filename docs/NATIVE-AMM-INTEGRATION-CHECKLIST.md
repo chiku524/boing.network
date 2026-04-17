@@ -75,7 +75,7 @@ Vault + share bytecode live in **`boing-execution`**; not required for bare CP p
 
 - [x] **A7.1** — **Spec:** [NATIVE-LP-SHARE-TOKEN.md](NATIVE-LP-SHARE-TOKEN.md), [NATIVE-AMM-LP-VAULT.md](NATIVE-AMM-LP-VAULT.md) (selectors, access lists, CREATE2 dump commands).
 - [x] **A7.2** — **`boing-sdk`:** `nativeLpShareToken.ts` encoders + **`buildLpShareTokenAccessList`** / **`buildLpShareTokenContractCallTx`** / **`mergeLpShareTokenAccessListWithSimulation`**; `nativeAmmLpVault.ts` configure / `deposit_add` + merge helpers; **`BoingReferenceCallDescriptors`** entries in `callAbi.ts`.
-- [x] **A7.3** — **Tutorial CLI:** [examples/native-boing-tutorial/README.md](../examples/native-boing-tutorial/README.md) §7f–§7i (`native-amm-lp-vault-*`, `native-lp-share-*` **`npm run`** scripts).
+- [x] **A7.3** — **Tutorial CLI:** [examples/native-boing-tutorial/README.md](../examples/native-boing-tutorial/README.md) §7f–§7i (`native-amm-lp-vault-*`, `native-lp-share-*` **`npm run`** scripts). **One-shot:** **`npm run deploy-native-dex-full-stack`** deploys pool + directory + routers + LP vault/share, wires minter/configure, defaults **`register_pair`** when unset, and kickstarts liquidity — [NATIVE-DEX-FULL-STACK-OUTPUT.md](NATIVE-DEX-FULL-STACK-OUTPUT.md).
 - [ ] **A7.4** — **boing.finance / partner UI:** surface vault **`deposit_add`** + share **`transfer`** only if product ships that flow (pool-only MVP unchanged). **Tracked in partner repos** (e.g. **boing.finance**), not in **boing.network**.
 
 ---

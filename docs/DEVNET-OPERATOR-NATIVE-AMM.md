@@ -25,7 +25,24 @@ cd examples/native-boing-tutorial && npm install && npm run preflight-rpc
 
 ---
 
-## 2. What you deploy (pool contract)
+## 2. One-shot: full native DEX stack (recommended)
+
+When your RPC is up and the deployer will receive **native BOING** for fees (genesis balance or **`--faucet-enable`** + **`BOING_AUTO_FAUCET_REQUEST=1`**), you can deploy **pool + pair directory + swap2 + ledger v2/v3 (+ optional ledger v1) + LP vault + LP share**, wire **`set_minter_once` + `configure`**, default **`register_pair`** (unless **`BOING_BOOTSTRAP_REGISTER_PAIR=0`**), and **seed initial liquidity** in one command:
+
+```bash
+cd boing-sdk && npm install && npm run build
+cd ../examples/native-boing-tutorial && npm install
+cp .env.example .env   # then edit: BOING_RPC_URL, BOING_SECRET_HEX; optional BOING_AUTO_FAUCET_REQUEST=1
+npm run deploy-native-dex-full-stack
+```
+
+**Not run by the node binary** — this is an operator script against **`BOING_RPC_URL`**. Output shape and env defaults: [NATIVE-DEX-FULL-STACK-OUTPUT.md](NATIVE-DEX-FULL-STACK-OUTPUT.md), **`.env.example`** in the tutorial package. For **real** pairs, set **`BOING_DEX_TOKEN_A_HEX` / `BOING_DEX_TOKEN_B_HEX`** before running. Optional **ledger v1** in the same run: **`BOING_FULL_STACK_INCLUDE_LEDGER_V1=1`**.
+
+Sections **3–5** below are the **step-by-step** equivalent (pool only, then liquidity CLI, etc.) if you prefer granular control.
+
+---
+
+## 3. What you deploy (pool contract)
 
 The **native constant-product pool** is a normal **Boing VM** contract: bytecode from `boing_execution::native_amm`.
 
@@ -36,7 +53,7 @@ The **native constant-product pool** is a normal **Boing VM** contract: bytecode
 
 ---
 
-## 3. Operator machine: dump bytecode (one line per file)
+## 4. Operator machine: dump bytecode (one line per file)
 
 From **this repo root** (same commit you trust for production bytecode):
 
@@ -51,7 +68,7 @@ For **v1** deploy, point **`BOING_NATIVE_AMM_BYTECODE_FILE`** at a file that con
 
 ---
 
-## 4. Deploy the pool (SDK script — needs signing seed)
+## 5. Deploy the pool (SDK script — needs signing seed)
 
 You need a **funded** Ed25519 account (native BOING) and its **32-byte secret** as hex — **only on your machine**, never in chat or git.
 
@@ -79,9 +96,11 @@ npm run fetch-native-amm-reserves
 
 ---
 
-## 5. Seed liquidity (CLI or browser)
+## 6. Seed liquidity (CLI or browser)
 
-**First mint:** call **`add_liquidity`** with positive **`amount_a`** and **`amount_b`** (stay within **u64** range — see [NATIVE-AMM-CALLDATA.md](NATIVE-AMM-CALLDATA.md)).
+If you already ran **`deploy-native-dex-full-stack`** (§2) without **`BOING_FULL_STACK_SKIP_SEED`**, reserves were seeded via vault **`deposit_add`** (or pool **`add_liquidity`** when LP was skipped) — confirm with **`npm run fetch-native-amm-reserves`** using **`BOING_POOL_HEX`** from the printed JSON **`summary`**.
+
+**First mint (manual path):** call **`add_liquidity`** with positive **`amount_a`** and **`amount_b`** (stay within **u64** range — see [NATIVE-AMM-CALLDATA.md](NATIVE-AMM-CALLDATA.md)).
 
 **CLI (no browser):** from `examples/native-boing-tutorial`:
 
@@ -101,7 +120,7 @@ Then **`fetch-native-amm-reserves`** again — reserves should match your seed (
 
 ---
 
-## 5b. LP vault + LP share (optional)
+## 6b. LP vault + LP share (optional)
 
 If you deploy [NATIVE-AMM-LP-VAULT.md](NATIVE-AMM-LP-VAULT.md) and [NATIVE-LP-SHARE-TOKEN.md](NATIVE-LP-SHARE-TOKEN.md) on the same devnet, use the same **`examples/native-boing-tutorial`** package. On **public testnet** with the canonical operator key, **`npm run deploy-native-dex-lp-aux-contracts`** deploys both at the fixed CREATE2 ids in [`scripts/canonical-testnet-dex-predicted.json`](../scripts/canonical-testnet-dex-predicted.json) ([OPS-CANONICAL-TESTNET-NATIVE-DEX-AUX.md](OPS-CANONICAL-TESTNET-NATIVE-DEX-AUX.md)).
 
@@ -115,7 +134,7 @@ Full env tables: [examples/native-boing-tutorial/README.md](../examples/native-b
 
 ---
 
-## 6. Point Boing Express + boing.finance at your RPC and pool
+## 7. Point Boing Express + boing.finance at your RPC and pool
 
 **On your side (not in this repo):**
 
@@ -128,7 +147,7 @@ Until those are set, the hosted **boing.finance** site will keep talking to **de
 
 ---
 
-## 7. Optional checks
+## 8. Optional checks
 
 - **`BOING_INTEGRATION_RPC_URL=<your RPC> npm run verify`** in **`boing-sdk`** — runs live RPC integration tests ([PRE-VIBEMINER-NODE-COMMANDS.md](PRE-VIBEMINER-NODE-COMMANDS.md) §6).
 - **`BOING_POOL_HEX=... npm run fetch-native-amm-logs`** — **`Log2`** after successful swap / add / remove.

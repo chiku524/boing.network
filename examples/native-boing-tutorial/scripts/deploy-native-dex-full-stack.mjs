@@ -22,6 +22,9 @@
  * Skip with **`BOING_FULL_STACK_SKIP_SEED=1`**. If LP was skipped, uses **`native-amm-submit-contract-call`**
  * **`add_liquidity`** on the pool only (set token envs for native AMM v2 access lists if required).
  *
+ * **Ledger router v1:** Set **`BOING_FULL_STACK_INCLUDE_LEDGER_V1=1`** to forward **`BOING_AUX_INCLUDE_LEDGER_V1=1`**
+ * to `deploy-native-dex-aux-contracts` (default off; swap2 + ledger v2/v3 only).
+ *
  * Phase skips (set `1` or `true`):
  *   BOING_FULL_STACK_SKIP_POOL_FACTORY — skip pool + factory bootstrap
  *   BOING_FULL_STACK_SKIP_ROUTERS     — skip swap2 + ledger v2/v3 (+ optional ledger v1)
@@ -177,7 +180,11 @@ function main() {
 
   if (!skipRouters) {
     console.warn('[full-stack] deploy-native-dex-aux-contracts (routers)…');
-    const a = runNodeScript('deploy-native-dex-aux-contracts.mjs', [], { ...childBase });
+    const routersEnv = {
+      ...childBase,
+      ...(truthy('BOING_FULL_STACK_INCLUDE_LEDGER_V1') ? { BOING_AUX_INCLUDE_LEDGER_V1: '1' } : {}),
+    };
+    const a = runNodeScript('deploy-native-dex-aux-contracts.mjs', [], routersEnv);
     if (!a.ok) {
       console.error(a.stderr || a.stdout);
       process.exit(a.status ?? 1);

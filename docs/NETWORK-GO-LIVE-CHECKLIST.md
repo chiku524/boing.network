@@ -24,7 +24,7 @@
    Same as **`check-testnet-rpc`** plus a one-shot **`getSyncState`** sample; or use **`npm run check-testnet-rpc`** only. Optional full method matrix: **`BOING_PROBE_FULL=1 npm run preflight-rpc`** (or **`check-testnet-rpc`**). See [PRE-VIBEMINER-NODE-COMMANDS.md](PRE-VIBEMINER-NODE-COMMANDS.md).
 
 6. **Faucet** — Node(s) behind the public URL should run with **`--faucet-enable`** if you expose `boing_faucetRequest`; confirm with a test account.
-7. **Optional native AMM** — Deploy pool bytecode (CREATE2 recommended), publish canonical pool id per [OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md).
+7. **Optional native DEX / AMM** — For a **full** on-chain stack (pool + pair directory + multihop/ledger routers + LP vault/share + wiring + initial **`deposit_add`** / **`add_liquidity`**), operators typically run **`npm run deploy-native-dex-full-stack`** from **`examples/native-boing-tutorial`** after **`boing-sdk`** is built (see **`.env.example`**, [NATIVE-DEX-FULL-STACK-OUTPUT.md](NATIVE-DEX-FULL-STACK-OUTPUT.md), [DEVNET-OPERATOR-NATIVE-AMM.md](DEVNET-OPERATOR-NATIVE-AMM.md) §2). That is an **RPC client script**, not part of the node binary. For **public** testnet only, publish the canonical pool id per [OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md](OPS-CANONICAL-TESTNET-NATIVE-AMM-POOL.md) (**OPS-1**); private devnets use **`summary.poolHex`** from the script JSON instead.
 
 **Later upgrades** to the RPC node binary: [PUBLIC-RPC-NODE-UPGRADE-CHECKLIST.md](PUBLIC-RPC-NODE-UPGRADE-CHECKLIST.md).
 
